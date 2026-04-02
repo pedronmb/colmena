@@ -1,0 +1,26 @@
+# Base de datos local (no subir datos ni credenciales de demo)
+/database/*.sqlite
+/database/*.sqlite-journal
+/database/*.sqlite-wal
+/database/*.sqlite-shm
+
+# Variables de entorno y secretos
+.env
+.env.*
+!.env.example
+
+# Composer (por si se añade más adelante)
+/vendor/
+
+# Logs y cachés comunes
+*.log
+.phpunit.result.cache
+
+# SO y editores
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDEs (descomenta si no quieres versionar ajustes locales)
+# .idea/
+# .vscode/

@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Colmena">
+    <style>
+        .bg { fill: #ecece8; }
+        .hex {
+            fill: none;
+            stroke: #1d4ed8;
+            stroke-width: 2;
+            stroke-linejoin: round;
+            stroke-linecap: round;
+        }
+        @media (prefers-color-scheme: dark) {
+            .bg { fill: #141414; }
+            .hex { stroke: #93c5fd; }
+        }
+    </style>
+    <!-- Regular hexagon, vertex up, R=8 from center (16,16) -->
+    <rect class="bg" width="32" height="32" rx="8"/>
+    <polygon
+        class="hex"
+        points="16,8 22.92820323,12 22.92820323,20 16,24 9.07179677,20 9.07179677,12"
+    />
+</svg>

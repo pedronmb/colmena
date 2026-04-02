@@ -1,0 +1,7 @@
+# Favicon: no cachear (peticiones directas a *.svg)
+<IfModule mod_headers.c>
+    <IfModule mod_setenvif.c>
+        SetEnvIf Request_URI "favicon\.svg(\?.*)?$" NO_FAVICON_CACHE
+        Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0" env=NO_FAVICON_CACHE
+    </IfModule>
+</IfModule>

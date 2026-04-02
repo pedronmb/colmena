@@ -1,0 +1,9 @@
+-- Los datos de demostración se insertan con PHP en init.php
+-- (usuario demo@local.test / demo123, equipo 1, miembro owner).
+-- Este archivo queda como referencia si prefieres sembrar a mano:
+--
+-- INSERT INTO users (email, display_name, password_hash, role, availability)
+-- VALUES ('demo@local.test', 'Usuario Demo', '<bcrypt de demo123>', 'member', 'available');
+--
+-- INSERT INTO teams (name, description) VALUES ('Equipo Alpha', 'Equipo de demostración');
+-- INSERT INTO team_members (team_id, user_id, role_in_team) VALUES (1, 1, 'owner');
