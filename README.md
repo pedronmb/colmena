@@ -2,6 +2,8 @@
 
 Aplicación web en **PHP** con **SQLite** para gestionar equipos, personas (tarjetas sin cuenta de acceso), temas con prioridad e importancia, dashboards tipo matriz Eisenhower, y alertas con fecha de cumplimiento.
 
+Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
+
 ---
 
 ## Requisitos
@@ -128,35 +130,24 @@ El orden debe respetar el **historial de tu base**: si partes de una versión mu
 
 ## Git y GitHub
 
-1. Instala **Git para Windows**: [git-scm.com/download/win](https://git-scm.com/download/win) (cierra y abre la terminal después).
-2. Crea un **repositorio vacío** en GitHub (sin README si vas a subir este proyecto tal cual).
-3. En PowerShell, desde la carpeta del proyecto:
+1. Instala **Git para Windows**: [git-scm.com/download/win](https://git-scm.com/download/win) si aún no lo tienes.
+2. Remoto de este proyecto: `https://github.com/pedronmb/colmena.git`
 
    ```powershell
    cd ruta\a\colmena
-   .\scripts\git-init-and-push.ps1 -RemoteUrl 'https://github.com/TU_USUARIO/TU_REPO.git'
+   git remote add origin https://github.com/pedronmb/colmena.git
+   git push -u origin main
    ```
 
-   Sustituye la URL por la de tu repo (HTTPS o SSH). La primera vez Git pedirá autenticación: en GitHub suele usarse un **personal access token** en lugar de la contraseña.
-
-**Nota:** En este entorno no se pudo ejecutar `git` (no estaba instalado en el PATH). Si ya tienes Git, puedes hacer lo mismo a mano:
-
-```bash
-git init
-git add .
-git commit -m "Initial commit: Colmena"
-git branch -M main
-git remote add origin https://github.com/TU_USUARIO/TU_REPO.git
-git push -u origin main
-```
+   La primera vez Git puede pedir autenticación: en GitHub suele usarse un **personal access token** en lugar de la contraseña.
 
 El archivo `.gitignore` evita subir `database/*.sqlite`.
 
 ---
 
-## Licencia y uso
+## Licencia
 
-Proyecto de uso interno / demostración; ajusta licencia y despliegue según tu organización.
+Este proyecto se publica bajo **GNU General Public License v3.0** — ver el archivo [`LICENSE`](LICENSE) en la raíz del repositorio.
 
 ---
 
