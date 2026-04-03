@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 $pageTitle = $pageTitle ?? '';
 $pageLead = $pageLead ?? '';
+$isAdminHeader = isset($user) && (($user['role'] ?? '') === 'admin');
+$usersHeaderActive = basename($_SERVER['SCRIPT_NAME'] ?? '') === 'users.php';
 
 ?>
 <header class="top top--bar app-header">
@@ -18,6 +20,9 @@ $pageLead = $pageLead ?? '';
     </div>
     <div class="top__actions">
         <?php require __DIR__ . '/theme-toggle.php'; ?>
+        <?php if ($isAdminHeader) { ?>
+        <a href="users.php" class="btn<?= $usersHeaderActive ? ' btn--header-nav-active' : '' ?>"<?= $usersHeaderActive ? ' aria-current="page"' : '' ?>>Usuarios</a>
+        <?php } ?>
         <button type="button" class="btn" id="logoutBtn" title="Cerrar sesión">Salir</button>
     </div>
 </header>

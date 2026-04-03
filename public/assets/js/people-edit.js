@@ -118,7 +118,7 @@
             }
             loadingEl.hidden = true;
             if (data.people.length === 0) {
-                loadingEl.textContent = "No hay personas. Créalas en Personas.";
+                loadingEl.textContent = "No hay personas. Usa «Nueva persona» arriba.";
                 loadingEl.hidden = false;
                 return;
             }
@@ -197,6 +197,10 @@
             submitBtn.classList.remove("loading");
             submitBtn.disabled = false;
         }
+    });
+
+    document.addEventListener("colmena:person-created", () => {
+        loadList();
     });
 
     loadList();

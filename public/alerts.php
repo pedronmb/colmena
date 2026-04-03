@@ -39,13 +39,10 @@ if (!$dbExists || $user === null) {
         require __DIR__ . '/includes/header-app.php';
         ?>
 
-        <nav class="app-nav" aria-label="Secciones">
-            <a href="index.php" class="app-nav__link">Temas</a>
-            <a href="dashboard.php" class="app-nav__link">Dashboards</a>
-            <a href="alerts.php" class="app-nav__link app-nav__link--active" aria-current="page">Alertas</a>
-            <a href="people.php" class="app-nav__link">Personas</a>
-            <a href="people-edit.php" class="app-nav__link">Editar fichas</a>
-        </nav>
+        <?php
+        $activeNav = 'alerts';
+        require __DIR__ . '/includes/app-nav.php';
+        ?>
 
         <section class="panel">
             <h2 class="panel__title">Nueva alerta</h2>

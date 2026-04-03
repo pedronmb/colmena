@@ -39,13 +39,10 @@ if (!$dbExists || $user === null) {
         require __DIR__ . '/includes/header-app.php';
         ?>
 
-        <nav class="app-nav" aria-label="Secciones">
-            <a href="index.php" class="app-nav__link">Temas</a>
-            <a href="dashboard.php" class="app-nav__link app-nav__link--active" aria-current="page">Dashboards</a>
-            <a href="alerts.php" class="app-nav__link">Alertas</a>
-            <a href="people.php" class="app-nav__link">Personas</a>
-            <a href="people-edit.php" class="app-nav__link">Editar fichas</a>
-        </nav>
+        <?php
+        $activeNav = 'dashboard';
+        require __DIR__ . '/includes/app-nav.php';
+        ?>
 
         <section class="panel dashboard-page">
             <div class="topic-toolbar dashboard-toolbar dashboard-toolbar--top">
@@ -61,6 +58,12 @@ if (!$dbExists || $user === null) {
                 </button>
                 <button type="button" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="dashboardPanelList" id="tabList" data-panel="list">
                     Lista
+                </button>
+                <button type="button" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="dashboardPanelFocus" id="tabFocus" data-panel="focus">
+                    Hacer hoy
+                </button>
+                <button type="button" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="dashboardPanelCalendar" id="tabCalendar" data-panel="calendar">
+                    Calendario
                 </button>
             </div>
 
@@ -88,6 +91,40 @@ if (!$dbExists || $user === null) {
                         </tbody>
                     </table>
                 </div>
+            </div>
+
+            <div id="dashboardPanelFocus" class="dashboard-panel" role="tabpanel" aria-labelledby="tabFocus" hidden>
+                <p class="muted dashboard-hint">
+                    Orden <strong>foco</strong>: primero por <strong>urgencia</strong> (más alta arriba), luego por <strong>importancia</strong>. Misma fuente que la matriz; respetá «Mostrar realizados» arriba. Editá en <a href="index.php">Temas</a>.
+                </p>
+                <div class="edit-list-wrap">
+                    <table class="data-table dashboard-table">
+                        <thead>
+                            <tr>
+                                <th>Tema</th>
+                                <th>Urgencia</th>
+                                <th>Importancia</th>
+                                <th>Estado</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="dashboardFocusBody">
+                            <tr><td colspan="5" class="muted">Cargando…</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="dashboardPanelCalendar" class="dashboard-panel" role="tabpanel" aria-labelledby="tabCalendar" hidden>
+                <p class="muted dashboard-hint">
+                    Año completo según la <strong>fecha de vencimiento</strong> de las <a href="alerts.php">alertas</a>. Los días con color tienen al menos una alerta.
+                </p>
+                <div class="year-cal__nav">
+                    <button type="button" class="btn btn--small" id="dashboardCalPrev" aria-label="Año anterior">←</button>
+                    <span id="dashboardCalYearLabel" class="year-cal__year-label" aria-live="polite"></span>
+                    <button type="button" class="btn btn--small" id="dashboardCalNext" aria-label="Año siguiente">→</button>
+                </div>
+                <div id="dashboardCalendarRoot" class="year-cal" aria-live="polite"></div>
             </div>
         </section>
     </div>

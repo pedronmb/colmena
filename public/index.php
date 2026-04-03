@@ -32,20 +32,17 @@ if (!$dbExists || $user === null) {
     <link rel="stylesheet" href="assets/css/app.css">
 </head>
 <body>
-    <div class="shell">
+    <div class="shell shell--wide">
         <?php
         $pageTitle = 'Temas';
         $pageLead = 'Hola, ' . $user['display_name'];
         require __DIR__ . '/includes/header-app.php';
         ?>
 
-        <nav class="app-nav" aria-label="Secciones">
-            <a href="index.php" class="app-nav__link app-nav__link--active" aria-current="page">Temas</a>
-            <a href="dashboard.php" class="app-nav__link">Dashboards</a>
-            <a href="alerts.php" class="app-nav__link">Alertas</a>
-            <a href="people.php" class="app-nav__link">Personas</a>
-            <a href="people-edit.php" class="app-nav__link">Editar fichas</a>
-        </nav>
+        <?php
+        $activeNav = 'topics';
+        require __DIR__ . '/includes/app-nav.php';
+        ?>
 
         <section class="panel">
             <div class="topic-toolbar">
@@ -62,18 +59,28 @@ if (!$dbExists || $user === null) {
                         <option value="">Todas las personas</option>
                     </select>
                 </label>
-                <label class="topic-toolbar__toggle">
-                    <input type="checkbox" id="showCompletedTopics" />
-                    Mostrar realizados
-                </label>
+                <div class="topic-toolbar__toggles" role="group" aria-label="Opciones de vista">
+                    <label class="topic-toolbar__toggle">
+                        <input type="checkbox" id="topicViewByImportance" />
+                        Ordenar por importancia
+                    </label>
+                    <label class="topic-toolbar__toggle">
+                        <input type="checkbox" id="topicViewByPriority" />
+                        Ordenar por prioridad
+                    </label>
+                    <label class="topic-toolbar__toggle">
+                        <input type="checkbox" id="showCompletedTopics" />
+                        Mostrar realizados
+                    </label>
+                </div>
             </div>
-            <ul id="topicFeed" class="feed feed--tasks" aria-live="polite"></ul>
+            <div id="topicFeed" class="topic-feed-root" aria-live="polite"></div>
         </section>
     </div>
 
     <div id="topicModal" class="modal" hidden aria-modal="true" role="dialog" aria-labelledby="modalTitle">
         <div class="modal__backdrop" data-close></div>
-        <div class="modal__card">
+        <div class="modal__card modal__card--wide">
             <header class="modal__head">
                 <h2 id="modalTitle">Nuevo tema</h2>
                 <button type="button" class="icon-btn" data-close aria-label="Cerrar"><?php require __DIR__ . '/includes/icon-close.php'; ?></button>
@@ -108,13 +115,25 @@ if (!$dbExists || $user === null) {
                         <option value="very_high">Muy alta</option>
                     </select>
                 </label>
-                <label>
+                <label class="form__full topic-person-field">
                     Persona (tarjeta)
-                    <select name="person_id" id="topicPerson" required>
-                        <option value="">Cargando…</option>
-                    </select>
+                    <div class="topic-person-combobox" id="topicPersonCombobox">
+                        <input type="hidden" name="person_id" id="topicPersonId" value="">
+                        <input
+                            type="text"
+                            id="topicPersonSearch"
+                            class="topic-person-combobox__input"
+                            autocomplete="off"
+                            placeholder="Escribe para buscar por nombre o rol…"
+                            aria-autocomplete="list"
+                            aria-controls="topicPersonListbox"
+                            aria-expanded="false"
+                            role="combobox"
+                        />
+                        <ul class="topic-person-combobox__list" id="topicPersonListbox" role="listbox" hidden></ul>
+                    </div>
                 </label>
-                <p class="hint muted">Las tarjetas se gestionan en <a href="people.php">Personas</a>.</p>
+                <p class="hint muted">Las tarjetas se dan de alta en <a href="people-edit.php">Editar fichas</a>; la vista por bloques está en <a href="people.php">Personas</a>.</p>
                 <input type="hidden" name="team_id" value="1">
                 <footer class="form__actions">
                     <button type="button" class="btn" data-close>Cancelar</button>

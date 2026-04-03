@@ -55,7 +55,6 @@ if ($alreadyIn) {
                     Contraseña
                     <input name="password" type="password" required autocomplete="current-password" value="">
                 </label>
-                <p class="hint muted">Demo: <code>demo@local.test</code> / <code>demo123</code></p>
                 <footer class="form__actions form__actions--block">
                     <button type="submit" class="btn primary btn--block" id="loginSubmit" <?= $dbExists ? '' : 'disabled' ?>>
                         <span class="btn__label">Entrar</span>

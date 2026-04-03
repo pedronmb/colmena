@@ -20,7 +20,7 @@ $stmt->execute([
     'email' => 'demo@local.test',
     'name' => 'Usuario Demo',
     'hash' => $hash,
-    'role' => 'member',
+    'role' => 'admin',
     'avail' => 'available',
 ]);
 

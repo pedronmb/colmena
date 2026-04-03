@@ -25,6 +25,16 @@ final class TeamRepository
         return $stmt->fetch() !== false;
     }
 
+    public function teamExists(int $teamId): bool
+    {
+        if ($teamId < 1) {
+            return false;
+        }
+        $stmt = $this->pdo->prepare('SELECT 1 FROM teams WHERE id = :id LIMIT 1');
+        $stmt->execute(['id' => $teamId]);
+        return $stmt->fetch() !== false;
+    }
+
     public function addMember(int $teamId, int $userId, string $roleInTeam = 'member'): void
     {
         $allowed = ['owner', 'lead', 'member'];

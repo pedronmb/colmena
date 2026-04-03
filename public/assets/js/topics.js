@@ -10,8 +10,15 @@
     const submitLabel = document.getElementById("submitTopicLabel");
     const modalTitle = document.getElementById("modalTitle");
     const topicIdField = document.getElementById("topicIdField");
-    const personSelect = document.getElementById("topicPerson");
+    const personIdHidden = document.getElementById("topicPersonId");
+    const personSearchInput = document.getElementById("topicPersonSearch");
+    const personListbox = document.getElementById("topicPersonListbox");
+    const personComboboxRoot = document.getElementById("topicPersonCombobox");
     const showDoneToggle = document.getElementById("showCompletedTopics");
+    const viewByImportanceToggle = document.getElementById(
+        "topicViewByImportance"
+    );
+    const viewByPriorityToggle = document.getElementById("topicViewByPriority");
     const searchInput = document.getElementById("topicSearchFilter");
     const personFilterSelect = document.getElementById("topicPersonFilter");
 
@@ -38,20 +45,106 @@
     /** @type {string} */
     let lastIncludeDone = "0";
 
+    /** Personas del equipo para el combobox del modal (objetos API) */
+    /** @type {object[]} */
+    let modalPeople = [];
+
     function personOptionLabel(p) {
         const r = p.role && String(p.role).trim() !== "" ? String(p.role).trim() : "";
         return r ? `${p.display_name} (${r})` : p.display_name;
     }
 
+    function setPersonListboxOpen(open) {
+        if (!personListbox || !personSearchInput) {
+            return;
+        }
+        personListbox.hidden = !open;
+        personSearchInput.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+
+    function filterModalPeople(query) {
+        const q = String(query || "").trim().toLowerCase();
+        if (!q) {
+            return modalPeople.slice();
+        }
+        const words = q.split(/\s+/).filter(Boolean);
+        return modalPeople.filter((p) => {
+            const hay = personOptionLabel(p).toLowerCase();
+            return words.every((w) => hay.includes(w));
+        });
+    }
+
+    function renderPersonListbox(matches) {
+        if (!personListbox) {
+            return;
+        }
+        personListbox.innerHTML = "";
+        const max = 60;
+        const slice = matches.slice(0, max);
+        slice.forEach((p) => {
+            const li = document.createElement("li");
+            li.className = "topic-person-combobox__option";
+            li.setAttribute("role", "option");
+            li.setAttribute("data-id", String(p.id));
+            li.textContent = personOptionLabel(p);
+            personListbox.appendChild(li);
+        });
+        if (matches.length > max) {
+            const li = document.createElement("li");
+            li.className = "topic-person-combobox__hint muted";
+            li.textContent = `Mostrando ${max} de ${matches.length}. Refina la búsqueda.`;
+            personListbox.appendChild(li);
+        }
+        const hasOpts = slice.length > 0;
+        setPersonListboxOpen(hasOpts);
+    }
+
+    function applyPersonSelection(personId, labelText) {
+        if (!personIdHidden || !personSearchInput) {
+            return;
+        }
+        personIdHidden.value = String(personId);
+        personSearchInput.value = labelText;
+        setPersonListboxOpen(false);
+    }
+
+    function clearPersonCombobox() {
+        if (!personIdHidden || !personSearchInput) {
+            return;
+        }
+        personIdHidden.value = "";
+        personSearchInput.value = "";
+        if (personListbox) {
+            personListbox.innerHTML = "";
+        }
+        setPersonListboxOpen(false);
+    }
+
+    function openPersonListForQuery() {
+        if (!personSearchInput) {
+            return;
+        }
+        const matches = filterModalPeople(personSearchInput.value);
+        renderPersonListbox(matches);
+        if (matches.length === 0 && modalPeople.length > 0) {
+            personListbox.innerHTML = "";
+            const li = document.createElement("li");
+            li.className = "topic-person-combobox__hint muted";
+            li.textContent = "Ninguna persona coincide. Prueba otro texto.";
+            personListbox.appendChild(li);
+            setPersonListboxOpen(true);
+        }
+    }
+
     async function loadTeamPeople() {
         const teamId = getTeamId();
-        if (!teamId || (!personSelect && !personFilterSelect)) {
+        if (!teamId || (!personIdHidden && !personFilterSelect)) {
             return;
         }
         const prevFilter = personFilterSelect ? personFilterSelect.value : "";
-        if (personSelect) {
-            personSelect.innerHTML = '<option value="">Cargando…</option>';
-            personSelect.disabled = true;
+        if (personSearchInput) {
+            personSearchInput.placeholder = "Cargando…";
+            personSearchInput.disabled = true;
         }
         if (personFilterSelect) {
             personFilterSelect.innerHTML =
@@ -71,28 +164,23 @@
             if (!res.ok || !data.ok || !Array.isArray(data.people)) {
                 throw new Error(data.error || "No se pudieron cargar las personas");
             }
+            modalPeople = data.people;
             personNames = {};
             data.people.forEach((p) => {
                 personNames[p.id] = personOptionLabel(p);
             });
 
-            if (personSelect) {
-                personSelect.innerHTML = "";
+            if (personSearchInput && personIdHidden) {
                 if (data.people.length === 0) {
-                    const opt = document.createElement("option");
-                    opt.value = "";
-                    opt.textContent = "Primero crea tarjetas en Personas";
-                    personSelect.appendChild(opt);
-                    personSelect.disabled = true;
+                    clearPersonCombobox();
+                    personSearchInput.placeholder = "Primero crea tarjetas en Editar fichas";
+                    personSearchInput.disabled = true;
                 } else {
-                    data.people.forEach((p) => {
-                        const opt = document.createElement("option");
-                        opt.value = String(p.id);
-                        opt.textContent = personOptionLabel(p);
-                        personSelect.appendChild(opt);
-                    });
-                    personSelect.disabled = false;
+                    personSearchInput.placeholder =
+                        "Escribe para buscar por nombre o rol…";
+                    personSearchInput.disabled = false;
                 }
+                setPersonListboxOpen(false);
             }
 
             if (personFilterSelect) {
@@ -116,13 +204,11 @@
                 }
             }
         } catch (e) {
-            if (personSelect) {
-                personSelect.innerHTML = "";
-                const opt = document.createElement("option");
-                opt.value = "";
-                opt.textContent = e instanceof Error ? e.message : "Error";
-                personSelect.appendChild(opt);
-                personSelect.disabled = true;
+            modalPeople = [];
+            if (personSearchInput && personIdHidden) {
+                clearPersonCombobox();
+                personSearchInput.placeholder = e instanceof Error ? e.message : "Error";
+                personSearchInput.disabled = true;
             }
             if (personFilterSelect) {
                 personFilterSelect.innerHTML =
@@ -202,8 +288,16 @@
                 }
                 im.value = iv;
             }
-            if (personSelect && t.person_id != null) {
-                personSelect.value = String(t.person_id);
+            if (personIdHidden && personSearchInput) {
+                if (t.person_id != null && t.person_id !== "") {
+                    const pid = Number(t.person_id);
+                    applyPersonSelection(
+                        pid,
+                        personNames[pid] || "Tarjeta #" + pid
+                    );
+                } else {
+                    clearPersonCombobox();
+                }
             }
 
             showModal();
@@ -242,6 +336,44 @@
         high: "Alta",
         very_high: "Muy alta",
     };
+
+    /** Orden fijo de columnas en vista por importancia */
+    const IMPORTANCE_COLUMN_KEYS = [
+        "very_low",
+        "low",
+        "medium",
+        "high",
+        "very_high",
+    ];
+
+    /** Orden fijo de columnas en vista por prioridad (urgencia) */
+    const PRIORITY_COLUMN_KEYS = [
+        "very_low",
+        "low",
+        "medium",
+        "high",
+        "critical",
+    ];
+
+    function normalizeImportance(val) {
+        const v = val || "medium";
+        return IMPORTANCE_COLUMN_KEYS.includes(v) ? v : "medium";
+    }
+
+    function normalizePriority(val) {
+        const v = val || "medium";
+        return PRIORITY_COLUMN_KEYS.includes(v) ? v : "medium";
+    }
+
+    function sortTopicsByUpdatedDesc(topics) {
+        return [...topics].sort((a, b) => {
+            const sa = String(a.updated_at || a.created_at || "").trim();
+            const sb = String(b.updated_at || b.created_at || "").trim();
+            const ta = Date.parse(sa.includes("T") ? sa : sa.replace(" ", "T")) || 0;
+            const tb = Date.parse(sb.includes("T") ? sb : sb.replace(" ", "T")) || 0;
+            return tb - ta;
+        });
+    }
 
     function priorityLabel(p) {
         return priorityLabels[p] || priorityLabels.medium;
@@ -321,29 +453,141 @@
         const byPerson = filterTopicsByPerson(lastTopics, personVal);
         const q = searchInput ? searchInput.value : "";
         const filtered = filterTopicsBySearch(byPerson, q);
+        const viewByImportance =
+            viewByImportanceToggle && viewByImportanceToggle.checked;
+        const viewByPriority =
+            viewByPriorityToggle && viewByPriorityToggle.checked;
+
         feed.innerHTML = "";
-        if (lastTopics.length === 0) {
+        feed.className = "topic-feed-root";
+
+        function appendEmptyMessage(text) {
+            const ul = document.createElement("ul");
+            ul.className = "feed feed--tasks";
             const empty = document.createElement("li");
             empty.className = "feed__empty muted";
-            empty.textContent =
+            empty.textContent = text;
+            ul.appendChild(empty);
+            feed.appendChild(ul);
+        }
+
+        if (lastTopics.length === 0) {
+            appendEmptyMessage(
                 lastIncludeDone === "1"
                     ? "No hay temas (ni pendientes ni realizados)."
-                    : "No hay temas pendientes. Activa «Mostrar realizados» para ver los hechos.";
-            feed.appendChild(empty);
+                    : "No hay temas pendientes. Activa «Mostrar realizados» para ver los hechos."
+            );
             return;
         }
         if (filtered.length === 0) {
-            const empty = document.createElement("li");
-            empty.className = "feed__empty muted";
-            if (byPerson.length === 0) {
-                empty.textContent = "No hay temas asignados a esta persona.";
-            } else {
-                empty.textContent = "Ningún tema coincide con la búsqueda.";
-            }
-            feed.appendChild(empty);
+            appendEmptyMessage(
+                byPerson.length === 0
+                    ? "No hay temas asignados a esta persona."
+                    : "Ningún tema coincide con la búsqueda."
+            );
             return;
         }
-        filtered.forEach((topic) => feed.appendChild(renderTopicCard(topic)));
+
+        if (viewByPriority) {
+            feed.classList.add("topic-feed-root--board");
+            const board = document.createElement("div");
+            board.className = "topic-importance-board";
+            board.setAttribute("role", "region");
+            board.setAttribute(
+                "aria-label",
+                "Temas agrupados por nivel de prioridad (urgencia)"
+            );
+
+            /** @type {Record<string, object[]>} */
+            const groups = {};
+            PRIORITY_COLUMN_KEYS.forEach((k) => {
+                groups[k] = [];
+            });
+            filtered.forEach((t) => {
+                groups[normalizePriority(t.priority)].push(t);
+            });
+
+            PRIORITY_COLUMN_KEYS.forEach((key) => {
+                const col = document.createElement("div");
+                col.className = "topic-importance-col";
+                const h3 = document.createElement("h3");
+                h3.className = "topic-importance-col__title";
+                h3.textContent = priorityLabels[key];
+                const ul = document.createElement("ul");
+                ul.className = "feed feed--tasks feed--in-column";
+                const sorted = sortTopicsByUpdatedDesc(groups[key]);
+                if (sorted.length === 0) {
+                    const emptyLi = document.createElement("li");
+                    emptyLi.className =
+                        "topic-importance-col__empty muted feed__empty";
+                    emptyLi.textContent = "Sin temas";
+                    ul.appendChild(emptyLi);
+                } else {
+                    sorted.forEach((topic) => {
+                        ul.appendChild(renderTopicCard(topic));
+                    });
+                }
+                col.appendChild(h3);
+                col.appendChild(ul);
+                board.appendChild(col);
+            });
+
+            feed.appendChild(board);
+            return;
+        }
+
+        if (viewByImportance) {
+            feed.classList.add("topic-feed-root--board");
+            const board = document.createElement("div");
+            board.className = "topic-importance-board";
+            board.setAttribute("role", "region");
+            board.setAttribute(
+                "aria-label",
+                "Temas agrupados por nivel de importancia"
+            );
+
+            /** @type {Record<string, object[]>} */
+            const groups = {};
+            IMPORTANCE_COLUMN_KEYS.forEach((k) => {
+                groups[k] = [];
+            });
+            filtered.forEach((t) => {
+                groups[normalizeImportance(t.importance)].push(t);
+            });
+
+            IMPORTANCE_COLUMN_KEYS.forEach((key) => {
+                const col = document.createElement("div");
+                col.className = "topic-importance-col";
+                const h3 = document.createElement("h3");
+                h3.className = "topic-importance-col__title";
+                h3.textContent = importanceLabels[key];
+                const ul = document.createElement("ul");
+                ul.className = "feed feed--tasks feed--in-column";
+                const sorted = sortTopicsByUpdatedDesc(groups[key]);
+                if (sorted.length === 0) {
+                    const emptyLi = document.createElement("li");
+                    emptyLi.className =
+                        "topic-importance-col__empty muted feed__empty";
+                    emptyLi.textContent = "Sin temas";
+                    ul.appendChild(emptyLi);
+                } else {
+                    sorted.forEach((topic) => {
+                        ul.appendChild(renderTopicCard(topic));
+                    });
+                }
+                col.appendChild(h3);
+                col.appendChild(ul);
+                board.appendChild(col);
+            });
+
+            feed.appendChild(board);
+            return;
+        }
+
+        const ul = document.createElement("ul");
+        ul.className = "feed feed--tasks";
+        filtered.forEach((topic) => ul.appendChild(renderTopicCard(topic)));
+        feed.appendChild(ul);
     }
 
     function renderTopicCard(topic) {
@@ -475,12 +719,101 @@
         loadTopics();
     });
 
+    viewByImportanceToggle?.addEventListener("change", () => {
+        if (viewByImportanceToggle.checked && viewByPriorityToggle) {
+            viewByPriorityToggle.checked = false;
+        }
+        renderTopicFeed();
+    });
+
+    viewByPriorityToggle?.addEventListener("change", () => {
+        if (viewByPriorityToggle.checked && viewByImportanceToggle) {
+            viewByImportanceToggle.checked = false;
+        }
+        renderTopicFeed();
+    });
+
     searchInput?.addEventListener("input", () => {
         renderTopicFeed();
     });
 
     personFilterSelect?.addEventListener("change", () => {
         renderTopicFeed();
+    });
+
+    let personComboboxBlurTimer = 0;
+
+    personSearchInput?.addEventListener("input", () => {
+        if (personIdHidden && personIdHidden.value) {
+            const expected = personNames[Number(personIdHidden.value)];
+            if (
+                personSearchInput &&
+                personSearchInput.value.trim() !== expected
+            ) {
+                personIdHidden.value = "";
+            }
+        }
+        openPersonListForQuery();
+    });
+
+    personSearchInput?.addEventListener("focus", () => {
+        if (personComboboxBlurTimer) {
+            window.clearTimeout(personComboboxBlurTimer);
+            personComboboxBlurTimer = 0;
+        }
+        if (modalPeople.length > 0) {
+            openPersonListForQuery();
+        }
+    });
+
+    personSearchInput?.addEventListener("blur", () => {
+        personComboboxBlurTimer = window.setTimeout(() => {
+            setPersonListboxOpen(false);
+            if (personIdHidden && personSearchInput) {
+                const id = personIdHidden.value;
+                if (id) {
+                    const label = personNames[Number(id)];
+                    if (label && personSearchInput.value.trim() !== label) {
+                        personIdHidden.value = "";
+                    }
+                }
+            }
+        }, 200);
+    });
+
+    personSearchInput?.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && personListbox && !personListbox.hidden) {
+            e.stopPropagation();
+            setPersonListboxOpen(false);
+        }
+    });
+
+    personListbox?.addEventListener("mousedown", (e) => {
+        const opt = e.target && e.target.closest
+            ? e.target.closest(".topic-person-combobox__option")
+            : null;
+        if (!opt || !personListbox.contains(opt)) {
+            return;
+        }
+        e.preventDefault();
+        const id = opt.getAttribute("data-id");
+        const txt = opt.textContent || "";
+        if (id) {
+            applyPersonSelection(id, txt);
+        }
+    });
+
+    document.addEventListener("click", (e) => {
+        if (
+            modal?.hidden ||
+            !personComboboxRoot ||
+            !(e.target instanceof Node)
+        ) {
+            return;
+        }
+        if (!personComboboxRoot.contains(e.target)) {
+            setPersonListboxOpen(false);
+        }
     });
 
     form?.addEventListener("submit", async (e) => {
@@ -524,11 +857,10 @@
                 if (!res.ok || !data.ok) {
                     throw new Error(data.error || res.statusText);
                 }
-                if (data.topic && personSelect) {
-                    const opt = personSelect.options[personSelect.selectedIndex];
-                    if (opt && data.topic.person_id != null) {
-                        personNames[Number(data.topic.person_id)] = opt.text || "";
-                    }
+                if (data.topic && data.topic.person_id != null) {
+                    const pid = Number(data.topic.person_id);
+                    personNames[pid] =
+                        personSearchInput?.value?.trim() || personNames[pid] || "";
                 }
             } else {
                 const res = await fetch(apiUrl, {
@@ -546,11 +878,12 @@
                     throw new Error(data.error || res.statusText);
                 }
 
-                if (data.topic && personSelect) {
-                    const opt = personSelect.options[personSelect.selectedIndex];
-                    if (opt && data.topic.person_id != null) {
-                        personNames[Number(data.topic.person_id)] = opt.text || personLabel(data.topic);
-                    }
+                if (data.topic && data.topic.person_id != null) {
+                    const pid = Number(data.topic.person_id);
+                    personNames[pid] =
+                        personSearchInput?.value?.trim() ||
+                        personNames[pid] ||
+                        personLabel(data.topic);
                 }
             }
 

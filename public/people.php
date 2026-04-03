@@ -39,62 +39,87 @@ if (!$dbExists || $user === null) {
         require __DIR__ . '/includes/header-app.php';
         ?>
 
-        <nav class="app-nav" aria-label="Secciones">
-            <a href="index.php" class="app-nav__link">Temas</a>
-            <a href="dashboard.php" class="app-nav__link">Dashboards</a>
-            <a href="alerts.php" class="app-nav__link">Alertas</a>
-            <a href="people.php" class="app-nav__link app-nav__link--active" aria-current="page">Personas</a>
-            <a href="people-edit.php" class="app-nav__link">Editar fichas</a>
-        </nav>
-
-        <section class="panel panel--form panel--collapsed" id="personFormPanel">
-            <div class="panel__head-row">
-                <h2 class="panel__title">Nueva persona</h2>
-                <button type="button" class="panel-collapse-btn" id="personFormPanelToggle" aria-expanded="false" aria-controls="personFormPanelBody" title="Desplegar formulario">
-                    <span class="panel-collapse-btn__chevron" aria-hidden="true"><?php require __DIR__ . '/includes/icon-chevron-down.php'; ?></span>
-                </button>
-            </div>
-            <div id="personFormPanelBody" class="panel__collapsible">
-                <p class="muted panel__lead">Solo define la tarjeta (nombre y opcionalmente un contacto). Para crear temas usa <em>Temas</em> y eliges en qué tarjeta van.</p>
-                <form id="personForm" class="form form--inline">
-                    <div id="personFormError" class="form-error" hidden role="alert"></div>
-                    <label>
-                        Nombre en la tarjeta
-                        <input name="display_name" type="text" required maxlength="120" placeholder="Ej. Ana García" autocomplete="off">
-                    </label>
-                    <label>
-                        Contacto (opcional)
-                        <input name="email" type="text" maxlength="200" autocomplete="off" placeholder="Email, teléfono o nota breve">
-                    </label>
-                    <label>
-                        Rol (opcional)
-                        <input name="role" type="text" maxlength="120" autocomplete="off" placeholder="Ej. Desarrollo, PM, Diseño…">
-                    </label>
-                    <label class="form__full">
-                        Cumpleaños (opcional)
-                        <input name="birthday" type="date">
-                    </label>
-                    <label class="form__full">
-                        Información adicional (opcional)
-                        <textarea name="extra_info" rows="3" maxlength="8000" placeholder="Notas, contexto, enlaces…"></textarea>
-                    </label>
-                    <input type="hidden" name="team_id" value="1">
-                    <footer class="form__actions form__actions--inline">
-                        <button type="submit" class="btn primary" id="personSubmit">
-                            <span class="btn__label">Añadir tarjeta</span>
-                        </button>
-                    </footer>
-                </form>
-            </div>
-        </section>
+        <?php
+        $activeNav = 'people';
+        require __DIR__ . '/includes/app-nav.php';
+        ?>
 
         <section class="panel">
             <h2 class="panel__title">Temas por tarjeta</h2>
             <p class="muted panel__lead">Cada bloque es una persona del equipo; los temas creados desde <em>Temas</em> aparecen bajo la tarjeta elegida.</p>
-            <div id="peopleBoard" class="people-board" aria-live="polite">
+            <div id="peopleBoard" class="people-board" data-team-id="1" aria-live="polite">
                 <p class="muted people-board__loading">Cargando…</p>
             </div>
         </section>
+    </div>
+
+    <div id="personCardModal" class="modal person-card-modal" hidden aria-modal="true" role="dialog" aria-labelledby="personCardModalTitle">
+        <div class="modal__backdrop" data-person-card-close></div>
+        <div class="modal__card modal__card--wide">
+            <header class="modal__head">
+                <h2 id="personCardModalTitle">Tarjeta</h2>
+                <button type="button" class="icon-btn" data-person-card-close aria-label="Cerrar"><?php require __DIR__ . '/includes/icon-close.php'; ?></button>
+            </header>
+            <div id="personCardModalDetails" class="person-card-modal__details muted"></div>
+            <div id="personCardModalToolbar" class="person-card-modal__toolbar" hidden>
+                <button type="button" class="btn btn--small" id="personCardModalToggleDone">Mostrar realizados</button>
+            </div>
+            <div id="personCardModalTopics" class="person-card-modal__topics" aria-live="polite"></div>
+        </div>
+    </div>
+
+    <div id="personTopicEditModal" class="modal" hidden aria-modal="true" role="dialog" aria-labelledby="personTopicEditTitle">
+        <div class="modal__backdrop" data-pte-close></div>
+        <div class="modal__card modal__card--wide">
+            <header class="modal__head">
+                <h2 id="personTopicEditTitle">Editar tema</h2>
+                <button type="button" class="icon-btn" data-pte-close aria-label="Cerrar"><?php require __DIR__ . '/includes/icon-close.php'; ?></button>
+            </header>
+            <form id="personTopicEditForm" class="form">
+                <div id="personTopicEditError" class="form-error" hidden role="alert"></div>
+                <input type="hidden" name="topic_id" id="pteTopicId" value="">
+                <input type="hidden" name="team_id" id="pteTeamId" value="1">
+                <label>
+                    Título
+                    <input name="title" id="pteTitle" type="text" required maxlength="200" autocomplete="off">
+                </label>
+                <label>
+                    Descripción
+                    <textarea name="body" id="pteBody" rows="4" placeholder="Contexto o criterios"></textarea>
+                </label>
+                <label>
+                    Prioridad (urgencia)
+                    <select name="priority" id="ptePriority">
+                        <option value="very_low">Muy baja</option>
+                        <option value="low">Baja</option>
+                        <option value="medium">Media</option>
+                        <option value="high">Alta</option>
+                        <option value="critical">Crítica</option>
+                    </select>
+                </label>
+                <label>
+                    Importancia
+                    <select name="importance" id="pteImportance">
+                        <option value="very_low">Muy baja</option>
+                        <option value="low">Baja</option>
+                        <option value="medium">Media</option>
+                        <option value="high">Alta</option>
+                        <option value="very_high">Muy alta</option>
+                    </select>
+                </label>
+                <label id="ptePersonWrap" class="form__full" hidden>
+                    Persona (tarjeta)
+                    <select id="ptePersonSelect" aria-label="Persona asignada al tema"></select>
+                </label>
+                <input type="hidden" id="ptePersonId" value="">
+                <footer class="form__actions">
+                    <button type="button" class="btn" data-pte-close>Cancelar</button>
+                    <button type="submit" class="btn primary" id="pteSubmit">
+                        <span class="btn__label">Guardar</span>
+                    </button>
+                </footer>
+            </form>
+        </div>
     </div>
 
     <script src="assets/js/theme.js" defer></script>
