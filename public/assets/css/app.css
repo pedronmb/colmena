@@ -1851,3 +1851,174 @@ select.topic-toolbar__search-input {
         width: min(100%, 88vw);
     }
 }
+
+/* --- Azure DevOps / Kanban --- */
+.devops-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem 1rem;
+    margin-bottom: 1rem;
+}
+
+.devops-toolbar__hint {
+    margin: 0;
+    font-size: 0.9rem;
+}
+
+.devops-board__empty,
+.devops-board__error {
+    margin: 0;
+    padding: 1rem 0;
+}
+
+.devops-board__error {
+    color: var(--danger);
+}
+
+.devops-setup-banner {
+    padding: 1rem 1.1rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    max-width: 42rem;
+}
+
+.devops-setup-banner__title {
+    margin: 0 0 0.5rem;
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.devops-setup-banner__text {
+    margin: 0 0 0.5rem;
+    font-size: 0.9rem;
+}
+
+.devops-setup-banner__text:last-child {
+    margin-bottom: 0;
+}
+
+.devops-code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.85em;
+    padding: 0.1em 0.35em;
+    border-radius: 4px;
+    background: var(--code-bg);
+}
+
+.devops-columns {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+    scroll-snap-type: x proximity;
+}
+
+.devops-column {
+    flex: 0 0 min(280px, 82vw);
+    scroll-snap-align: start;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    box-shadow: var(--shadow);
+    min-height: 120px;
+    max-height: min(70vh, 520px);
+    display: flex;
+    flex-direction: column;
+}
+
+.devops-column__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    padding: 0.55rem 0.7rem;
+    border-bottom: 1px solid var(--border);
+    background: var(--feed-item-bg);
+}
+
+.devops-column__title {
+    margin: 0;
+    font-size: 0.82rem;
+    font-weight: 700;
+    text-transform: none;
+    line-height: 1.3;
+}
+
+.devops-column__count {
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: var(--pill-bg);
+    color: var(--pill-text);
+    padding: 0.15rem 0.45rem;
+    border-radius: 999px;
+}
+
+.devops-column__list {
+    list-style: none;
+    margin: 0;
+    padding: 0.45rem;
+    overflow-y: auto;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.devops-card {
+    margin: 0;
+}
+
+.devops-card__link {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.2rem;
+    padding: 0.5rem 0.55rem;
+    border-radius: calc(var(--radius) - 2px);
+    border: 1px solid var(--border);
+    background: var(--feed-item-bg);
+    text-decoration: none;
+    color: inherit;
+    transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+a.devops-card__link:hover {
+    background: var(--surface-hover);
+    border-color: var(--muted);
+}
+
+a.devops-card__link:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.devops-card__id {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--muted);
+}
+
+.devops-card__title {
+    font-size: 0.88rem;
+    font-weight: 600;
+    line-height: 1.35;
+    word-break: break-word;
+}
+
+.devops-card__type {
+    font-size: 0.72rem;
+    color: var(--badge-text);
+    background: var(--badge-bg);
+    padding: 0.1rem 0.4rem;
+    border-radius: 4px;
+    align-self: flex-start;
+}
+
+.devops-card__assignee {
+    font-size: 0.75rem;
+    color: var(--muted);
+}

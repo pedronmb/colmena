@@ -4,6 +4,9 @@
 /database/*.sqlite-wal
 /database/*.sqlite-shm
 
+# Configuración local (copiar desde config/config.php.default)
+config/config.php
+
 # Variables de entorno y secretos
 .env
 .env.*
