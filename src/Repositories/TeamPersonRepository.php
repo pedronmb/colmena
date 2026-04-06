@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Repositories;
 
+use App\Support\BirthdayNormalizer;
 use PDO;
 
 final class TeamPersonRepository
@@ -80,9 +81,7 @@ final class TeamPersonRepository
             'role' => isset($row['role']) && $row['role'] !== null && trim((string) $row['role']) !== ''
                 ? trim((string) $row['role'])
                 : null,
-            'birthday' => isset($row['birthday']) && $row['birthday'] !== null && $row['birthday'] !== ''
-                ? (string) $row['birthday']
-                : null,
+            'birthday' => BirthdayNormalizer::canonicalMonthDay($row['birthday'] ?? null),
             'extra_info' => isset($row['extra_info']) && $row['extra_info'] !== null && $row['extra_info'] !== ''
                 ? (string) $row['extra_info']
                 : null,

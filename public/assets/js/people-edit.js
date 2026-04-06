@@ -22,11 +22,21 @@
         return d.innerHTML;
     }
 
-    function formatBirthdayDisplay(iso) {
-        if (!iso || typeof iso !== "string") return "—";
-        const p = iso.split("-");
-        if (p.length !== 3) return escapeHtml(iso);
-        return `${escapeHtml(p[2])}/${escapeHtml(p[1])}/${escapeHtml(p[0])}`;
+    function formatBirthdayDisplay(stored) {
+        if (!stored || typeof stored !== "string") return "—";
+        const p = stored.split("-");
+        let mm;
+        let dd;
+        if (p.length === 2) {
+            mm = p[0];
+            dd = p[1];
+        } else if (p.length === 3) {
+            mm = p[1];
+            dd = p[2];
+        } else {
+            return escapeHtml(stored);
+        }
+        return `${escapeHtml(String(dd).padStart(2, "0"))}/${escapeHtml(String(mm).padStart(2, "0"))}`;
     }
 
     function truncate(s, max) {
@@ -64,7 +74,9 @@
         document.getElementById("editEmail").value = p.email || "";
         const roleEl = document.getElementById("editRole");
         if (roleEl) roleEl.value = p.role || "";
-        document.getElementById("editBirthday").value = p.birthday || "";
+        if (window.ColmenaBirthday && form) {
+            window.ColmenaBirthday.fillBirthdayFields(form, p.birthday);
+        }
         document.getElementById("editExtraInfo").value = p.extra_info || "";
     }
 
@@ -154,6 +166,10 @@
             errorEl.textContent = "";
         }
 
+        if (window.ColmenaBirthday && form) {
+            window.ColmenaBirthday.syncBirthdayHidden(form);
+        }
+
         const fd = new FormData(form);
         const birthdayRaw = String(fd.get("birthday") || "").trim();
         const emailRaw = String(fd.get("email") || "").trim();
@@ -202,6 +218,12 @@
     document.addEventListener("colmena:person-created", () => {
         loadList();
     });
+
+    const personForm = document.getElementById("personForm");
+    if (window.ColmenaBirthday) {
+        if (personForm) window.ColmenaBirthday.wireBirthdayFields(personForm);
+        if (form) window.ColmenaBirthday.wireBirthdayFields(form);
+    }
 
     loadList();
 })();

@@ -67,10 +67,10 @@ if (!$dbExists || $user === null) {
                         Rol (opcional)
                         <input name="role" type="text" maxlength="120" autocomplete="off" placeholder="Ej. Desarrollo, PM, Diseño…">
                     </label>
-                    <label class="form__full">
-                        Cumpleaños (opcional)
-                        <input name="birthday" type="date">
-                    </label>
+                    <?php
+                    $bfIdPrefix = 'newPerson';
+                    require __DIR__ . '/includes/birthday-month-day.php';
+                    ?>
                     <label class="form__full">
                         Información adicional (opcional)
                         <textarea name="extra_info" rows="3" maxlength="8000" placeholder="Notas, contexto, enlaces…"></textarea>
@@ -131,10 +131,10 @@ if (!$dbExists || $user === null) {
                     Rol (opcional)
                     <input name="role" id="editRole" type="text" maxlength="120" autocomplete="off" placeholder="Ej. Desarrollo, PM…">
                 </label>
-                <label>
-                    Cumpleaños (opcional)
-                    <input name="birthday" id="editBirthday" type="date">
-                </label>
+                <?php
+                $bfIdPrefix = 'edit';
+                require __DIR__ . '/includes/birthday-month-day.php';
+                ?>
                 <label>
                     Información adicional (opcional)
                     <textarea name="extra_info" id="editExtraInfo" rows="5" maxlength="8000" placeholder="Notas, enlaces, contexto…"></textarea>
@@ -150,6 +150,7 @@ if (!$dbExists || $user === null) {
     </div>
 
     <script src="assets/js/theme.js" defer></script>
+    <script src="assets/js/birthday-fields.js" defer></script>
     <script src="assets/js/people.js" defer></script>
     <script src="assets/js/people-edit.js" defer></script>
     <script src="assets/js/app-shell.js" defer></script>

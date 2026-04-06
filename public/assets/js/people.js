@@ -111,11 +111,21 @@
         return "pill";
     }
 
-    function formatBirthdayEs(iso) {
-        if (!iso || typeof iso !== "string") return "";
-        const p = iso.split("-");
-        if (p.length !== 3) return iso;
-        return `${p[2]}/${p[1]}/${p[0]}`;
+    function formatBirthdayEs(stored) {
+        if (!stored || typeof stored !== "string") return "";
+        const p = stored.split("-");
+        let mm;
+        let dd;
+        if (p.length === 2) {
+            mm = p[0];
+            dd = p[1];
+        } else if (p.length === 3) {
+            mm = p[1];
+            dd = p[2];
+        } else {
+            return stored;
+        }
+        return `${String(dd).padStart(2, "0")}/${String(mm).padStart(2, "0")}`;
     }
 
     function personDetailsHtml(person) {
@@ -681,6 +691,10 @@
         if (errorEl) {
             errorEl.hidden = true;
             errorEl.textContent = "";
+        }
+
+        if (window.ColmenaBirthday && form) {
+            window.ColmenaBirthday.syncBirthdayHidden(form);
         }
 
         const fd = new FormData(form);

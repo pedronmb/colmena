@@ -107,7 +107,7 @@ try {
     $birthday = BirthdayNormalizer::optional($bRaw);
     if ($birthday === false) {
         http_response_code(422);
-        echo json_encode(['ok' => false, 'error' => 'Fecha de cumpleaños inválida (usa AAAA-MM-DD)']);
+        echo json_encode(['ok' => false, 'error' => 'Fecha de cumpleaños inválida (usa MM-DD, mes y día)']);
         exit;
     }
 

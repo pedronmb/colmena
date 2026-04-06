@@ -1047,6 +1047,25 @@ select.topic-toolbar__search-input {
     grid-column: 1 / -1;
 }
 
+.birthday-md-hint {
+    display: block;
+    font-size: 0.85em;
+    margin-top: 0.15rem;
+}
+
+.birthday-md-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.35rem;
+}
+
+.birthday-md-row select {
+    flex: 1;
+    min-width: 7rem;
+    max-width: 14rem;
+}
+
 /* Combobox persona en modal de tema */
 .topic-person-combobox {
     position: relative;
