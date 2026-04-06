@@ -26,7 +26,7 @@
             '<p class="muted devops-setup-banner__text">' +
             escapeHtml(hint || 'Añadí organización, proyecto y PAT en la configuración.') +
             '</p>' +
-            '<p class="muted devops-setup-banner__text">Recomendación: definí <code class="devops-code">AZURE_DEVOPS_PAT</code> en el entorno del servidor y en <code class="devops-code">config/config.php</code> la organización y el proyecto.</p>' +
+            '<p class="muted devops-setup-banner__text">Configurá <code class="devops-code">azure_devops</code> en <code class="devops-code">config/config.php</code>: organization, project y pat (Personal Access Token).</p>' +
             '</div>';
         meta.textContent = '';
     }

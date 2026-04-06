@@ -77,7 +77,8 @@ final class AzureDevOpsClient
             return ['ok' => true, 'columns' => []];
         }
 
-        $fields = 'System.Id,System.Title,System.State,System.WorkItemType,System.AssignedTo,System.Url';
+        // System.Url no es válido en el parámetro `fields` de este API (TF51535).
+        $fields = 'System.Id,System.Title,System.State,System.WorkItemType,System.AssignedTo';
         $byState = [];
 
         foreach ($this->chunkIds($ids, 200) as $chunk) {
@@ -108,10 +109,9 @@ final class AzureDevOpsClient
                 $state = isset($f['System.State']) ? (string) $f['System.State'] : '(sin estado)';
                 $type = isset($f['System.WorkItemType']) ? (string) $f['System.WorkItemType'] : '';
                 $assigned = self::formatAssignedTo($f['System.AssignedTo'] ?? null);
-                $url = isset($f['System.Url']) ? (string) $f['System.Url'] : '';
-                if ($url === '' && $id > 0) {
-                    $url = "https://dev.azure.com/{$orgEnc}/{$projEnc}/_workitems/edit/{$id}";
-                }
+                $url = $id > 0
+                    ? "https://dev.azure.com/{$orgEnc}/{$projEnc}/_workitems/edit/{$id}"
+                    : '';
 
                 if (!isset($byState[$state])) {
                     $byState[$state] = [];
@@ -167,17 +167,19 @@ final class AzureDevOpsClient
 
     private static function compareStates(string $a, string $b): int
     {
+        // Orden del tablero (Kanban). Cualquier otro estado va al final, ordenado alfabéticamente.
         $order = [
-            'New' => 0,
+            'Backlog' => 0,
             'To Do' => 1,
-            'Approved' => 2,
-            'Committed' => 3,
-            'Active' => 4,
-            'In Progress' => 5,
-            'Resolved' => 6,
-            'Done' => 7,
+            'In Progress' => 2,
+            'In Progess' => 2,
+            'To Be Test' => 3,
+            'Testing In Progress' => 4,
+            'Tsting In Progress' => 4,
+            'Blocked' => 5,
+            'Completed' => 6,
+            'UAT' => 7,
             'Closed' => 8,
-            'Removed' => 9,
         ];
         $ia = $order[$a] ?? 100;
         $ib = $order[$b] ?? 100;

@@ -33,17 +33,8 @@ try {
 
     $az = is_array($config['azure_devops'] ?? null) ? $config['azure_devops'] : [];
     $org = trim((string) ($az['organization'] ?? ''));
-    if ($org === '') {
-        $org = trim((string) (getenv('AZURE_DEVOPS_ORG') ?: ''));
-    }
     $project = trim((string) ($az['project'] ?? ''));
-    if ($project === '') {
-        $project = trim((string) (getenv('AZURE_DEVOPS_PROJECT') ?: ''));
-    }
-    $pat = trim((string) (getenv('AZURE_DEVOPS_PAT') ?: ''));
-    if ($pat === '') {
-        $pat = trim((string) ($az['pat'] ?? ''));
-    }
+    $pat = trim((string) ($az['pat'] ?? ''));
     $maxItems = isset($az['max_items']) ? (int) $az['max_items'] : 200;
     $wiqlConfig = $az['wiql'] ?? null;
     $wiql = is_string($wiqlConfig) && trim($wiqlConfig) !== '' ? trim($wiqlConfig) : null;
@@ -53,7 +44,7 @@ try {
             'ok' => true,
             'configured' => false,
             'columns' => [],
-            'hint' => 'Configurá organization, project y PAT en config/config.php o con AZURE_DEVOPS_ORG, AZURE_DEVOPS_PROJECT y AZURE_DEVOPS_PAT.',
+            'hint' => 'Configurá organization, project y pat (token PAT) en config/config.php, clave azure_devops.',
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }

@@ -11,10 +11,11 @@ return [
     'db' => [
         'path' => dirname(__DIR__) . DIRECTORY_SEPARATOR . 'database' . DIRECTORY_SEPARATOR . 'app.sqlite',
     ],
+    // Solo config.php (no variables de entorno). No subas config.php al repo si incluye el PAT.
     'azure_devops' => [
         'organization' => '',
         'project' => '',
-        'pat' => '',
+        'pat' => '', // Personal Access Token (Work items: Read)
         'max_items' => 200,
         'wiql' => null,
     ],
