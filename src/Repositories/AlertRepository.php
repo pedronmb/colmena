@@ -37,7 +37,7 @@ final class AlertRepository
     }
 
     /**
-     * Avisos a mostrar tras login: vencidos o con vencimiento en los próximos 7 días (inclusive).
+     * Avisos a mostrar tras login: solo alertas cuya fecha de cumplimiento es hoy (no antes ni después).
      *
      * @return array<int, array<string, mixed>>
      */
@@ -47,11 +47,8 @@ final class AlertRepository
             'SELECT id, team_id, author_id, title, body, due_date, created_at, updated_at
              FROM team_alerts
              WHERE team_id = :tid
-               AND (
-                 due_date < date(\'now\')
-                 OR (due_date >= date(\'now\') AND due_date <= date(\'now\', \'+7 days\'))
-               )
-             ORDER BY due_date ASC, id ASC'
+               AND due_date = date(\'now\')
+             ORDER BY id ASC'
         );
         $stmt->execute(['tid' => $teamId]);
         $out = [];
@@ -82,6 +79,29 @@ final class AlertRepository
         ]);
 
         return (int) $this->pdo->lastInsertId();
+    }
+
+    public function update(
+        int $alertId,
+        int $teamId,
+        string $title,
+        ?string $body,
+        string $dueDateYmd
+    ): bool {
+        $stmt = $this->pdo->prepare(
+            'UPDATE team_alerts
+             SET title = :title, body = :body, due_date = :due, updated_at = datetime(\'now\')
+             WHERE id = :id AND team_id = :tid'
+        );
+        $stmt->execute([
+            'id' => $alertId,
+            'tid' => $teamId,
+            'title' => $title,
+            'body' => $body,
+            'due' => $dueDateYmd,
+        ]);
+
+        return $stmt->rowCount() > 0;
     }
 
     public function delete(int $alertId, int $teamId): bool

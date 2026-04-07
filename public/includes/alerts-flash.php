@@ -39,26 +39,16 @@ try {
 
 $today = new DateTimeImmutable('today');
 ?>
-<section class="flash-alerts-banner" role="region" aria-label="Alertas próximas o vencidas">
+<section class="flash-alerts-banner" role="region" aria-label="Recordatorios del día">
     <div class="flash-alerts-banner__inner">
         <h2 class="flash-alerts-banner__title">Recordatorios</h2>
-        <p class="flash-alerts-banner__lead muted">Estas fechas están vencidas o en los próximos 7 días.</p>
+        <p class="flash-alerts-banner__lead muted">Hoy es la fecha de cumplimiento de los siguientes recordatorios.</p>
         <ul class="flash-alerts-banner__list">
             <?php foreach ($list as $a) {
                 $due = DateTimeImmutable::createFromFormat('Y-m-d', $a['due_date']) ?: $today;
                 $label = $due->format('d/m/Y');
-                $dueKey = $due->format('Y-m-d');
-                $todayKey = $today->format('Y-m-d');
-                if ($dueKey < $todayKey) {
-                    $badge = 'Vencida';
-                    $badgeClass = 'flash-alerts-banner__badge flash-alerts-banner__badge--overdue';
-                } elseif ($dueKey === $todayKey) {
-                    $badge = 'Hoy';
-                    $badgeClass = 'flash-alerts-banner__badge flash-alerts-banner__badge--today';
-                } else {
-                    $badge = 'Próxima';
-                    $badgeClass = 'flash-alerts-banner__badge';
-                }
+                $badge = 'Hoy';
+                $badgeClass = 'flash-alerts-banner__badge flash-alerts-banner__badge--today';
                 ?>
                 <li class="flash-alerts-banner__item">
                     <span class="<?= htmlspecialchars($badgeClass, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($badge, ENT_QUOTES, 'UTF-8') ?></span>

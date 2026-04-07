@@ -35,7 +35,7 @@ if (!$dbExists || $user === null) {
     <div class="shell shell--wide">
         <?php
         $pageTitle = 'Alertas';
-        $pageLead = 'Recordatorios con fecha; se avisan al iniciar sesión si vencen en 7 días o ya pasaron';
+        $pageLead = 'Recordatorios con fecha; al iniciar sesión solo se avisa el día de la fecha elegida';
         require __DIR__ . '/includes/header-app.php';
         ?>
 
@@ -63,6 +63,7 @@ if (!$dbExists || $user === null) {
                 </label>
                 <input type="hidden" name="team_id" value="1">
                 <footer class="form__actions form__actions--block">
+                    <button type="button" class="btn" id="alertCancelEdit" hidden>Cancelar edición</button>
                     <button type="submit" class="btn primary" id="alertSubmit">Guardar alerta</button>
                 </footer>
             </form>

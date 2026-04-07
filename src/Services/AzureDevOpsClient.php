@@ -108,7 +108,7 @@ final class AzureDevOpsClient
                 $title = isset($f['System.Title']) ? (string) $f['System.Title'] : '';
                 $state = isset($f['System.State']) ? (string) $f['System.State'] : '(sin estado)';
                 $type = isset($f['System.WorkItemType']) ? (string) $f['System.WorkItemType'] : '';
-                $assigned = self::formatAssignedTo($f['System.AssignedTo'] ?? null);
+                $assign = self::parseAssignedTo($f['System.AssignedTo'] ?? null);
                 $url = $id > 0
                     ? "https://dev.azure.com/{$orgEnc}/{$projEnc}/_workitems/edit/{$id}"
                     : '';
@@ -121,7 +121,8 @@ final class AzureDevOpsClient
                     'title' => $title,
                     'type' => $type,
                     'state' => $state,
-                    'assigned_to' => $assigned,
+                    'assigned_to' => $assign['name'],
+                    'assigned_unique_name' => $assign['unique_name'],
                     'url' => $url,
                 ];
             }
@@ -191,26 +192,32 @@ final class AzureDevOpsClient
     }
 
     /**
-     * @param mixed $value
+     * @param mixed $value System.AssignedTo desde la API
+     * @return array{name: string, unique_name: string}
      */
-    private static function formatAssignedTo($value): string
+    private static function parseAssignedTo($value): array
     {
+        $name = '';
+        $unique = '';
         if ($value === null) {
-            return '';
+            return ['name' => '', 'unique_name' => ''];
         }
         if (is_string($value)) {
-            return $value;
+            return ['name' => $value, 'unique_name' => ''];
         }
         if (is_array($value)) {
             if (isset($value['displayName']) && is_string($value['displayName'])) {
-                return $value['displayName'];
+                $name = $value['displayName'];
             }
             if (isset($value['uniqueName']) && is_string($value['uniqueName'])) {
-                return $value['uniqueName'];
+                $unique = $value['uniqueName'];
+            }
+            if ($name === '' && $unique !== '') {
+                $name = $unique;
             }
         }
 
-        return '';
+        return ['name' => $name, 'unique_name' => $unique];
     }
 
     private function request(string $method, string $url, ?string $body): string

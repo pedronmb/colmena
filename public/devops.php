@@ -35,7 +35,7 @@ if (!$dbExists || $user === null) {
     <div class="shell shell--wide">
         <?php
         $pageTitle = 'DevOps';
-        $pageLead = 'Work items de Azure DevOps agrupados por estado.';
+        $pageLead = 'Work items por estado; filtrá por nombre o UPN (sugerencias mientras escribís).';
         require __DIR__ . '/includes/header-app.php';
         ?>
 
@@ -47,6 +47,30 @@ if (!$dbExists || $user === null) {
         <section class="panel devops-page">
             <div class="devops-toolbar">
                 <button type="button" class="btn primary" id="devopsRefresh">Actualizar</button>
+                <div class="devops-toolbar__filter-wrap">
+                    <span class="devops-toolbar__filter-label" id="devopsPersonFilterLabel">Persona</span>
+                    <div class="devops-filter-combo">
+                        <input
+                            type="text"
+                            id="devopsPersonFilter"
+                            class="devops-toolbar__filter-input"
+                            placeholder="Nombre o correo (UPN)…"
+                            autocomplete="off"
+                            spellcheck="false"
+                            aria-labelledby="devopsPersonFilterLabel"
+                            aria-autocomplete="list"
+                            aria-controls="devopsPersonSuggestions"
+                            aria-expanded="false"
+                        />
+                        <ul
+                            id="devopsPersonSuggestions"
+                            class="devops-suggestions"
+                            role="listbox"
+                            hidden
+                            aria-label="Personas que coinciden"
+                        ></ul>
+                    </div>
+                </div>
                 <p class="muted devops-toolbar__hint" id="devopsMeta" aria-live="polite"></p>
             </div>
             <div id="devopsRoot" class="devops-board" aria-live="polite"></div>

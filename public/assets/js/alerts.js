@@ -1,14 +1,23 @@
 /**
- * Alertas: crear, listar y eliminar.
+ * Alertas: crear, editar, listar y eliminar.
  */
 (function () {
     const apiUrl = "api/alerts.php";
     const teamId = 1;
     const form = document.getElementById("alertForm");
     const submitBtn = document.getElementById("alertSubmit");
+    const cancelEditBtn = document.getElementById("alertCancelEdit");
     const errorEl = document.getElementById("alertFormError");
     const loadingEl = document.getElementById("alertsLoading");
     const rootEl = document.getElementById("alertsListRoot");
+
+    const defaultSubmitLabel = "Guardar alerta";
+    const editSubmitLabel = "Guardar cambios";
+
+    /** @type {number | null} */
+    let editingAlertId = null;
+    /** @type {Array<Record<string, unknown>>} */
+    let cachedAlerts = [];
 
     function escapeHtml(s) {
         const d = document.createElement("div");
@@ -27,6 +36,40 @@
         return `${p[2]}/${p[1]}/${p[0]}`;
     }
 
+    function exitEditMode() {
+        editingAlertId = null;
+        if (form) {
+            form.reset();
+        }
+        if (submitBtn) {
+            submitBtn.textContent = defaultSubmitLabel;
+        }
+        if (cancelEditBtn) {
+            cancelEditBtn.hidden = true;
+        }
+    }
+
+    function enterEditMode(a) {
+        if (!form || !submitBtn || !cancelEditBtn) {
+            return;
+        }
+        editingAlertId = typeof a.id === "number" ? a.id : Number(a.id);
+        const due = typeof a.due_date === "string" ? a.due_date.slice(0, 10) : "";
+        form.querySelector('[name="title"]').value = String(a.title ?? "");
+        form.querySelector('[name="due_date"]').value = due;
+        const bodyEl = form.querySelector('[name="body"]');
+        if (bodyEl) {
+            bodyEl.value = a.body != null ? String(a.body) : "";
+        }
+        submitBtn.textContent = editSubmitLabel;
+        cancelEditBtn.hidden = false;
+        if (errorEl) {
+            errorEl.hidden = true;
+            errorEl.textContent = "";
+        }
+        form.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+
     function renderList(alerts) {
         if (!rootEl) {
             return;
@@ -43,7 +86,7 @@
             <td>${escapeHtml(formatDateYmd(a.due_date))}</td>
             <td><strong>${escapeHtml(a.title)}</strong></td>
             <td class="muted">${a.body ? escapeHtml(String(a.body)) : "—"}</td>
-            <td><button type="button" class="btn btn--small" data-delete-id="${a.id}">Eliminar</button></td>
+            <td><div class="alerts-table__actions"><button type="button" class="btn btn--small" data-edit-id="${a.id}">Editar</button><button type="button" class="btn btn--small" data-delete-id="${a.id}">Eliminar</button></div></td>
         </tr>`
             )
             .join("");
@@ -77,6 +120,7 @@
             if (loadingEl) {
                 loadingEl.hidden = true;
             }
+            cachedAlerts = data.alerts;
             renderList(data.alerts);
         } catch (e) {
             if (loadingEl) {
@@ -84,6 +128,10 @@
             }
         }
     }
+
+    cancelEditBtn?.addEventListener("click", () => {
+        exitEditMode();
+    });
 
     form?.addEventListener("submit", async (e) => {
         e.preventDefault();
@@ -98,19 +146,30 @@
         if (!title || !due) {
             return;
         }
+        const isEdit = editingAlertId !== null;
         submitBtn.disabled = true;
         submitBtn.classList.add("loading");
         try {
             const res = await fetch(apiUrl, {
-                method: "POST",
+                method: isEdit ? "PUT" : "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "same-origin",
-                body: JSON.stringify({
-                    team_id: teamId,
-                    title,
-                    due_date: due,
-                    body,
-                }),
+                body: JSON.stringify(
+                    isEdit
+                        ? {
+                              team_id: teamId,
+                              alert_id: editingAlertId,
+                              title,
+                              due_date: due,
+                              body,
+                          }
+                        : {
+                              team_id: teamId,
+                              title,
+                              due_date: due,
+                              body,
+                          }
+                ),
             });
             const data = await res.json().catch(() => ({}));
             if (res.status === 401) {
@@ -120,7 +179,7 @@
             if (!res.ok || !data.ok) {
                 throw new Error(data.error || "No se pudo guardar");
             }
-            form.reset();
+            exitEditMode();
             await loadAlerts();
         } catch (err) {
             if (errorEl) {
@@ -136,6 +195,14 @@
     rootEl?.addEventListener("click", async (e) => {
         const t = e.target;
         if (!(t instanceof HTMLElement)) {
+            return;
+        }
+        const editId = t.getAttribute("data-edit-id");
+        if (editId) {
+            const a = cachedAlerts.find((x) => Number(x.id) === Number(editId));
+            if (a) {
+                enterEditMode(a);
+            }
             return;
         }
         const id = t.getAttribute("data-delete-id");
@@ -163,6 +230,9 @@
             }
             if (!res.ok || !data.ok) {
                 throw new Error(data.error || "No se pudo eliminar");
+            }
+            if (editingAlertId === Number(id)) {
+                exitEditMode();
             }
             await loadAlerts();
         } catch (err) {
