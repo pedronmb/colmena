@@ -49,7 +49,7 @@ if ($alreadyIn) {
                 <div id="loginError" class="form-error" hidden role="alert"></div>
                 <label>
                     Email
-                    <input name="email" type="email" required autocomplete="username" value="demo@local.test">
+                    <input name="email" type="email" required autocomplete="username">
                 </label>
                 <label>
                     Contraseña

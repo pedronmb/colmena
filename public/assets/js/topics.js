@@ -231,13 +231,23 @@
         if (submitLabel) submitLabel.textContent = "Crear tema";
     }
 
-    async function openModalCreate() {
+    async function openModalCreate(preselectedPersonId) {
         if (topicIdField) topicIdField.value = "";
         if (modalTitle) modalTitle.textContent = "Nuevo tema";
         if (submitLabel) submitLabel.textContent = "Crear tema";
         form.reset();
         showModal();
         await loadTeamPeople();
+        if (preselectedPersonId != null) {
+            const pid = Number(preselectedPersonId);
+            if (Number.isFinite(pid) && pid > 0) {
+                const match = modalPeople.find((p) => p.id === pid);
+                const label =
+                    personNames[pid] ||
+                    (match ? personOptionLabel(match) : `Tarjeta #${pid}`);
+                applyPersonSelection(pid, label);
+            }
+        }
         const first = form.querySelector("input[name=title]");
         if (first) first.focus();
     }
@@ -907,19 +917,45 @@
     (function openTopicFromQuery() {
         const params = new URLSearchParams(window.location.search);
         const tid = params.get("topic");
-        if (!tid) {
+        if (tid) {
+            const n = Number(tid);
+            if (!Number.isFinite(n) || n < 1) {
+                return;
+            }
+            openModalEdit(n).then(() => {
+                try {
+                    const u = new URL(window.location.href);
+                    u.searchParams.delete("topic");
+                    const qs = u.searchParams.toString();
+                    window.history.replaceState(
+                        {},
+                        "",
+                        u.pathname + (qs ? "?" + qs : "") + (u.hash || "")
+                    );
+                } catch (e) {
+                    /* ignore */
+                }
+            });
             return;
         }
-        const n = Number(tid);
-        if (!Number.isFinite(n) || n < 1) {
+        const pidRaw = params.get("person_id");
+        if (!pidRaw) {
             return;
         }
-        openModalEdit(n).then(() => {
+        const pid = Number(pidRaw);
+        if (!Number.isFinite(pid) || pid < 1) {
+            return;
+        }
+        openModalCreate(pid).then(() => {
             try {
                 const u = new URL(window.location.href);
-                u.searchParams.delete("topic");
+                u.searchParams.delete("person_id");
                 const qs = u.searchParams.toString();
-                window.history.replaceState({}, "", u.pathname + (qs ? "?" + qs : "") + (u.hash || ""));
+                window.history.replaceState(
+                    {},
+                    "",
+                    u.pathname + (qs ? "?" + qs : "") + (u.hash || "")
+                );
             } catch (e) {
                 /* ignore */
             }

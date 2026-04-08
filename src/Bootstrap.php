@@ -33,6 +33,8 @@ final class Bootstrap
     {
         if (session_status() === PHP_SESSION_NONE) {
             session_start([
+                'cookie_lifetime' => 86400,
+                'gc_maxlifetime' => 86400,
                 'cookie_httponly' => true,
                 'cookie_samesite' => 'Lax',
             ]);

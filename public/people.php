@@ -47,6 +47,27 @@ if (!$dbExists || $user === null) {
         <section class="panel">
             <h2 class="panel__title">Temas por tarjeta</h2>
             <p class="muted panel__lead">Cada bloque es una persona del equipo; los temas creados desde <em>Temas</em> aparecen bajo la tarjeta elegida.</p>
+            <div class="form people-board-search">
+                <label class="form__full">
+                    Buscar persona
+                    <div class="topic-person-combobox" id="peoplePersonCombobox">
+                        <input
+                            type="text"
+                            id="peoplePersonSearch"
+                            class="topic-person-combobox__input"
+                            autocomplete="off"
+                            placeholder="Cargando…"
+                            disabled
+                            aria-autocomplete="list"
+                            aria-controls="peoplePersonListbox"
+                            aria-expanded="false"
+                            role="combobox"
+                        />
+                        <ul class="topic-person-combobox__list" id="peoplePersonListbox" role="listbox" hidden></ul>
+                    </div>
+                </label>
+                <p class="muted people-board-search__hint">Escribe nombre, rol o email y elige una persona para abrir su tarjeta.</p>
+            </div>
             <div id="peopleBoard" class="people-board" data-team-id="1" aria-live="polite">
                 <p class="muted people-board__loading">Cargando…</p>
             </div>
@@ -62,6 +83,7 @@ if (!$dbExists || $user === null) {
             </header>
             <div id="personCardModalDetails" class="person-card-modal__details muted"></div>
             <div id="personCardModalToolbar" class="person-card-modal__toolbar" hidden>
+                <a class="btn btn--small" id="personCardModalNewTopic" href="index.php">Nuevo tema</a>
                 <button type="button" class="btn btn--small" id="personCardModalToggleDone">Mostrar realizados</button>
             </div>
             <div id="personCardModalTopics" class="person-card-modal__topics" aria-live="polite"></div>

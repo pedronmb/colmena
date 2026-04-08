@@ -1126,6 +1126,16 @@ select.topic-toolbar__search-input {
     margin: 0;
 }
 
+.people-board-search {
+    max-width: 28rem;
+    margin-bottom: 1rem;
+}
+
+.people-board-search__hint {
+    margin: 0.35rem 0 0;
+    font-size: 0.85rem;
+}
+
 .people-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
@@ -1248,11 +1258,15 @@ select.topic-toolbar__search-input {
 
 .person-card-modal__toolbar {
     display: flex;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     align-items: center;
     gap: 0.5rem;
-    padding: 0 1.25rem 0.65rem;
+    padding: 0.65rem 1.25rem;
     border-top: 1px solid var(--border);
+}
+
+.person-card-modal__toolbar > .btn {
+    flex: 0 0 auto;
 }
 
 .person-card-modal__details {

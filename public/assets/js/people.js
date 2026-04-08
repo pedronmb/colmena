@@ -10,6 +10,7 @@
     const personCardModalToolbar = document.getElementById("personCardModalToolbar");
     const personCardModalToggleDone = document.getElementById("personCardModalToggleDone");
     const personCardModalTopics = document.getElementById("personCardModalTopics");
+    const personCardModalNewTopic = document.getElementById("personCardModalNewTopic");
 
     /** En el modal: si es false solo se listan temas no realizados; si true también los hechos */
     let personModalShowResolved = false;
@@ -217,14 +218,23 @@
 
         const doneList = topics.filter((t) => t.status === "done");
         const doneCount = doneList.length;
-        if (personCardModalToolbar && personCardModalToggleDone) {
+        if (personCardModalToolbar && personCardModalToggleDone && personCardModalNewTopic) {
+            personCardModalToolbar.hidden = false;
+            if (isUnassigned) {
+                personCardModalNewTopic.href = "index.php";
+            } else if (person && person.id != null) {
+                personCardModalNewTopic.href = `index.php?person_id=${encodeURIComponent(String(person.id))}`;
+            } else {
+                personCardModalNewTopic.href = "index.php";
+            }
             if (doneCount > 0) {
-                personCardModalToolbar.hidden = false;
+                personCardModalToggleDone.disabled = false;
                 personCardModalToggleDone.textContent = personModalShowResolved
                     ? "Ocultar realizados"
                     : `Mostrar realizados (${doneCount})`;
             } else {
-                personCardModalToolbar.hidden = true;
+                personCardModalToggleDone.disabled = true;
+                personCardModalToggleDone.textContent = "Mostrar realizados";
             }
         }
 
@@ -468,10 +478,12 @@
         if (!people.length && !unassigned.length) {
             board.innerHTML =
                 '<p class="muted">No hay tarjetas. Añádelas en <a href="people-edit.php">Editar fichas</a>.</p>';
+            syncPeopleSearchFromBoard();
             return;
         }
 
         board.appendChild(grid);
+        syncPeopleSearchFromBoard();
         refreshPersonCardModalAfterBoardLoad();
     }
 
@@ -501,11 +513,21 @@
                 board.innerHTML =
                     '<p class="muted">No hay tarjetas. Añádelas en <a href="people-edit.php">Editar fichas</a>.</p>';
                 refreshPersonCardModalAfterBoardLoad();
+                syncPeopleSearchFromBoard();
                 return;
             }
             renderBoard(data.people, unassigned);
         } catch (e) {
             board.innerHTML = `<p class="form-error" role="alert">${escapeHtml(e instanceof Error ? e.message : "Error")}</p>`;
+            if (peoplePersonSearch) {
+                peoplePersonSearch.disabled = true;
+                peoplePersonSearch.placeholder = "Error al cargar el tablero";
+                peoplePersonSearch.value = "";
+            }
+            if (peoplePersonListbox) {
+                peoplePersonListbox.innerHTML = "";
+            }
+            setPeopleSearchListboxOpen(false);
         }
     }
 
@@ -547,6 +569,9 @@
     });
 
     personCardModalToggleDone?.addEventListener("click", () => {
+        if (personCardModalToggleDone.disabled) {
+            return;
+        }
         personModalShowResolved = !personModalShowResolved;
         if (personModalOpen.kind === "person" && personModalOpen.personId != null) {
             const entry = boardSnapshot.people.find(
@@ -743,6 +768,139 @@
         }
     });
 
+    const peoplePersonSearch = document.getElementById("peoplePersonSearch");
+    const peoplePersonListbox = document.getElementById("peoplePersonListbox");
+    const peoplePersonCombobox = document.getElementById("peoplePersonCombobox");
+
+    let peopleSearchBlurTimer = 0;
+
+    function labelPerson(p) {
+        const r =
+            p.role && String(p.role).trim() !== ""
+                ? String(p.role).trim()
+                : "";
+        return r ? `${p.display_name} (${r})` : p.display_name;
+    }
+
+    function getBoardPersonObjects() {
+        return boardSnapshot.people
+            .map((e) => e.person)
+            .filter((p) => p && p.id != null);
+    }
+
+    function filterBoardPeople(query) {
+        const q = String(query || "")
+            .trim()
+            .toLowerCase();
+        const list = getBoardPersonObjects();
+        if (!q) {
+            return list.slice();
+        }
+        const words = q.split(/\s+/).filter(Boolean);
+        return list.filter((p) => {
+            const email = p.email && String(p.email).trim() !== "" ? String(p.email).trim() : "";
+            const hay = `${labelPerson(p)} ${email}`.toLowerCase();
+            return words.every((w) => hay.includes(w));
+        });
+    }
+
+    function setPeopleSearchListboxOpen(open) {
+        if (!peoplePersonListbox || !peoplePersonSearch) {
+            return;
+        }
+        peoplePersonListbox.hidden = !open;
+        peoplePersonSearch.setAttribute("aria-expanded", open ? "true" : "false");
+    }
+
+    function renderPeopleSearchListbox(matches) {
+        if (!peoplePersonListbox) {
+            return;
+        }
+        peoplePersonListbox.innerHTML = "";
+        const max = 60;
+        const slice = matches.slice(0, max);
+        slice.forEach((p) => {
+            const li = document.createElement("li");
+            li.className = "topic-person-combobox__option";
+            li.setAttribute("role", "option");
+            li.setAttribute("data-id", String(p.id));
+            li.textContent = labelPerson(p);
+            peoplePersonListbox.appendChild(li);
+        });
+        if (matches.length > max) {
+            const li = document.createElement("li");
+            li.className = "topic-person-combobox__hint muted";
+            li.textContent = `Mostrando ${max} de ${matches.length}. Refina la búsqueda.`;
+            peoplePersonListbox.appendChild(li);
+        }
+        setPeopleSearchListboxOpen(slice.length > 0);
+    }
+
+    function openPeopleSearchForQuery() {
+        if (!peoplePersonSearch) {
+            return;
+        }
+        const matches = filterBoardPeople(peoplePersonSearch.value);
+        renderPeopleSearchListbox(matches);
+        if (
+            matches.length === 0 &&
+            getBoardPersonObjects().length > 0 &&
+            peoplePersonListbox
+        ) {
+            peoplePersonListbox.innerHTML = "";
+            const li = document.createElement("li");
+            li.className = "topic-person-combobox__hint muted";
+            li.textContent = "Ninguna persona coincide. Prueba otro texto.";
+            peoplePersonListbox.appendChild(li);
+            setPeopleSearchListboxOpen(true);
+        }
+    }
+
+    function syncPeopleSearchFromBoard() {
+        if (!peoplePersonSearch) {
+            return;
+        }
+        const n = getBoardPersonObjects().length;
+        if (n === 0) {
+            peoplePersonSearch.disabled = true;
+            peoplePersonSearch.placeholder = "No hay tarjetas. Añádelas en Editar fichas.";
+            peoplePersonSearch.value = "";
+            if (peoplePersonListbox) {
+                peoplePersonListbox.innerHTML = "";
+            }
+            setPeopleSearchListboxOpen(false);
+        } else {
+            peoplePersonSearch.disabled = false;
+            peoplePersonSearch.placeholder =
+                "Escribe para buscar por nombre, rol o email…";
+        }
+    }
+
+    function scrollPersonCardIntoView(personId) {
+        if (!board) {
+            return;
+        }
+        const card = board.querySelector(
+            `[data-person-id="${String(personId)}"]`
+        );
+        if (card && typeof card.scrollIntoView === "function") {
+            card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }
+    }
+
+    function selectPersonFromSearch(personId, labelText) {
+        const id = Number(personId);
+        if (!Number.isFinite(id)) {
+            return;
+        }
+        if (peoplePersonSearch) {
+            peoplePersonSearch.value = labelText;
+        }
+        setPeopleSearchListboxOpen(false);
+        openPersonCardModalPerson(id);
+        scrollPersonCardIntoView(id);
+    }
+
     const personFormPanel = document.getElementById("personFormPanel");
     const personFormPanelToggle = document.getElementById("personFormPanelToggle");
     personFormPanelToggle?.addEventListener("click", () => {
@@ -753,6 +911,74 @@
             "title",
             collapsed ? "Desplegar formulario" : "Plegar formulario"
         );
+    });
+
+    peoplePersonSearch?.addEventListener("input", () => {
+        openPeopleSearchForQuery();
+    });
+
+    peoplePersonSearch?.addEventListener("focus", () => {
+        if (peopleSearchBlurTimer) {
+            window.clearTimeout(peopleSearchBlurTimer);
+            peopleSearchBlurTimer = 0;
+        }
+        if (getBoardPersonObjects().length > 0) {
+            openPeopleSearchForQuery();
+        }
+    });
+
+    peoplePersonSearch?.addEventListener("blur", () => {
+        peopleSearchBlurTimer = window.setTimeout(() => {
+            setPeopleSearchListboxOpen(false);
+        }, 200);
+    });
+
+    peoplePersonSearch?.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && peoplePersonListbox && !peoplePersonListbox.hidden) {
+            e.stopPropagation();
+            setPeopleSearchListboxOpen(false);
+            return;
+        }
+        if (e.key !== "Enter") {
+            return;
+        }
+        const first = peoplePersonListbox?.querySelector(
+            ".topic-person-combobox__option[data-id]"
+        );
+        if (!first) {
+            return;
+        }
+        e.preventDefault();
+        const id = first.getAttribute("data-id");
+        const txt = first.textContent || "";
+        if (id) {
+            selectPersonFromSearch(id, txt);
+        }
+    });
+
+    peoplePersonListbox?.addEventListener("mousedown", (e) => {
+        const opt =
+            e.target && e.target.closest
+                ? e.target.closest(".topic-person-combobox__option")
+                : null;
+        if (!opt || !peoplePersonListbox.contains(opt)) {
+            return;
+        }
+        e.preventDefault();
+        const id = opt.getAttribute("data-id");
+        const txt = opt.textContent || "";
+        if (id) {
+            selectPersonFromSearch(id, txt);
+        }
+    });
+
+    document.addEventListener("click", (e) => {
+        if (!peoplePersonCombobox || !(e.target instanceof Node)) {
+            return;
+        }
+        if (!peoplePersonCombobox.contains(e.target)) {
+            setPeopleSearchListboxOpen(false);
+        }
     });
 
     if (board) {
