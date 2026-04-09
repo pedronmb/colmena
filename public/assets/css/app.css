@@ -1726,9 +1726,85 @@ select.topic-toolbar__search-input {
     overflow: hidden;
 }
 
+/* Fondo: cuadrantes Eisenhower (urgencia →, importancia ↑; corte en “media”) */
+.matrix-plot__quadrants {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+}
+
+.matrix-plot__quadrant {
+    position: absolute;
+    box-sizing: border-box;
+    width: 50%;
+    height: 50%;
+    padding: 0.5rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+}
+
+.matrix-plot__quadrant--planificar {
+    left: 0;
+    top: 0;
+    background: rgba(59, 130, 246, 0.07);
+    border-radius: var(--radius) 0 0 0;
+}
+
+.matrix-plot__quadrant--hacer-ya {
+    left: 50%;
+    top: 0;
+    background: rgba(220, 38, 38, 0.07);
+    border-radius: 0 var(--radius) 0 0;
+}
+
+.matrix-plot__quadrant--revisar {
+    left: 0;
+    top: 50%;
+    background: rgba(107, 114, 128, 0.08);
+    border-radius: 0 0 0 var(--radius);
+}
+
+.matrix-plot__quadrant--delegar {
+    left: 50%;
+    top: 50%;
+    background: rgba(234, 179, 8, 0.09);
+    border-radius: 0 0 var(--radius) 0;
+}
+
+.matrix-plot__quadrant-label {
+    font-size: clamp(1.05rem, 5.5vmin, 1.95rem);
+    font-weight: 800;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: var(--muted);
+    opacity: 0.44;
+    max-width: 95%;
+    text-wrap: balance;
+}
+
+:root[data-theme="dark"] .matrix-plot__quadrant--planificar {
+    background: rgba(96, 165, 250, 0.1);
+}
+
+:root[data-theme="dark"] .matrix-plot__quadrant--hacer-ya {
+    background: rgba(248, 113, 113, 0.1);
+}
+
+:root[data-theme="dark"] .matrix-plot__quadrant--revisar {
+    background: rgba(156, 163, 175, 0.1);
+}
+
+:root[data-theme="dark"] .matrix-plot__quadrant--delegar {
+    background: rgba(250, 204, 21, 0.1);
+}
+
 .matrix-plot__grid {
     position: absolute;
     inset: 0;
+    z-index: 1;
     background:
         linear-gradient(
             to right,
@@ -1768,6 +1844,7 @@ select.topic-toolbar__search-input {
 .matrix-plot__empty {
     position: absolute;
     inset: 0;
+    z-index: 1;
     display: flex;
     align-items: center;
     justify-content: center;

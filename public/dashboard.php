@@ -69,7 +69,7 @@ if (!$dbExists || $user === null) {
 
             <div id="dashboardPanelMatrix" class="dashboard-panel" role="tabpanel" aria-labelledby="tabMatrix">
                 <p class="muted dashboard-hint">
-                    Cada tema es un <strong>punto</strong> en el cuadrado: horizontal <strong>urgencia</strong> (muy baja → crítica), vertical <strong>importancia</strong> (muy baja → muy alta). Pasá el cursor o el foco para ver el título. Editá en <a href="index.php">Temas</a>.
+                    Cada tema es un <strong>punto</strong> en el cuadrado: horizontal <strong>urgencia</strong> (muy baja → crítica), vertical <strong>importancia</strong> (muy baja → muy alta). El fondo marca cuatro <strong>cuadrantes Eisenhower</strong> (límite en valor <strong>media</strong> en cada eje). Pasá el cursor o el foco para ver el título. Editá en <a href="index.php">Temas</a>.
                 </p>
                 <div id="dashboardMatrixRoot" class="matrix-plot-root" aria-live="polite"></div>
             </div>

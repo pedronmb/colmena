@@ -427,8 +427,14 @@
             <span class="matrix-plot__axis matrix-plot__axis--y">
             <span class="matrix-plot__axis-arrow" aria-hidden="true">↑</span> Importancia (muy baja → muy alta)
           </span>
-          <div class="matrix-plot__square">
-            <div class="matrix-plot__chart" role="img" aria-label="Mapa de temas: urgencia en horizontal, importancia en vertical">
+            <div class="matrix-plot__square">
+            <div class="matrix-plot__chart" role="img" aria-label="Mapa tipo Eisenhower: urgencia de izquierda a derecha, importancia de abajo hacia arriba. Límites en valor media. Cuadrantes: arriba a la izquierda Planificar; arriba a la derecha Hacer ya; abajo a la izquierda Revisar; abajo a la derecha Delegar.">
+              <div class="matrix-plot__quadrants" aria-hidden="true">
+                <div class="matrix-plot__quadrant matrix-plot__quadrant--planificar"><span class="matrix-plot__quadrant-label">Planificar</span></div>
+                <div class="matrix-plot__quadrant matrix-plot__quadrant--hacer-ya"><span class="matrix-plot__quadrant-label">Hacer ya</span></div>
+                <div class="matrix-plot__quadrant matrix-plot__quadrant--revisar"><span class="matrix-plot__quadrant-label">Revisar</span></div>
+                <div class="matrix-plot__quadrant matrix-plot__quadrant--delegar"><span class="matrix-plot__quadrant-label">Delegar</span></div>
+              </div>
               <div class="matrix-plot__grid" aria-hidden="true"></div>
               ${empty}
               ${dots}
