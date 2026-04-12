@@ -77,6 +77,37 @@
         </table></div>`;
     }
 
+    async function loadTeamsForSelect() {
+        const teamSel = document.getElementById("userTeamId");
+        if (!teamSel) {
+            return;
+        }
+        try {
+            const res = await fetch("api/teams.php", {
+                credentials: "same-origin",
+                headers: { Accept: "application/json" },
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok || !Array.isArray(data.teams)) {
+                return;
+            }
+            const first = document.createElement("option");
+            first.value = "0";
+            first.textContent = "Solo espacio personal (recomendado)";
+            teamSel.innerHTML = "";
+            teamSel.appendChild(first);
+            data.teams.forEach((t) => {
+                const opt = document.createElement("option");
+                opt.value = String(t.id);
+                opt.textContent = `${t.name} (#${t.id})`;
+                teamSel.appendChild(opt);
+            });
+            teamSel.value = "0";
+        } catch (_) {
+            /* sin lista de equipos */
+        }
+    }
+
     async function loadUsers() {
         if (!listWrap) return;
         listWrap.innerHTML = '<p class="muted users-list__loading">Cargando…</p>';
@@ -131,8 +162,7 @@
                 form.reset();
                 const teamSel = document.getElementById("userTeamId");
                 if (teamSel) {
-                    const opt = teamSel.querySelector('option[value="1"]');
-                    if (opt) teamSel.value = "1";
+                    teamSel.value = "0";
                 }
                 await loadUsers();
             } catch (err) {
@@ -143,5 +173,6 @@
         });
     }
 
+    loadTeamsForSelect();
     loadUsers();
 })();

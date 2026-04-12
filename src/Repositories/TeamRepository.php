@@ -16,6 +16,19 @@ final class TeamRepository
         $this->pdo = $pdo;
     }
 
+    public function create(string $name, ?string $description = null): int
+    {
+        $stmt = $this->pdo->prepare(
+            'INSERT INTO teams (name, description) VALUES (:n, :d)'
+        );
+        $stmt->execute([
+            'n' => $name,
+            'd' => $description,
+        ]);
+
+        return (int) $this->pdo->lastInsertId();
+    }
+
     public function isMember(int $teamId, int $userId): bool
     {
         $stmt = $this->pdo->prepare(
@@ -23,6 +36,39 @@ final class TeamRepository
         );
         $stmt->execute(['t' => $teamId, 'u' => $userId]);
         return $stmt->fetch() !== false;
+    }
+
+    public function firstTeamIdForUser(int $userId): ?int
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT team_id FROM team_members WHERE user_id = :u ORDER BY team_id ASC LIMIT 1'
+        );
+        $stmt->execute(['u' => $userId]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row === false) {
+            return null;
+        }
+
+        return (int) $row['team_id'];
+    }
+
+    /**
+     * @return array<int, array{id:int,name:string}>
+     */
+    public function listAll(): array
+    {
+        $stmt = $this->pdo->query(
+            'SELECT id, name FROM teams ORDER BY id ASC'
+        );
+        $out = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $out[] = [
+                'id' => (int) $row['id'],
+                'name' => (string) $row['name'],
+            ];
+        }
+
+        return $out;
     }
 
     public function teamExists(int $teamId): bool

@@ -7,6 +7,7 @@ $config = require dirname(__DIR__) . '/bootstrap_web.php';
 use App\Database\Connection;
 use App\Repositories\UserRepository;
 use App\Services\AuthService;
+use App\Support\PersonalTeamBootstrap;
 
 $dbExists = file_exists($config['db']['path']);
 $user = null;
@@ -20,6 +21,8 @@ if (!$dbExists || $user === null) {
     header('Location: login.php');
     exit;
 }
+
+$personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -134,7 +137,7 @@ if (!$dbExists || $user === null) {
                     </div>
                 </label>
                 <p class="hint muted">Las tarjetas se dan de alta en <a href="people-edit.php">Editar fichas</a>; la vista por bloques está en <a href="people.php">Personas</a>.</p>
-                <input type="hidden" name="team_id" value="1">
+                <input type="hidden" name="team_id" value="<?= (int) $personalTeamId ?>">
                 <footer class="form__actions">
                     <button type="button" class="btn" data-close>Cancelar</button>
                     <button type="submit" class="btn primary" id="submitTopic">

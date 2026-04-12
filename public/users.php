@@ -51,7 +51,7 @@ if ($user['role'] !== 'admin') {
 
         <section class="panel panel--form">
             <h2 class="panel__title">Nuevo usuario</h2>
-            <p class="muted panel__lead">La persona podrá iniciar sesión con el email y la contraseña indicados. Opcionalmente se añade al equipo para ver temas y dashboards compartidos.</p>
+            <p class="muted panel__lead">Cada cuenta obtiene su propio espacio de trabajo (equipo personal). Opcionalmente podés añadir también a otro equipo para compartir datos con quien ya sea miembro de ese equipo.</p>
             <form id="userCreateForm" class="form">
                 <div id="userFormError" class="form-error" hidden role="alert"></div>
                 <label>
@@ -85,10 +85,9 @@ if ($user['role'] !== 'admin') {
                     </select>
                 </label>
                 <label>
-                    Añadir al equipo
+                    También unir a otro equipo (opcional)
                     <select name="team_id" id="userTeamId">
-                        <option value="0">No añadir a ningún equipo</option>
-                        <option value="1" selected>Equipo 1 (por defecto)</option>
+                        <option value="0" selected>Solo espacio personal (recomendado)</option>
                     </select>
                 </label>
                 <label>

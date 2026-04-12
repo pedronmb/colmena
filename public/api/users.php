@@ -10,6 +10,7 @@ use App\Database\Connection;
 use App\Repositories\TeamRepository;
 use App\Repositories\UserRepository;
 use App\Services\AuthService;
+use App\Services\PersonalWorkspaceService;
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
@@ -100,13 +101,14 @@ try {
     }
 
     $teams = new TeamRepository($pdo);
-    $addToTeam = $teamId > 0 && $teams->teamExists($teamId);
+    $extraTeamId = $teamId > 0 && $teams->teamExists($teamId) ? $teamId : 0;
 
     try {
         $pdo->beginTransaction();
         $newId = $usersRepo->create($email, $displayName, $hash, $role, $availability);
-        if ($addToTeam) {
-            $teams->addMember($teamId, $newId, $roleInTeam);
+        $personalTeamId = PersonalWorkspaceService::createAndAssign($pdo, $newId, $displayName);
+        if ($extraTeamId > 0 && $extraTeamId !== $personalTeamId && !$teams->isMember($extraTeamId, $newId)) {
+            $teams->addMember($extraTeamId, $newId, $roleInTeam);
         }
         $pdo->commit();
     } catch (Throwable $e) {

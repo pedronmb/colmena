@@ -7,6 +7,7 @@ $config = require dirname(__DIR__) . '/bootstrap_web.php';
 use App\Database\Connection;
 use App\Repositories\UserRepository;
 use App\Services\AuthService;
+use App\Support\PersonalTeamBootstrap;
 
 $dbExists = file_exists($config['db']['path']);
 $user = null;
@@ -20,6 +21,8 @@ if (!$dbExists || $user === null) {
     header('Location: login.php');
     exit;
 }
+
+$personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -129,7 +132,7 @@ if (!$dbExists || $user === null) {
         </section>
     </div>
 
-    <input type="hidden" id="dashboardTeamId" value="1">
+    <input type="hidden" id="dashboardTeamId" value="<?= (int) $personalTeamId ?>">
 
     <script src="assets/js/theme.js" defer></script>
     <script src="assets/js/dashboard.js" defer></script>

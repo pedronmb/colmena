@@ -1,6 +1,13 @@
 -- Colmena — esquema relacional SQLite
 PRAGMA foreign_keys = ON;
 
+CREATE TABLE teams (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     email TEXT NOT NULL UNIQUE,
@@ -8,13 +15,7 @@ CREATE TABLE users (
     password_hash TEXT NOT NULL,
     role TEXT NOT NULL DEFAULT 'member' CHECK (role IN ('admin', 'lead', 'member', 'viewer')),
     availability TEXT DEFAULT 'available' CHECK (availability IN ('available', 'busy', 'away', 'offline')),
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE TABLE teams (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    description TEXT,
+    personal_team_id INTEGER REFERENCES teams(id),
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

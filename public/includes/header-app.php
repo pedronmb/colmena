@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 $pageTitle = $pageTitle ?? '';
 $pageLead = $pageLead ?? '';
+$personalTeamId = $personalTeamId ?? null;
 $isAdminHeader = isset($user) && (($user['role'] ?? '') === 'admin');
 $usersHeaderActive = basename($_SERVER['SCRIPT_NAME'] ?? '') === 'users.php';
 
@@ -26,4 +27,7 @@ $usersHeaderActive = basename($_SERVER['SCRIPT_NAME'] ?? '') === 'users.php';
         <button type="button" class="btn" id="logoutBtn" title="Cerrar sesión">Salir</button>
     </div>
 </header>
+<?php if (!empty($personalTeamId) && (int) $personalTeamId > 0) { ?>
+    <input type="hidden" id="appPersonalTeamId" value="<?= (int) $personalTeamId ?>">
+<?php } ?>
 <?php require __DIR__ . '/alerts-flash.php'; ?>

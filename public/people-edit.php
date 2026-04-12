@@ -7,6 +7,7 @@ $config = require dirname(__DIR__) . '/bootstrap_web.php';
 use App\Database\Connection;
 use App\Repositories\UserRepository;
 use App\Services\AuthService;
+use App\Support\PersonalTeamBootstrap;
 
 $dbExists = file_exists($config['db']['path']);
 $user = null;
@@ -20,6 +21,8 @@ if (!$dbExists || $user === null) {
     header('Location: login.php');
     exit;
 }
+
+$personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -75,7 +78,7 @@ if (!$dbExists || $user === null) {
                         Información adicional (opcional)
                         <textarea name="extra_info" rows="3" maxlength="8000" placeholder="Notas, contexto, enlaces…"></textarea>
                     </label>
-                    <input type="hidden" name="team_id" value="1">
+                    <input type="hidden" name="team_id" value="<?= (int) $personalTeamId ?>">
                     <footer class="form__actions form__actions--inline">
                         <button type="submit" class="btn primary" id="personSubmit">
                             <span class="btn__label">Añadir tarjeta</span>
@@ -88,7 +91,7 @@ if (!$dbExists || $user === null) {
         <section class="panel">
             <h2 class="panel__title">Listado</h2>
             <p class="muted panel__lead">Pulsa <strong>Editar</strong> para abrir el formulario.</p>
-            <input type="hidden" id="editTeamId" value="1">
+            <input type="hidden" id="editTeamId" value="<?= (int) $personalTeamId ?>">
             <div id="editListWrap" class="edit-list-wrap">
                 <p class="muted" id="editListLoading">Cargando…</p>
                 <table class="data-table" id="editListTable" hidden>
@@ -118,7 +121,7 @@ if (!$dbExists || $user === null) {
             <form id="editForm" class="form">
                 <div id="editFormError" class="form-error" hidden role="alert"></div>
                 <input type="hidden" name="id" id="editPersonId">
-                <input type="hidden" name="team_id" id="editTeamIdField" value="1">
+                <input type="hidden" name="team_id" id="editTeamIdField" value="<?= (int) $personalTeamId ?>">
                 <label>
                     Nombre en la tarjeta
                     <input name="display_name" id="editDisplayName" type="text" required maxlength="120" autocomplete="off">

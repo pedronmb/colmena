@@ -16,6 +16,7 @@ use App\Database\Connection;
 use App\Repositories\AlertRepository;
 use App\Repositories\UserRepository;
 use App\Services\AuthService;
+use App\Services\PersonalWorkspaceService;
 
 try {
     if (!file_exists($config['db']['path'])) {
@@ -27,7 +28,7 @@ try {
     if ($user === null) {
         return;
     }
-    $teamId = 1;
+    $teamId = PersonalWorkspaceService::ensureForUser($pdo, (int) $user['id']);
     $repo = new AlertRepository($pdo);
     $list = $repo->listDueForBanner($teamId);
     if ($list === []) {

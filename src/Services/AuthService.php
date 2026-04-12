@@ -53,7 +53,7 @@ final class AuthService
         return (int) $_SESSION[self::SESSION_KEY];
     }
 
-    /** @return array{id:int,email:string,display_name:string,role:string,availability:string}|null */
+    /** @return array{id:int,email:string,display_name:string,role:string,availability:string,personal_team_id:?int}|null */
     public function currentUser(): ?array
     {
         $id = $this->userId();

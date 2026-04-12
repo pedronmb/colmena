@@ -7,6 +7,7 @@ $config = require dirname(__DIR__) . '/bootstrap_web.php';
 use App\Database\Connection;
 use App\Repositories\UserRepository;
 use App\Services\AuthService;
+use App\Support\PersonalTeamBootstrap;
 
 $dbExists = file_exists($config['db']['path']);
 $user = null;
@@ -20,6 +21,8 @@ if (!$dbExists || $user === null) {
     header('Location: login.php');
     exit;
 }
+
+$personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -61,7 +64,7 @@ if (!$dbExists || $user === null) {
                     Notas (opcional)
                     <textarea name="body" rows="2" maxlength="4000" placeholder="Detalle o enlace interno"></textarea>
                 </label>
-                <input type="hidden" name="team_id" value="1">
+                <input type="hidden" name="team_id" value="<?= (int) $personalTeamId ?>">
                 <footer class="form__actions form__actions--block">
                     <button type="button" class="btn" id="alertCancelEdit" hidden>Cancelar edición</button>
                     <button type="submit" class="btn primary" id="alertSubmit">Guardar alerta</button>

@@ -7,6 +7,7 @@ $config = require dirname(__DIR__) . '/bootstrap_web.php';
 use App\Database\Connection;
 use App\Repositories\UserRepository;
 use App\Services\AuthService;
+use App\Support\PersonalTeamBootstrap;
 
 $dbExists = file_exists($config['db']['path']);
 $user = null;
@@ -20,6 +21,8 @@ if (!$dbExists || $user === null) {
     header('Location: login.php');
     exit;
 }
+
+$personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -68,7 +71,7 @@ if (!$dbExists || $user === null) {
                 </label>
                 <p class="muted people-board-search__hint">Escribe nombre, rol o email y elige una persona para abrir su tarjeta.</p>
             </div>
-            <div id="peopleBoard" class="people-board" data-team-id="1" aria-live="polite">
+            <div id="peopleBoard" class="people-board" data-team-id="<?= (int) $personalTeamId ?>" aria-live="polite">
                 <p class="muted people-board__loading">Cargando…</p>
             </div>
         </section>
@@ -100,7 +103,7 @@ if (!$dbExists || $user === null) {
             <form id="personTopicEditForm" class="form">
                 <div id="personTopicEditError" class="form-error" hidden role="alert"></div>
                 <input type="hidden" name="topic_id" id="pteTopicId" value="">
-                <input type="hidden" name="team_id" id="pteTeamId" value="1">
+                <input type="hidden" name="team_id" id="pteTeamId" value="<?= (int) $personalTeamId ?>">
                 <label>
                     Título
                     <input name="title" id="pteTitle" type="text" required maxlength="200" autocomplete="off">

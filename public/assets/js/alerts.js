@@ -3,8 +3,25 @@
  */
 (function () {
     const apiUrl = "api/alerts.php";
-    const teamId = 1;
     const form = document.getElementById("alertForm");
+
+    function getTeamId() {
+        const appEl = document.getElementById("appPersonalTeamId");
+        if (appEl) {
+            const n = Number(appEl.value);
+            if (Number.isFinite(n) && n > 0) {
+                return n;
+            }
+        }
+        const el = document.querySelector('#alertForm input[name="team_id"]');
+        if (el) {
+            const n = Number(el.value);
+            if (Number.isFinite(n) && n > 0) {
+                return n;
+            }
+        }
+        return 0;
+    }
     const submitBtn = document.getElementById("alertSubmit");
     const cancelEditBtn = document.getElementById("alertCancelEdit");
     const errorEl = document.getElementById("alertFormError");
@@ -98,6 +115,13 @@
     }
 
     async function loadAlerts() {
+        const teamId = getTeamId();
+        if (teamId < 1) {
+            if (loadingEl) {
+                loadingEl.textContent = "No se pudo determinar el equipo de trabajo.";
+            }
+            return;
+        }
         if (loadingEl) {
             loadingEl.hidden = false;
         }
@@ -144,6 +168,14 @@
         const due = String(fd.get("due_date") || "").trim();
         const body = String(fd.get("body") || "").trim() || null;
         if (!title || !due) {
+            return;
+        }
+        const teamId = getTeamId();
+        if (teamId < 1) {
+            if (errorEl) {
+                errorEl.textContent = "No se pudo determinar el equipo de trabajo.";
+                errorEl.hidden = false;
+            }
             return;
         }
         const isEdit = editingAlertId !== null;
@@ -210,6 +242,11 @@
             return;
         }
         if (!window.confirm("¿Eliminar esta alerta?")) {
+            return;
+        }
+        const teamId = getTeamId();
+        if (teamId < 1) {
+            alert("No se pudo determinar el equipo de trabajo.");
             return;
         }
         t.disabled = true;
