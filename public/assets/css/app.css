@@ -430,6 +430,39 @@ body {
     align-items: flex-end;
 }
 
+.scratchpad-upload.form--inline {
+    align-items: flex-end;
+}
+
+.scratchpad-files-wrap {
+    margin-top: 1rem;
+}
+
+.scratchpad-editor {
+    width: 100%;
+}
+
+.scratchpad-editor__field {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+    min-height: min(52vh, 32rem);
+    font: inherit;
+    line-height: 1.45;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--form-input-bg);
+    color: var(--text);
+    resize: vertical;
+}
+
+.scratchpad-editor__field:focus {
+    outline: 2px solid var(--accent-soft);
+    border-color: var(--accent);
+}
+
 .alerts-list-wrap {
     margin-top: 0.5rem;
 }

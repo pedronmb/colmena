@@ -86,3 +86,22 @@ CREATE TABLE team_alerts (
 
 CREATE INDEX idx_team_alerts_team ON team_alerts(team_id);
 CREATE INDEX idx_team_alerts_due ON team_alerts(due_date);
+
+-- Bloc de notas y archivos personales (por usuario logueado)
+CREATE TABLE user_scratchpad (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    content TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE user_files (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    original_name TEXT NOT NULL,
+    stored_name TEXT NOT NULL UNIQUE,
+    mime_type TEXT,
+    size_bytes INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX idx_user_files_user ON user_files(user_id);
