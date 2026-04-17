@@ -465,6 +465,24 @@ body {
 
 .alerts-list-wrap {
     margin-top: 0.5rem;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+}
+
+.alerts-table {
+    table-layout: fixed;
+}
+
+.alerts-table th:nth-child(1),
+.alerts-table td:nth-child(1) {
+    width: 7rem;
+}
+
+.alerts-table td:nth-child(2),
+.alerts-table td:nth-child(3) {
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .alerts-table th:last-child,
