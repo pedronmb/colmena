@@ -118,6 +118,10 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                         <option value="very_high">Muy alta</option>
                     </select>
                 </label>
+                <label id="topicCompletedWrap" class="topic-toolbar__toggle" hidden>
+                    <input type="checkbox" id="topicCompletedField" name="completed" value="1">
+                    Tema resuelto
+                </label>
                 <label class="form__full topic-person-field">
                     Persona (tarjeta)
                     <div class="topic-person-combobox" id="topicPersonCombobox">

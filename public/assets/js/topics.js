@@ -10,6 +10,8 @@
     const submitLabel = document.getElementById("submitTopicLabel");
     const modalTitle = document.getElementById("modalTitle");
     const topicIdField = document.getElementById("topicIdField");
+    const topicCompletedWrap = document.getElementById("topicCompletedWrap");
+    const topicCompletedField = document.getElementById("topicCompletedField");
     const personIdHidden = document.getElementById("topicPersonId");
     const personSearchInput = document.getElementById("topicPersonSearch");
     const personListbox = document.getElementById("topicPersonListbox");
@@ -44,6 +46,7 @@
 
     /** @type {string} */
     let lastIncludeDone = "0";
+    let editingTopicInitialCompleted = false;
 
     /** Personas del equipo para el combobox del modal (objetos API) */
     /** @type {object[]} */
@@ -227,12 +230,18 @@
         modal.hidden = true;
         document.body.style.overflow = "";
         if (topicIdField) topicIdField.value = "";
+        if (topicCompletedWrap) topicCompletedWrap.hidden = true;
+        if (topicCompletedField) topicCompletedField.checked = false;
+        editingTopicInitialCompleted = false;
         if (modalTitle) modalTitle.textContent = "Nuevo tema";
         if (submitLabel) submitLabel.textContent = "Crear tema";
     }
 
     async function openModalCreate(preselectedPersonId) {
         if (topicIdField) topicIdField.value = "";
+        if (topicCompletedWrap) topicCompletedWrap.hidden = true;
+        if (topicCompletedField) topicCompletedField.checked = false;
+        editingTopicInitialCompleted = false;
         if (modalTitle) modalTitle.textContent = "Nuevo tema";
         if (submitLabel) submitLabel.textContent = "Crear tema";
         form.reset();
@@ -271,6 +280,12 @@
             }
             const t = data.topic;
             if (topicIdField) topicIdField.value = String(t.id);
+            if (topicCompletedWrap) topicCompletedWrap.hidden = false;
+            if (topicCompletedField) {
+                const isCompleted = t.status === "done";
+                topicCompletedField.checked = isCompleted;
+                editingTopicInitialCompleted = isCompleted;
+            }
             if (modalTitle) modalTitle.textContent = "Editar tema";
             if (submitLabel) submitLabel.textContent = "Guardar cambios";
 
@@ -866,6 +881,14 @@
                 }
                 if (!res.ok || !data.ok) {
                     throw new Error(data.error || res.statusText);
+                }
+                const requestedCompleted =
+                    !!topicCompletedField &&
+                    !!topicCompletedWrap &&
+                    !topicCompletedWrap.hidden &&
+                    topicCompletedField.checked;
+                if (requestedCompleted !== editingTopicInitialCompleted) {
+                    await patchCompleted(editId, requestedCompleted);
                 }
                 if (data.topic && data.topic.person_id != null) {
                     const pid = Number(data.topic.person_id);
