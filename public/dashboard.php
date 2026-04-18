@@ -134,8 +134,11 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
 
     <input type="hidden" id="dashboardTeamId" value="<?= (int) $personalTeamId ?>">
 
+    <?php require __DIR__ . '/includes/topic-modal.php'; ?>
+
     <script src="assets/js/theme.js" defer></script>
     <script src="assets/js/dashboard.js" defer></script>
+    <script src="assets/js/topics.js" defer></script>
     <script src="assets/js/app-shell.js" defer></script>
 </body>
 </html>

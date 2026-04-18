@@ -1559,6 +1559,24 @@ select.topic-toolbar__search-input {
     text-decoration: underline;
 }
 
+/* Hacer hoy: filas realizadas en verde */
+#dashboardPanelFocus .dashboard-table tbody tr.dashboard-focus-row--done {
+    background: var(--pill-low-bg);
+}
+
+#dashboardPanelFocus .dashboard-table tbody tr.dashboard-focus-row--done td {
+    color: var(--pill-low-text);
+}
+
+#dashboardPanelFocus .dashboard-table tbody tr.dashboard-focus-row--done td a:not(.btn) {
+    color: var(--accent-success);
+}
+
+#dashboardPanelFocus .dashboard-table tbody tr.dashboard-focus-row--done td a:not(.btn):hover {
+    color: var(--accent-success);
+    filter: brightness(0.92);
+}
+
 /* Calendario anual de alertas (dashboard) */
 .year-cal__nav {
     display: flex;

@@ -37,6 +37,11 @@
 
     const WEEKDAY_LABELS = ["L", "M", "X", "J", "V", "S", "D"];
 
+    const VALID_PANELS = new Set(["matrix", "list", "focus", "calendar"]);
+
+    /** Panel de pestaña activo; usado en enlaces de edición para permanecer en el dashboard */
+    let activePanelKey = "matrix";
+
     /** @type {object[]} */
     let lastAlerts = [];
 
@@ -304,6 +309,90 @@
         return d.innerHTML;
     }
 
+    function readPanelFromUrl() {
+        try {
+            const p = new URLSearchParams(window.location.search).get("panel");
+            if (p && VALID_PANELS.has(p)) {
+                return p;
+            }
+        } catch (e) {
+            /* ignore */
+        }
+        return "matrix";
+    }
+
+    function topicEditHref(topicId) {
+        const id = encodeURIComponent(String(topicId));
+        const panel = encodeURIComponent(activePanelKey);
+        return `dashboard.php?topic=${id}&panel=${panel}`;
+    }
+
+    /** Actualiza solo ?panel= según la pestaña (conserva ?topic= si existe — el modal aún no abrió). */
+    function pushPanelToDashboardUrl() {
+        try {
+            if (!window.location.pathname.endsWith("dashboard.php")) {
+                return;
+            }
+            const u = new URL(window.location.href);
+            u.searchParams.set("panel", activePanelKey);
+            const qs = u.searchParams.toString();
+            window.history.replaceState(
+                {},
+                "",
+                u.pathname + (qs ? "?" + qs : "") + (u.hash || "")
+            );
+        } catch (e) {
+            /* ignore */
+        }
+    }
+
+    /** Tras cerrar el modal: ?panel= acorde a la vista y se quita ?topic=. */
+    function finalizeDashboardUrlAfterModalClose() {
+        try {
+            if (!window.location.pathname.endsWith("dashboard.php")) {
+                return;
+            }
+            const u = new URL(window.location.href);
+            u.searchParams.set("panel", activePanelKey);
+            u.searchParams.delete("topic");
+            const qs = u.searchParams.toString();
+            window.history.replaceState(
+                {},
+                "",
+                u.pathname + (qs ? "?" + qs : "") + (u.hash || "")
+            );
+        } catch (e) {
+            /* ignore */
+        }
+    }
+
+    /** Actualiza hrefs de temas al cambiar de pestaña (el render inicial usaba otro panel). */
+    function patchDashboardTopicLinks() {
+        matrixRoot?.querySelectorAll("a.matrix-dot[data-topic-id]").forEach((a) => {
+            const id = a.getAttribute("data-topic-id");
+            if (id) {
+                a.setAttribute("href", topicEditHref(id));
+            }
+        });
+        [listBody, focusBody].forEach((tb) => {
+            tb?.querySelectorAll('a[href*="dashboard.php?topic="]').forEach((a) => {
+                const href = a.getAttribute("href");
+                if (!href) {
+                    return;
+                }
+                try {
+                    const u = new URL(href, window.location.origin);
+                    const tid = u.searchParams.get("topic");
+                    if (tid) {
+                        a.setAttribute("href", topicEditHref(tid));
+                    }
+                } catch (e) {
+                    /* ignore */
+                }
+            });
+        });
+    }
+
     function urgencyNorm(p) {
         const m = {
             very_low: 0,
@@ -412,7 +501,7 @@
                           const pr = priorityLabels[t.priority] || t.priority;
                           const im = importanceLabels[t.importance || "medium"] || importanceLabels.medium;
                           const aria = `${t.title}. Persona: ${personLabel(t)}. Criticidad: ${pr}. Importancia: ${im}.`;
-                          return `<a href="index.php?topic=${encodeURIComponent(String(t.id))}" class="matrix-dot${done ? " matrix-dot--done" : ""}"
+                          return `<a href="${topicEditHref(t.id)}" class="matrix-dot${done ? " matrix-dot--done" : ""}"
             data-topic-id="${t.id}"
             style="left:${pos.left.toFixed(2)}%;bottom:${pos.bottom.toFixed(2)}%;transform:translate(calc(-50% + ${jx}px),calc(50% + ${jy}px));"
             aria-label="${escapeHtml(aria)}"></a>`;
@@ -478,11 +567,11 @@
                 const pr = priorityLabels[t.priority] || t.priority;
                 const im = importanceLabels[t.importance || "medium"] || importanceLabels.medium;
                 return `<tr>
-        <td><a href="index.php?topic=${encodeURIComponent(String(t.id))}">${escapeHtml(t.title)}</a></td>
+        <td><a href="${topicEditHref(t.id)}">${escapeHtml(t.title)}</a></td>
         <td>${escapeHtml(pr)}</td>
         <td>${escapeHtml(im)}</td>
         <td>${escapeHtml(t.status)}</td>
-        <td><a class="btn btn--small" href="index.php?topic=${encodeURIComponent(String(t.id))}">Editar</a></td>
+        <td><a class="btn btn--small" href="${topicEditHref(t.id)}">Editar</a></td>
       </tr>`;
             })
             .join("");
@@ -535,12 +624,14 @@
             .map((t) => {
                 const pr = priorityLabels[t.priority] || t.priority;
                 const im = importanceLabels[t.importance || "medium"] || importanceLabels.medium;
-                return `<tr>
-        <td><a href="index.php?topic=${encodeURIComponent(String(t.id))}">${escapeHtml(t.title)}</a></td>
+                const done = t.status === "done";
+                const rowClass = done ? ' class="dashboard-focus-row--done"' : "";
+                return `<tr${rowClass}>
+        <td><a href="${topicEditHref(t.id)}">${escapeHtml(t.title)}</a></td>
         <td>${escapeHtml(pr)}</td>
         <td>${escapeHtml(im)}</td>
         <td>${escapeHtml(t.status)}</td>
-        <td><a class="btn btn--small" href="index.php?topic=${encodeURIComponent(String(t.id))}">Editar</a></td>
+        <td><a class="btn btn--small" href="${topicEditHref(t.id)}">Editar</a></td>
       </tr>`;
             })
             .join("");
@@ -711,26 +802,30 @@
     }
 
     function setActiveTab(panel) {
+        const p = panel && VALID_PANELS.has(panel) ? panel : "matrix";
+        activePanelKey = p;
         tabButtons.forEach((btn) => {
-            const active = btn.getAttribute("data-panel") === panel;
+            const active = btn.getAttribute("data-panel") === p;
             btn.classList.toggle("dashboard-tab--active", active);
             btn.setAttribute("aria-selected", active ? "true" : "false");
         });
         if (panelMatrix) {
-            panelMatrix.hidden = panel !== "matrix";
+            panelMatrix.hidden = p !== "matrix";
         }
         if (panelList) {
-            panelList.hidden = panel !== "list";
+            panelList.hidden = p !== "list";
         }
         if (panelFocus) {
-            panelFocus.hidden = panel !== "focus";
+            panelFocus.hidden = p !== "focus";
         }
         if (panelCalendar) {
-            panelCalendar.hidden = panel !== "calendar";
+            panelCalendar.hidden = p !== "calendar";
         }
-        if (panel !== "calendar") {
+        if (p !== "calendar") {
             hideCalendarDayPopup();
         }
+        patchDashboardTopicLinks();
+        pushPanelToDashboardUrl();
     }
 
     tabButtons.forEach((btn) => {
@@ -758,6 +853,16 @@
 
     window.addEventListener("scroll", bindMatrixPopupScrollClose, true);
     window.addEventListener("resize", bindMatrixPopupScrollClose);
+
+    setActiveTab(readPanelFromUrl());
+
+    window.addEventListener("colmena:topics-changed", () => {
+        loadDashboard();
+    });
+
+    window.addEventListener("colmena:dashboard-modal-closed", () => {
+        finalizeDashboardUrlAfterModalClose();
+    });
 
     loadDashboard();
 })();

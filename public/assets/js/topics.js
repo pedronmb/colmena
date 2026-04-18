@@ -139,20 +139,27 @@
         }
     }
 
-    async function loadTeamPeople() {
+    /**
+     * @param {{ skipLoadingUi?: boolean }} [options]
+     * Si skipLoadingUi es true (p. ej. al abrir el modal), no se muestra «Cargando…» ni se deshabilita el campo.
+     */
+    async function loadTeamPeople(options) {
+        const skipLoadingUi = options && options.skipLoadingUi;
         const teamId = getTeamId();
         if (!teamId || (!personIdHidden && !personFilterSelect)) {
             return;
         }
         const prevFilter = personFilterSelect ? personFilterSelect.value : "";
-        if (personSearchInput) {
-            personSearchInput.placeholder = "Cargando…";
-            personSearchInput.disabled = true;
-        }
-        if (personFilterSelect) {
-            personFilterSelect.innerHTML =
-                '<option value="">Cargando…</option>';
-            personFilterSelect.disabled = true;
+        if (!skipLoadingUi) {
+            if (personSearchInput) {
+                personSearchInput.placeholder = "Cargando…";
+                personSearchInput.disabled = true;
+            }
+            if (personFilterSelect) {
+                personFilterSelect.innerHTML =
+                    '<option value="">Cargando…</option>';
+                personFilterSelect.disabled = true;
+            }
         }
         try {
             const res = await fetch(
@@ -235,6 +242,7 @@
         editingTopicInitialCompleted = false;
         if (modalTitle) modalTitle.textContent = "Nuevo tema";
         if (submitLabel) submitLabel.textContent = "Crear tema";
+        window.dispatchEvent(new CustomEvent("colmena:dashboard-modal-closed"));
     }
 
     async function openModalCreate(preselectedPersonId) {
@@ -246,7 +254,7 @@
         if (submitLabel) submitLabel.textContent = "Crear tema";
         form.reset();
         showModal();
-        await loadTeamPeople();
+        await loadTeamPeople({ skipLoadingUi: true });
         if (preselectedPersonId != null) {
             const pid = Number(preselectedPersonId);
             if (Number.isFinite(pid) && pid > 0) {
@@ -264,12 +272,12 @@
     async function openModalEdit(topicId) {
         const teamId = getTeamId();
         if (!teamId || !Number.isFinite(topicId)) return;
-        await loadTeamPeople();
         try {
-            const res = await fetch(
-                `${topicOneUrl}?id=${encodeURIComponent(String(topicId))}&team_id=${encodeURIComponent(String(teamId))}`,
-                { credentials: "same-origin" }
-            );
+            const topicUrl = `${topicOneUrl}?id=${encodeURIComponent(String(topicId))}&team_id=${encodeURIComponent(String(teamId))}`;
+            const [, res] = await Promise.all([
+                loadTeamPeople({ skipLoadingUi: true }),
+                fetch(topicUrl, { credentials: "same-origin" }),
+            ]);
             const data = await res.json().catch(() => ({}));
             if (res.status === 401) {
                 window.location.href = "login.php";
@@ -924,9 +932,10 @@
             if (topicIdField) topicIdField.value = "";
             if (modalTitle) modalTitle.textContent = "Nuevo tema";
             if (submitLabel) submitLabel.textContent = "Crear tema";
-            await loadTeamPeople();
+            await loadTeamPeople({ skipLoadingUi: true });
             closeModal();
             await loadTopics();
+            window.dispatchEvent(new CustomEvent("colmena:topics-changed"));
         } catch (err) {
             alert(err instanceof Error ? err.message : "Error al guardar el tema");
         } finally {
@@ -937,6 +946,77 @@
 
     loadTopics();
 
+    function stripTopicQueryParamFromUrl() {
+        try {
+            const u = new URL(window.location.href);
+            if (!u.searchParams.has("topic")) {
+                return;
+            }
+            u.searchParams.delete("topic");
+            const qs = u.searchParams.toString();
+            window.history.replaceState(
+                {},
+                "",
+                u.pathname + (qs ? "?" + qs : "") + (u.hash || "")
+            );
+        } catch (e) {
+            /* ignore */
+        }
+    }
+
+    function stripPersonIdQueryParamFromUrl() {
+        try {
+            const u = new URL(window.location.href);
+            if (!u.searchParams.has("person_id")) {
+                return;
+            }
+            u.searchParams.delete("person_id");
+            const qs = u.searchParams.toString();
+            window.history.replaceState(
+                {},
+                "",
+                u.pathname + (qs ? "?" + qs : "") + (u.hash || "")
+            );
+        } catch (e) {
+            /* ignore */
+        }
+    }
+
+    /** Evita recargar la página: los enlaces a dashboard.php?topic= abren el modal por JS. */
+    document.body.addEventListener("click", (e) => {
+        const t = e.target;
+        if (!(t instanceof Element)) {
+            return;
+        }
+        const a = t.closest("a[href]");
+        if (!a) {
+            return;
+        }
+        const href = a.getAttribute("href");
+        if (!href || href.startsWith("#")) {
+            return;
+        }
+        let url;
+        try {
+            url = new URL(href, window.location.origin);
+        } catch {
+            return;
+        }
+        if (!url.pathname.endsWith("dashboard.php")) {
+            return;
+        }
+        const topicStr = url.searchParams.get("topic");
+        if (!topicStr) {
+            return;
+        }
+        const n = Number(topicStr);
+        if (!Number.isFinite(n) || n < 1) {
+            return;
+        }
+        e.preventDefault();
+        openModalEdit(n).then(() => stripTopicQueryParamFromUrl());
+    });
+
     (function openTopicFromQuery() {
         const params = new URLSearchParams(window.location.search);
         const tid = params.get("topic");
@@ -945,20 +1025,7 @@
             if (!Number.isFinite(n) || n < 1) {
                 return;
             }
-            openModalEdit(n).then(() => {
-                try {
-                    const u = new URL(window.location.href);
-                    u.searchParams.delete("topic");
-                    const qs = u.searchParams.toString();
-                    window.history.replaceState(
-                        {},
-                        "",
-                        u.pathname + (qs ? "?" + qs : "") + (u.hash || "")
-                    );
-                } catch (e) {
-                    /* ignore */
-                }
-            });
+            openModalEdit(n).then(() => stripTopicQueryParamFromUrl());
             return;
         }
         const pidRaw = params.get("person_id");
@@ -969,19 +1036,15 @@
         if (!Number.isFinite(pid) || pid < 1) {
             return;
         }
-        openModalCreate(pid).then(() => {
-            try {
-                const u = new URL(window.location.href);
-                u.searchParams.delete("person_id");
-                const qs = u.searchParams.toString();
-                window.history.replaceState(
-                    {},
-                    "",
-                    u.pathname + (qs ? "?" + qs : "") + (u.hash || "")
-                );
-            } catch (e) {
-                /* ignore */
-            }
-        });
+        openModalCreate(pid).then(() => stripPersonIdQueryParamFromUrl());
     })();
+
+    /** Si el envío del formulario falla antes de preventDefault, no recargar la página (form sin action). */
+    form?.addEventListener(
+        "submit",
+        (e) => {
+            e.preventDefault();
+        },
+        true
+    );
 })();
