@@ -400,21 +400,29 @@
         document.getElementById("pteImportance").value = t.importance || "medium";
 
         const pid = t.person_id != null ? Number(t.person_id) : NaN;
+        if (ptePersonWrap) {
+            ptePersonWrap.hidden = false;
+        }
+        if (ptePersonId) {
+            ptePersonId.value = "";
+        }
+        try {
+            await loadTeamPeopleOptions();
+        } catch (e) {
+            alert(e instanceof Error ? e.message : "Error");
+            return;
+        }
+        if (!ptePersonSelect || ptePersonSelect.options.length === 0) {
+            alert("No hay tarjetas de persona en el equipo. Alta en Editar fichas.");
+            return;
+        }
         if (Number.isFinite(pid) && pid > 0) {
-            if (ptePersonWrap) ptePersonWrap.hidden = true;
-            if (ptePersonId) ptePersonId.value = String(pid);
+            const hasOpt = Array.from(ptePersonSelect.options).some(
+                (o) => Number(o.value) === pid
+            );
+            ptePersonSelect.value = hasOpt ? String(pid) : ptePersonSelect.options[0].value;
         } else {
-            if (ptePersonId) ptePersonId.value = "";
-            if (ptePersonWrap) ptePersonWrap.hidden = false;
-            try {
-                await loadTeamPeopleOptions();
-            } catch (e) {
-                alert(e instanceof Error ? e.message : "Error");
-                return;
-            }
-            if (ptePersonSelect && ptePersonSelect.options.length > 0) {
-                ptePersonSelect.value = ptePersonSelect.options[0].value;
-            }
+            ptePersonSelect.value = ptePersonSelect.options[0].value;
         }
 
         personTopicEditModal.hidden = false;

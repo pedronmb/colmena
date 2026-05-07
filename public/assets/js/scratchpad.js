@@ -122,14 +122,14 @@
             <td><strong>${escapeHtml(String(f.original_name ?? ""))}</strong></td>
             <td class="muted">${escapeHtml(formatBytes(f.size_bytes))}</td>
             <td class="muted">${escapeHtml(String(f.created_at ?? "").slice(0, 19).replace("T", " "))}</td>
-            <td><div class="alerts-table__actions">
+            <td><div class="scratchpad-files__actions">
                 <a class="btn btn--small" href="${apiDownload}?id=${encodeURIComponent(String(f.id))}">Descargar</a>
                 <button type="button" class="btn btn--small" data-delete-file-id="${f.id}">Eliminar</button>
             </div></td>
         </tr>`
             )
             .join("");
-        filesRoot.innerHTML = `<table class="data-table alerts-table">
+        filesRoot.innerHTML = `<table class="data-table scratchpad-files-table">
             <thead><tr><th>Nombre</th><th>Tamaño</th><th>Subido</th><th></th></tr></thead>
             <tbody>${rows}</tbody>
         </table>`;

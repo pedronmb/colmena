@@ -28,6 +28,10 @@
     const topicOneUrl = "api/topic.php";
     const peopleApi = "api/team-people.php";
 
+    function isDashboardPath(pathname) {
+        return /\/dashboard\.php$/i.test(pathname);
+    }
+
     function getTeamId() {
         const input = document.querySelector('input[name="team_id"]');
         const n = input ? Number(input.value) : 0;
@@ -1002,7 +1006,7 @@
         } catch {
             return;
         }
-        if (!url.pathname.endsWith("dashboard.php")) {
+        if (!isDashboardPath(url.pathname)) {
             return;
         }
         const topicStr = url.searchParams.get("topic");

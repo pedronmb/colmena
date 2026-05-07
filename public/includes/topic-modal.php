@@ -1,5 +1,6 @@
 <?php
 /** @var int $personalTeamId */
+$topicFormAction = $topicFormAction ?? basename($_SERVER['SCRIPT_NAME'] ?? 'index.php');
 ?>
     <div id="topicModal" class="modal" hidden aria-modal="true" role="dialog" aria-labelledby="modalTitle">
         <div class="modal__backdrop" data-close></div>
@@ -8,7 +9,7 @@
                 <h2 id="modalTitle">Nuevo tema</h2>
                 <button type="button" class="icon-btn" data-close aria-label="Cerrar"><?php require __DIR__ . '/icon-close.php'; ?></button>
             </header>
-            <form id="topicForm" class="form">
+            <form id="topicForm" class="form" method="post" action="<?= htmlspecialchars($topicFormAction, ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="topic_id" id="topicIdField" value="">
                 <label>
                     Título

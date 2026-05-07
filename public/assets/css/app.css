@@ -436,6 +436,47 @@ body {
 
 .scratchpad-files-wrap {
     margin-top: 1rem;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+}
+
+/* Bloc personal: columnas distintas a alertas (nombre largo, no fecha en col 1) */
+.scratchpad-files-table {
+    table-layout: auto;
+}
+
+.scratchpad-files-table th:nth-child(1),
+.scratchpad-files-table td:nth-child(1) {
+    width: auto;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.scratchpad-files-table th:nth-child(2),
+.scratchpad-files-table td:nth-child(2),
+.scratchpad-files-table th:nth-child(3),
+.scratchpad-files-table td:nth-child(3) {
+    width: 1%;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.scratchpad-files-table th:last-child,
+.scratchpad-files-table td:last-child {
+    text-align: right;
+    vertical-align: middle;
+    white-space: normal;
+    width: 1%;
+}
+
+.scratchpad-files__actions {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.5rem;
 }
 
 .scratchpad-editor {
@@ -874,21 +915,30 @@ select.topic-toolbar__search-input {
     inset: 0;
     z-index: 50;
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
-    padding: 1rem;
+    padding: max(1rem, env(safe-area-inset-top, 0px)) max(1rem, env(safe-area-inset-right, 0px))
+        max(1rem, env(safe-area-inset-bottom, 0px)) max(1rem, env(safe-area-inset-left, 0px));
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
 }
 
 .modal__backdrop {
-    position: absolute;
+    position: fixed;
     inset: 0;
+    z-index: 0;
     background: var(--modal-backdrop);
     backdrop-filter: blur(2px);
 }
 
 .modal__card {
     position: relative;
+    z-index: 1;
+    flex-shrink: 0;
     width: min(100%, 440px);
+    margin-top: auto;
+    margin-bottom: auto;
     background: var(--surface);
     border-radius: var(--radius);
     border: 1px solid var(--border);

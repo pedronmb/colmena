@@ -37,6 +37,10 @@
 
     const WEEKDAY_LABELS = ["L", "M", "X", "J", "V", "S", "D"];
 
+    function isDashboardPath(pathname) {
+        return /\/dashboard\.php$/i.test(pathname);
+    }
+
     const VALID_PANELS = new Set(["matrix", "list", "focus", "calendar"]);
 
     /** Panel de pestaña activo; usado en enlaces de edición para permanecer en el dashboard */
@@ -330,7 +334,7 @@
     /** Actualiza solo ?panel= según la pestaña (conserva ?topic= si existe — el modal aún no abrió). */
     function pushPanelToDashboardUrl() {
         try {
-            if (!window.location.pathname.endsWith("dashboard.php")) {
+            if (!isDashboardPath(window.location.pathname)) {
                 return;
             }
             const u = new URL(window.location.href);
@@ -349,7 +353,7 @@
     /** Tras cerrar el modal: ?panel= acorde a la vista y se quita ?topic=. */
     function finalizeDashboardUrlAfterModalClose() {
         try {
-            if (!window.location.pathname.endsWith("dashboard.php")) {
+            if (!isDashboardPath(window.location.pathname)) {
                 return;
             }
             const u = new URL(window.location.href);

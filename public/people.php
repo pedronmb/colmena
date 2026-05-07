@@ -132,7 +132,7 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                         <option value="very_high">Muy alta</option>
                     </select>
                 </label>
-                <label id="ptePersonWrap" class="form__full" hidden>
+                <label id="ptePersonWrap" class="form__full">
                     Persona (tarjeta)
                     <select id="ptePersonSelect" aria-label="Persona asignada al tema"></select>
                 </label>
