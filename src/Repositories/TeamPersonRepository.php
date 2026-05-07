@@ -23,11 +23,22 @@ final class TeamPersonRepository
         ?string $email,
         ?string $role,
         ?string $birthday,
-        ?string $extraInfo
+        ?string $extraInfo,
+        ?int $axisStrategicVision = null,
+        ?int $axisTechnicalExecution = null,
+        ?int $axisTeamManagement = null,
+        ?int $axisDataRisk = null,
+        ?int $axisInnovation = null
     ): int {
         $stmt = $this->pdo->prepare(
-            'INSERT INTO team_people (team_id, display_name, email, role, birthday, extra_info)
-             VALUES (:tid, :name, :email, :role, :birthday, :extra)'
+            'INSERT INTO team_people (
+                team_id, display_name, email, role, birthday, extra_info,
+                axis_strategic_vision, axis_technical_execution, axis_team_management,
+                axis_data_risk, axis_innovation
+             ) VALUES (
+                :tid, :name, :email, :role, :birthday, :extra,
+                :axis_sv, :axis_te, :axis_tm, :axis_dr, :axis_in
+             )'
         );
         $stmt->execute([
             'tid' => $teamId,
@@ -36,6 +47,11 @@ final class TeamPersonRepository
             'role' => $role !== null && trim($role) !== '' ? trim($role) : null,
             'birthday' => $birthday,
             'extra' => $extraInfo !== null && trim($extraInfo) !== '' ? trim($extraInfo) : null,
+            'axis_sv' => $axisStrategicVision,
+            'axis_te' => $axisTechnicalExecution,
+            'axis_tm' => $axisTeamManagement,
+            'axis_dr' => $axisDataRisk,
+            'axis_in' => $axisInnovation,
         ]);
 
         return (int) $this->pdo->lastInsertId();
@@ -47,7 +63,12 @@ final class TeamPersonRepository
         ?string $email,
         ?string $role,
         ?string $birthday,
-        ?string $extraInfo
+        ?string $extraInfo,
+        ?int $axisStrategicVision,
+        ?int $axisTechnicalExecution,
+        ?int $axisTeamManagement,
+        ?int $axisDataRisk,
+        ?int $axisInnovation
     ): void {
         $stmt = $this->pdo->prepare(
             'UPDATE team_people SET
@@ -55,7 +76,12 @@ final class TeamPersonRepository
                 email = :email,
                 role = :role,
                 birthday = :birthday,
-                extra_info = :extra
+                extra_info = :extra,
+                axis_strategic_vision = :axis_sv,
+                axis_technical_execution = :axis_te,
+                axis_team_management = :axis_tm,
+                axis_data_risk = :axis_dr,
+                axis_innovation = :axis_in
              WHERE id = :id'
         );
         $stmt->execute([
@@ -65,6 +91,11 @@ final class TeamPersonRepository
             'role' => $role !== null && trim($role) !== '' ? trim($role) : null,
             'birthday' => $birthday,
             'extra' => $extraInfo !== null && trim($extraInfo) !== '' ? trim($extraInfo) : null,
+            'axis_sv' => $axisStrategicVision,
+            'axis_te' => $axisTechnicalExecution,
+            'axis_tm' => $axisTeamManagement,
+            'axis_dr' => $axisDataRisk,
+            'axis_in' => $axisInnovation,
         ]);
     }
 
@@ -85,15 +116,48 @@ final class TeamPersonRepository
             'extra_info' => isset($row['extra_info']) && $row['extra_info'] !== null && $row['extra_info'] !== ''
                 ? (string) $row['extra_info']
                 : null,
+            'axis_strategic_vision' => $this->mapAxisColumn($row['axis_strategic_vision'] ?? null),
+            'axis_technical_execution' => $this->mapAxisColumn($row['axis_technical_execution'] ?? null),
+            'axis_team_management' => $this->mapAxisColumn($row['axis_team_management'] ?? null),
+            'axis_data_risk' => $this->mapAxisColumn($row['axis_data_risk'] ?? null),
+            'axis_innovation' => $this->mapAxisColumn($row['axis_innovation'] ?? null),
             'created_at' => (string) $row['created_at'],
         ];
     }
 
-    /** @return array{id:int,team_id:int,display_name:string,email:?string,role:?string,birthday:?string,extra_info:?string,created_at:string}|null */
+    /** @param mixed $raw */
+    private function mapAxisColumn($raw): ?int
+    {
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+
+        return max(0, min(10, (int) $raw));
+    }
+
+    /**
+     * @return array{
+     *   id:int,
+     *   team_id:int,
+     *   display_name:string,
+     *   email:?string,
+     *   role:?string,
+     *   birthday:?string,
+     *   extra_info:?string,
+     *   axis_strategic_vision:?int,
+     *   axis_technical_execution:?int,
+     *   axis_team_management:?int,
+     *   axis_data_risk:?int,
+     *   axis_innovation:?int,
+     *   created_at:string
+     * }|null
+     */
     public function findById(int $id): ?array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT id, team_id, display_name, email, role, birthday, extra_info, created_at
+            'SELECT id, team_id, display_name, email, role, birthday, extra_info,
+                    axis_strategic_vision, axis_technical_execution, axis_team_management,
+                    axis_data_risk, axis_innovation, created_at
              FROM team_people WHERE id = :id LIMIT 1'
         );
         $stmt->execute(['id' => $id]);
@@ -106,12 +170,14 @@ final class TeamPersonRepository
     }
 
     /**
-     * @return array<int, array{id:int,team_id:int,display_name:string,email:?string,role:?string,birthday:?string,extra_info:?string,created_at:string}>
+     * @return array<int, array<string, mixed>>
      */
     public function listByTeam(int $teamId): array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT id, team_id, display_name, email, role, birthday, extra_info, created_at
+            'SELECT id, team_id, display_name, email, role, birthday, extra_info,
+                    axis_strategic_vision, axis_technical_execution, axis_team_management,
+                    axis_data_risk, axis_innovation, created_at
              FROM team_people
              WHERE team_id = :tid
              ORDER BY display_name COLLATE NOCASE ASC'

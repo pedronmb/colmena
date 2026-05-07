@@ -1,5 +1,5 @@
 /**
- * Dashboards: matriz Eisenhower (urgencia × importancia), lista y foco (orden por urgencia + importancia).
+ * Dashboards: matriz Eisenhower (urgencia × importancia), lista, foco, calendario de alertas y pestaña Perfiles (pentágono).
  */
 (function () {
     const apiUrl = "api/topics.php";
@@ -15,6 +15,7 @@
     const panelList = document.getElementById("dashboardPanelList");
     const panelFocus = document.getElementById("dashboardPanelFocus");
     const panelCalendar = document.getElementById("dashboardPanelCalendar");
+    const panelPentagon = document.getElementById("dashboardPanelPentagon");
     const calendarRoot = document.getElementById("dashboardCalendarRoot");
     const dashboardCalYearLabel = document.getElementById("dashboardCalYearLabel");
     const dashboardCalPrev = document.getElementById("dashboardCalPrev");
@@ -41,7 +42,7 @@
         return /\/dashboard\.php$/i.test(pathname);
     }
 
-    const VALID_PANELS = new Set(["matrix", "list", "focus", "calendar"]);
+    const VALID_PANELS = new Set(["matrix", "list", "focus", "calendar", "pentagon"]);
 
     /** Panel de pestaña activo; usado en enlaces de edición para permanecer en el dashboard */
     let activePanelKey = "matrix";
@@ -824,6 +825,12 @@
         }
         if (panelCalendar) {
             panelCalendar.hidden = p !== "calendar";
+        }
+        if (panelPentagon) {
+            panelPentagon.hidden = p !== "pentagon";
+        }
+        if (p === "pentagon") {
+            window.ColmenaPentagonDashboard?.load();
         }
         if (p !== "calendar") {
             hideCalendarDayPopup();

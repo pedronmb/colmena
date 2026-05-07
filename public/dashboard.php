@@ -38,7 +38,7 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
     <div class="shell shell--wide">
         <?php
         $pageTitle = 'Dashboards';
-        $pageLead = 'Elegí cómo ver los temas del equipo.';
+        $pageLead = 'Elegí cómo ver los temas del equipo y los perfiles en pentágono.';
         require __DIR__ . '/includes/header-app.php';
         ?>
 
@@ -67,6 +67,9 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                 </button>
                 <button type="button" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="dashboardPanelCalendar" id="tabCalendar" data-panel="calendar">
                     Calendario
+                </button>
+                <button type="button" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="dashboardPanelPentagon" id="tabPentagon" data-panel="pentagon">
+                    Perfiles (pentágono)
                 </button>
             </div>
 
@@ -129,6 +132,20 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                 </div>
                 <div id="dashboardCalendarRoot" class="year-cal" aria-live="polite"></div>
             </div>
+
+            <div id="dashboardPanelPentagon" class="dashboard-panel" role="tabpanel" aria-labelledby="tabPentagon" hidden>
+                <div
+                    id="pentagonDashboardRoot"
+                    class="pentagon-dashboard-embed"
+                    data-team-id="<?= (int) $personalTeamId ?>"
+                >
+                    <p class="muted pentagon-dashboard__lead">
+                        Cada tarjeta del equipo tiene un gráfico radial con cinco ejes (escala <strong>0–10</strong>). Editá valores en <a href="people-edit.php">Editar fichas</a>.
+                    </p>
+                    <p class="muted" id="pentagonDashboardLoading" aria-live="polite" hidden></p>
+                    <div class="pentagon-dashboard__grid" id="pentagonDashboardGrid"></div>
+                </div>
+            </div>
         </section>
     </div>
 
@@ -136,7 +153,24 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
 
     <?php require __DIR__ . '/includes/topic-modal.php'; ?>
 
+    <div id="pentagonCardModal" class="modal" hidden aria-modal="true" role="dialog" aria-labelledby="pentagonCardModalTitle">
+        <div class="modal__backdrop" data-pentagon-modal-close></div>
+        <div class="modal__card modal__card--wide pentagon-card-modal__card">
+            <header class="modal__head">
+                <h2 id="pentagonCardModalTitle">Perfil</h2>
+                <button type="button" class="icon-btn" data-pentagon-modal-close aria-label="Cerrar"><?php require __DIR__ . '/includes/icon-close.php'; ?></button>
+            </header>
+            <div id="pentagonCardModalChart" class="pentagon-modal-chart" aria-live="polite"></div>
+            <p class="muted pentagon-card-modal__footnote" id="pentagonCardModalFootnote" hidden></p>
+            <p class="muted pentagon-card-modal__actions">
+                <a href="people-edit.php" class="btn">Editar fichas</a>
+            </p>
+        </div>
+    </div>
+
     <script src="assets/js/theme.js" defer></script>
+    <script src="assets/js/pentagon-radar-svg.js" defer></script>
+    <script src="assets/js/pentagon-dashboard.js" defer></script>
     <script src="assets/js/dashboard.js" defer></script>
     <script src="assets/js/topics.js" defer></script>
     <script src="assets/js/app-shell.js" defer></script>

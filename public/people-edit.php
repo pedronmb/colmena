@@ -78,6 +78,11 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                         Información adicional (opcional)
                         <textarea name="extra_info" rows="3" maxlength="8000" placeholder="Notas, contexto, enlaces…"></textarea>
                     </label>
+                    <?php
+                    $pentagonIdPrefix = '';
+                    $pentagonNamePrefix = '';
+                    require __DIR__ . '/includes/pentagon-profile-fields.php';
+                    ?>
                     <input type="hidden" name="team_id" value="<?= (int) $personalTeamId ?>">
                     <footer class="form__actions form__actions--inline">
                         <button type="submit" class="btn primary" id="personSubmit">
@@ -142,6 +147,11 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                     Información adicional (opcional)
                     <textarea name="extra_info" id="editExtraInfo" rows="5" maxlength="8000" placeholder="Notas, enlaces, contexto…"></textarea>
                 </label>
+                <?php
+                $pentagonIdPrefix = 'edit-';
+                $pentagonNamePrefix = 'edit_';
+                require __DIR__ . '/includes/pentagon-profile-fields.php';
+                ?>
                 <footer class="form__actions">
                     <button type="button" class="btn" data-edit-close>Cancelar</button>
                     <button type="submit" class="btn primary" id="editSubmit">

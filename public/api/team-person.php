@@ -12,6 +12,7 @@ use App\Repositories\TeamRepository;
 use App\Repositories\UserRepository;
 use App\Services\AuthService;
 use App\Support\BirthdayNormalizer;
+use App\Support\PentagonAxisNormalizer;
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
@@ -103,6 +104,13 @@ try {
         exit;
     }
 
+    $current = $peopleRepo->findById($id);
+    if ($current === null) {
+        http_response_code(404);
+        echo json_encode(['ok' => false, 'error' => 'Persona no encontrada']);
+        exit;
+    }
+
     $bRaw = $data['birthday'] ?? null;
     $birthday = BirthdayNormalizer::optional($bRaw);
     if ($birthday === false) {
@@ -111,7 +119,41 @@ try {
         exit;
     }
 
-    $peopleRepo->update($id, $displayName, $email, $role, $birthday, $extraInfo);
+    try {
+        $axisSv = array_key_exists('axis_strategic_vision', $data)
+            ? PentagonAxisNormalizer::parseOptional($data['axis_strategic_vision'])
+            : $current['axis_strategic_vision'];
+        $axisTe = array_key_exists('axis_technical_execution', $data)
+            ? PentagonAxisNormalizer::parseOptional($data['axis_technical_execution'])
+            : $current['axis_technical_execution'];
+        $axisTm = array_key_exists('axis_team_management', $data)
+            ? PentagonAxisNormalizer::parseOptional($data['axis_team_management'])
+            : $current['axis_team_management'];
+        $axisDr = array_key_exists('axis_data_risk', $data)
+            ? PentagonAxisNormalizer::parseOptional($data['axis_data_risk'])
+            : $current['axis_data_risk'];
+        $axisIn = array_key_exists('axis_innovation', $data)
+            ? PentagonAxisNormalizer::parseOptional($data['axis_innovation'])
+            : $current['axis_innovation'];
+    } catch (\InvalidArgumentException $e) {
+        http_response_code(422);
+        echo json_encode(['ok' => false, 'error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $peopleRepo->update(
+        $id,
+        $displayName,
+        $email,
+        $role,
+        $birthday,
+        $extraInfo,
+        $axisSv,
+        $axisTe,
+        $axisTm,
+        $axisDr,
+        $axisIn
+    );
     $updated = $peopleRepo->findById($id);
 
     echo json_encode(['ok' => true, 'person' => $updated], JSON_UNESCAPED_UNICODE);

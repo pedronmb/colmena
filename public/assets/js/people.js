@@ -743,6 +743,21 @@
             birthday: birthdayRaw === "" ? null : birthdayRaw,
             extra_info: extraRaw === "" ? null : extraRaw,
         };
+        const pentagonKeys = [
+            "axis_strategic_vision",
+            "axis_technical_execution",
+            "axis_team_management",
+            "axis_data_risk",
+            "axis_innovation",
+        ];
+        pentagonKeys.forEach((k) => {
+            const inp = form.querySelector(`[name="${k}"]`);
+            if (!inp) return;
+            const n = Number(inp.value);
+            if (Number.isFinite(n)) {
+                payload[k] = Math.max(0, Math.min(10, n));
+            }
+        });
 
         submitBtn.classList.add("loading");
         submitBtn.disabled = true;

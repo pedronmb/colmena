@@ -12,6 +12,7 @@ use App\Repositories\TeamRepository;
 use App\Repositories\UserRepository;
 use App\Services\AuthService;
 use App\Support\BirthdayNormalizer;
+use App\Support\PentagonAxisNormalizer;
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
@@ -98,7 +99,31 @@ try {
         exit;
     }
 
-    $newId = $peopleRepo->create($teamId, $displayName, $email, $role, $birthday, $extraInfo);
+    try {
+        $axisSv = PentagonAxisNormalizer::parseFromData($data, 'axis_strategic_vision');
+        $axisTe = PentagonAxisNormalizer::parseFromData($data, 'axis_technical_execution');
+        $axisTm = PentagonAxisNormalizer::parseFromData($data, 'axis_team_management');
+        $axisDr = PentagonAxisNormalizer::parseFromData($data, 'axis_data_risk');
+        $axisIn = PentagonAxisNormalizer::parseFromData($data, 'axis_innovation');
+    } catch (\InvalidArgumentException $e) {
+        http_response_code(422);
+        echo json_encode(['ok' => false, 'error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $newId = $peopleRepo->create(
+        $teamId,
+        $displayName,
+        $email,
+        $role,
+        $birthday,
+        $extraInfo,
+        $axisSv,
+        $axisTe,
+        $axisTm,
+        $axisDr,
+        $axisIn
+    );
     $created = $peopleRepo->findById($newId);
 
     echo json_encode(['ok' => true, 'person' => $created], JSON_UNESCAPED_UNICODE);

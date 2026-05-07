@@ -11,6 +11,34 @@
     const listUrl = "api/team-people.php";
     const oneUrl = "api/team-person.php";
 
+    const PENTAGON_AXIS_KEYS = [
+        "axis_strategic_vision",
+        "axis_technical_execution",
+        "axis_team_management",
+        "axis_data_risk",
+        "axis_innovation",
+    ];
+
+    function editModalAxisFieldName(apiKey) {
+        return "edit_" + apiKey;
+    }
+
+    function wirePentagonRanges(root) {
+        if (!root) return;
+        root.querySelectorAll("input.pentagon-axis-range").forEach((input) => {
+            const out = document.getElementById(`${input.id}_out`);
+            if (!out) return;
+            const sync = () => {
+                out.textContent = input.value;
+            };
+            input.addEventListener("input", sync);
+            sync();
+        });
+    }
+
+    wirePentagonRanges(document.getElementById("personForm"));
+    wirePentagonRanges(form);
+
     function getTeamId() {
         const n = teamInput ? Number(teamInput.value) : 0;
         return Number.isFinite(n) && n > 0 ? n : 0;
@@ -78,6 +106,17 @@
             window.ColmenaBirthday.fillBirthdayFields(form, p.birthday);
         }
         document.getElementById("editExtraInfo").value = p.extra_info || "";
+        PENTAGON_AXIS_KEYS.forEach((k) => {
+            const el = form.querySelector(`[name="${editModalAxisFieldName(k)}"]`);
+            if (!el) return;
+            const v = p[k];
+            const n =
+                v !== null && v !== undefined && v !== ""
+                    ? Math.max(0, Math.min(10, Number(v)))
+                    : 0;
+            el.value = Number.isFinite(n) ? String(n) : "0";
+            el.dispatchEvent(new Event("input", { bubbles: true }));
+        });
     }
 
     async function openEdit(id) {
@@ -183,6 +222,12 @@
             birthday: birthdayRaw === "" ? null : birthdayRaw,
             extra_info: String(fd.get("extra_info") || "").trim() || null,
         };
+        PENTAGON_AXIS_KEYS.forEach((k) => {
+            const el = form.querySelector(`[name="${editModalAxisFieldName(k)}"]`);
+            if (!el) return;
+            const n = Number(el.value);
+            payload[k] = Number.isFinite(n) ? Math.max(0, Math.min(10, n)) : 0;
+        });
 
         submitBtn.classList.add("loading");
         submitBtn.disabled = true;

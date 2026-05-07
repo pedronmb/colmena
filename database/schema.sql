@@ -36,6 +36,11 @@ CREATE TABLE team_people (
     role TEXT,
     birthday TEXT,
     extra_info TEXT,
+    axis_strategic_vision INTEGER,
+    axis_technical_execution INTEGER,
+    axis_team_management INTEGER,
+    axis_data_risk INTEGER,
+    axis_innovation INTEGER,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
