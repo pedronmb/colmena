@@ -74,15 +74,8 @@ try {
     if ($body === '') {
         $body = null;
     }
-    $priority = isset($data['priority']) ? (string) $data['priority'] : 'medium';
-    $importance = isset($data['importance']) ? (string) $data['importance'] : 'medium';
-
-    if (!in_array($priority, TopicScales::PRIORITY_LEVELS, true)) {
-        $priority = 'medium';
-    }
-    if (!in_array($importance, TopicScales::IMPORTANCE_LEVELS, true)) {
-        $importance = 'medium';
-    }
+    $priority = TopicScales::normalizePriority($data['priority'] ?? TopicScales::DEFAULT);
+    $importance = TopicScales::normalizeImportance($data['importance'] ?? TopicScales::DEFAULT);
 
     if ($teamId < 1 || $personId < 1 || $title === '') {
         http_response_code(422);

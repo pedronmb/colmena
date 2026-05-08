@@ -113,23 +113,19 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                     <textarea name="body" id="pteBody" rows="4" placeholder="Contexto o criterios"></textarea>
                 </label>
                 <label>
-                    Prioridad (urgencia)
+                    Prioridad (urgencia), 1–10
                     <select name="priority" id="ptePriority">
-                        <option value="very_low">Muy baja</option>
-                        <option value="low">Baja</option>
-                        <option value="medium">Media</option>
-                        <option value="high">Alta</option>
-                        <option value="critical">Crítica</option>
+                        <?php for ($s = 1; $s <= 10; $s++) : ?>
+                        <option value="<?= $s ?>"><?= $s ?></option>
+                        <?php endfor; ?>
                     </select>
                 </label>
                 <label>
-                    Importancia
+                    Importancia, 1–10
                     <select name="importance" id="pteImportance">
-                        <option value="very_low">Muy baja</option>
-                        <option value="low">Baja</option>
-                        <option value="medium">Media</option>
-                        <option value="high">Alta</option>
-                        <option value="very_high">Muy alta</option>
+                        <?php for ($s = 1; $s <= 10; $s++) : ?>
+                        <option value="<?= $s ?>"><?= $s ?></option>
+                        <?php endfor; ?>
                     </select>
                 </label>
                 <label id="ptePersonWrap" class="form__full">

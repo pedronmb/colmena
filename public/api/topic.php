@@ -98,16 +98,9 @@ try {
         if ($body === '') {
             $body = null;
         }
-        $priority = isset($data['priority']) ? (string) $data['priority'] : 'medium';
-        $importance = isset($data['importance']) ? (string) $data['importance'] : 'medium';
+        $priority = TopicScales::normalizePriority($data['priority'] ?? TopicScales::DEFAULT);
+        $importance = TopicScales::normalizeImportance($data['importance'] ?? TopicScales::DEFAULT);
         $personId = isset($data['person_id']) ? (int) $data['person_id'] : 0;
-
-        if (!in_array($priority, TopicScales::PRIORITY_LEVELS, true)) {
-            $priority = 'medium';
-        }
-        if (!in_array($importance, TopicScales::IMPORTANCE_LEVELS, true)) {
-            $importance = 'medium';
-        }
 
         if ($title === '' || $personId < 1) {
             http_response_code(422);

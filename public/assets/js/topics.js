@@ -308,22 +308,10 @@
             if (titleInput) titleInput.value = t.title || "";
             if (bodyInput) bodyInput.value = t.body != null ? String(t.body) : "";
             if (pr) {
-                let pv = t.priority || "medium";
-                if (
-                    !["very_low", "low", "medium", "high", "critical"].includes(pv)
-                ) {
-                    pv = "medium";
-                }
-                pr.value = pv;
+                pr.value = String(clampTopicScore(t.priority));
             }
             if (im) {
-                let iv = t.importance || "medium";
-                if (
-                    !["very_low", "low", "medium", "high", "very_high"].includes(iv)
-                ) {
-                    iv = "medium";
-                }
-                im.value = iv;
+                im.value = String(clampTopicScore(t.importance));
             }
             if (personIdHidden && personSearchInput) {
                 if (t.person_id != null && t.person_id !== "") {
@@ -358,48 +346,35 @@
         if (e.key === "Escape" && !modal.hidden) closeModal();
     });
 
-    const priorityLabels = {
-        very_low: "Muy baja",
-        low: "Baja",
-        medium: "Media",
-        high: "Alta",
-        critical: "Crítica",
-    };
+    const SCORE_MIN = 1;
+    const SCORE_MAX = 10;
+    const SCORE_DEFAULT = 5;
 
-    const importanceLabels = {
-        very_low: "Muy baja",
-        low: "Baja",
-        medium: "Media",
-        high: "Alta",
-        very_high: "Muy alta",
-    };
-
-    /** Orden fijo de columnas en vista por importancia */
-    const IMPORTANCE_COLUMN_KEYS = [
-        "very_low",
-        "low",
-        "medium",
-        "high",
-        "very_high",
-    ];
-
-    /** Orden fijo de columnas en vista por prioridad (urgencia) */
-    const PRIORITY_COLUMN_KEYS = [
-        "very_low",
-        "low",
-        "medium",
-        "high",
-        "critical",
-    ];
-
-    function normalizeImportance(val) {
-        const v = val || "medium";
-        return IMPORTANCE_COLUMN_KEYS.includes(v) ? v : "medium";
+    /** @param {unknown} raw */
+    function clampTopicScore(raw) {
+        const x = Number(raw);
+        if (!Number.isFinite(x)) {
+            return SCORE_DEFAULT;
+        }
+        return Math.max(SCORE_MIN, Math.min(SCORE_MAX, Math.round(x)));
     }
 
+    /** @param {unknown} raw */
+    function formatTopicScore(raw) {
+        return String(clampTopicScore(raw));
+    }
+
+    /** Columnas del tablero: puntuaciones 1 … 10 */
+    const SCORE_KEYS = Array.from({ length: 10 }, (_, i) => i + 1);
+
+    /** @param {unknown} val */
+    function normalizeImportance(val) {
+        return clampTopicScore(val);
+    }
+
+    /** @param {unknown} val */
     function normalizePriority(val) {
-        const v = val || "medium";
-        return PRIORITY_COLUMN_KEYS.includes(v) ? v : "medium";
+        return clampTopicScore(val);
     }
 
     function sortTopicsByUpdatedDesc(topics) {
@@ -413,11 +388,11 @@
     }
 
     function priorityLabel(p) {
-        return priorityLabels[p] || priorityLabels.medium;
+        return formatTopicScore(p);
     }
 
     function importanceLabel(i) {
-        return importanceLabels[i] || importanceLabels.medium;
+        return formatTopicScore(i);
     }
 
     function personLabel(topic) {
@@ -535,21 +510,21 @@
                 "Temas agrupados por nivel de prioridad (urgencia)"
             );
 
-            /** @type {Record<string, object[]>} */
+            /** @type {Record<number, object[]>} */
             const groups = {};
-            PRIORITY_COLUMN_KEYS.forEach((k) => {
+            SCORE_KEYS.forEach((k) => {
                 groups[k] = [];
             });
             filtered.forEach((t) => {
                 groups[normalizePriority(t.priority)].push(t);
             });
 
-            PRIORITY_COLUMN_KEYS.forEach((key) => {
+            SCORE_KEYS.forEach((key) => {
                 const col = document.createElement("div");
                 col.className = "topic-importance-col";
                 const h3 = document.createElement("h3");
                 h3.className = "topic-importance-col__title";
-                h3.textContent = priorityLabels[key];
+                h3.textContent = String(key);
                 const ul = document.createElement("ul");
                 ul.className = "feed feed--tasks feed--in-column";
                 const sorted = sortTopicsByUpdatedDesc(groups[key]);
@@ -583,21 +558,21 @@
                 "Temas agrupados por nivel de importancia"
             );
 
-            /** @type {Record<string, object[]>} */
+            /** @type {Record<number, object[]>} */
             const groups = {};
-            IMPORTANCE_COLUMN_KEYS.forEach((k) => {
+            SCORE_KEYS.forEach((k) => {
                 groups[k] = [];
             });
             filtered.forEach((t) => {
                 groups[normalizeImportance(t.importance)].push(t);
             });
 
-            IMPORTANCE_COLUMN_KEYS.forEach((key) => {
+            SCORE_KEYS.forEach((key) => {
                 const col = document.createElement("div");
                 col.className = "topic-importance-col";
                 const h3 = document.createElement("h3");
                 h3.className = "topic-importance-col__title";
-                h3.textContent = importanceLabels[key];
+                h3.textContent = String(key);
                 const ul = document.createElement("ul");
                 ul.className = "feed feed--tasks feed--in-column";
                 const sorted = sortTopicsByUpdatedDesc(groups[key]);
@@ -863,8 +838,8 @@
             person_id: personId,
             title: String(fd.get("title") || "").trim(),
             body: String(fd.get("body") || "").trim() || null,
-            priority: String(fd.get("priority") || "medium"),
-            importance: String(fd.get("importance") || "medium"),
+            priority: clampTopicScore(fd.get("priority")),
+            importance: clampTopicScore(fd.get("importance")),
         };
 
         if (!Number.isFinite(personId) || personId < 1) {

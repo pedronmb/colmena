@@ -18,21 +18,21 @@ final class TopicRepository
         $this->pdo = $pdo;
     }
 
+    /**
+     * @param mixed $priority
+     * @param mixed $importance
+     */
     public function create(
         int $teamId,
         int $authorId,
         int $personId,
         string $title,
         ?string $body,
-        string $priority,
-        string $importance
+        $priority,
+        $importance
     ): Topic {
-        if (!in_array($priority, TopicScales::PRIORITY_LEVELS, true)) {
-            $priority = 'medium';
-        }
-        if (!in_array($importance, TopicScales::IMPORTANCE_LEVELS, true)) {
-            $importance = 'medium';
-        }
+        $pr = TopicScales::normalizePriority($priority);
+        $im = TopicScales::normalizeImportance($importance);
         $stmt = $this->pdo->prepare(
             'INSERT INTO topics (team_id, author_id, person_id, title, body, priority, importance, status, created_at, updated_at, completed_at)
              VALUES (:team_id, :author_id, :person_id, :title, :body, :priority, :importance, :status, datetime(\'now\'), datetime(\'now\'), NULL)'
@@ -43,8 +43,8 @@ final class TopicRepository
             'person_id' => $personId,
             'title' => $title,
             'body' => $body,
-            'priority' => $priority,
-            'importance' => $importance,
+            'priority' => $pr,
+            'importance' => $im,
             'status' => 'open',
         ]);
         $id = (int) $this->pdo->lastInsertId();
@@ -115,21 +115,21 @@ final class TopicRepository
         return (int) $row['team_id'];
     }
 
+    /**
+     * @param mixed $priority
+     * @param mixed $importance
+     */
     public function updateContent(
         int $topicId,
         int $teamId,
         int $personId,
         string $title,
         ?string $body,
-        string $priority,
-        string $importance
+        $priority,
+        $importance
     ): Topic {
-        if (!in_array($priority, TopicScales::PRIORITY_LEVELS, true)) {
-            $priority = 'medium';
-        }
-        if (!in_array($importance, TopicScales::IMPORTANCE_LEVELS, true)) {
-            $importance = 'medium';
-        }
+        $pr = TopicScales::normalizePriority($priority);
+        $im = TopicScales::normalizeImportance($importance);
         $stmt = $this->pdo->prepare(
             'UPDATE topics SET person_id = :pid, title = :title, body = :body, priority = :pr, importance = :im, updated_at = datetime(\'now\')
              WHERE id = :id AND team_id = :tid'
@@ -138,8 +138,8 @@ final class TopicRepository
             'pid' => $personId,
             'title' => $title,
             'body' => $body,
-            'pr' => $priority,
-            'im' => $importance,
+            'pr' => $pr,
+            'im' => $im,
             'id' => $topicId,
             'tid' => $teamId,
         ]);

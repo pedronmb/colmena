@@ -760,12 +760,14 @@ select.topic-toolbar__search-input {
     margin-top: 1rem;
 }
 
-/* Vista 5 columnas por importancia (Temas) */
+/* Vista 10 columnas por puntaje 1–10 (Temas); scroll en pantallas estrechas */
 .topic-importance-board {
     display: grid;
-    grid-template-columns: repeat(5, minmax(0, 1fr));
+    grid-template-columns: repeat(10, minmax(4.25rem, 1fr));
     gap: 0.75rem;
     align-items: start;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
 }
 
 .topic-importance-col {
@@ -806,13 +808,13 @@ select.topic-toolbar__search-input {
 
 @media (max-width: 1100px) {
     .topic-importance-board {
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        grid-template-columns: repeat(10, minmax(4.25rem, 1fr));
     }
 }
 
 @media (max-width: 640px) {
     .topic-importance-board {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(10, minmax(4.25rem, 1fr));
     }
 }
 

@@ -1,6 +1,6 @@
 # Colmena
 
-Aplicación web en **PHP** con **SQLite** para gestionar equipos, personas (tarjetas sin cuenta de acceso), temas con prioridad e importancia, dashboards tipo matriz Eisenhower con **perfiles en pentágono** (cinco ejes 0–10 y gráfico radar en la pestaña del mismo nombre), alertas con fecha de cumplimiento, vista **DevOps** (integración con Azure DevOps), **bloc personal** (notas y archivos por usuario) y administración de usuarios.
+Aplicación web en **PHP** con **SQLite** para gestionar equipos, personas (tarjetas sin cuenta de acceso), temas con **urgencia e importancia en escala numérica 1–10**, dashboards tipo matriz Eisenhower con **perfiles en pentágono** (cinco ejes 0–10 y gráfico radar en la pestaña del mismo nombre), alertas con fecha de cumplimiento, vista **DevOps** (integración con Azure DevOps), **bloc personal** (notas y archivos por usuario) y administración de usuarios.
 
 Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
 
@@ -100,7 +100,7 @@ colmena/
 ## Funcionalidades principales
 
 - **Sesión:** login por email/contraseña; sesión PHP.
-- **Temas:** título, descripción, urgencia (5 niveles), importancia (5 niveles), asignación a una tarjeta de persona, estados y fechas.
+- **Temas:** título, descripción, **urgencia** y **importancia** cada una en escala **entera 1–10** (por defecto 5), asignación a una tarjeta de persona, estados y fechas. La matriz Eisenhower usa la mitad del rango (entre 5 y 6) como frontera entre cuadrantes.
 - **Personas:** tarjetas de equipo (no son usuarios de login); tablero en **Personas** y edición detallada en **Editar fichas**.
 - **Perfil (pentágono):** cinco ejes opcionales en `team_people` (escala **0–10**): visión estratégica, ejecución técnica, comunicación, análisis de datos/riesgos, innovación/creatividad. Se editan en **Editar fichas**; el radar por persona está en **Dashboards → pestaña Perfiles (pentágono)** (`dashboard.php?panel=pentagon`), con SVG nativo (sin npm).
 - **Dashboards:** matriz urgencia × importancia, lista, «Hacer hoy», calendario de alertas y la pestaña anterior.
@@ -115,7 +115,7 @@ colmena/
 Los endpoints viven en `public/api/*.php` (mismo origen que la app, `credentials: same-origin`). Entre otros:
 
 - `login.php`, `logout.php`, `me.php`
-- `topics.php`, `topic.php`, `people-board.php`
+- `topics.php`, `topic.php` (**priority** e **importance** como enteros **1–10** en JSON), `people-board.php`
 - `team-people.php`, `team-person.php` (personas; **PUT/POST** aceptan las claves `axis_*` del pentágono)
 - `alerts.php`, `users.php`, `teams.php`
 - `user-scratchpad.php`, `user-files.php`
@@ -133,7 +133,8 @@ Si ya tienes un `app.sqlite` antiguo y **no** quieres borrarlo con `init.php`, e
 | `database/migrate_team_people_pentagon.php` | Campos `axis_strategic_vision`, `axis_technical_execution`, `axis_team_management`, `axis_data_risk`, `axis_innovation` en `team_people` |
 | `database/migrate_topic_completed_at.php` | Campo `completed_at` en temas |
 | `database/migrate_topics_importance_priority.php` | Importancia y prioridad ampliada |
-| `database/migrate_topics_five_levels.php` | Escala de 5 niveles en urgencia/importancia |
+| `database/migrate_topics_five_levels.php` | Escala de 5 niveles en urgencia/importancia (histórico; bases nuevas no lo necesitan) |
+| `database/migrate_topics_numeric_1_10.php` | Convierte `topics.priority` e `topics.importance` a **INTEGER 1–10** (instalaciones nuevas con `schema.sql` ya vienen así; ejecútalo si tu `app.sqlite` aún tiene texto de cinco niveles) |
 | `database/migrate_team_alerts.php` | Tabla `team_alerts` |
 | `database/migrate_personal_workspace.php` | Espacio de trabajo personal por usuario |
 | `database/migrate_user_scratchpad_files.php` | Tablas/recursos de bloc y archivos personales |
@@ -158,7 +159,7 @@ El orden debe respetar el **historial de tu base**: si partes de una versión mu
 
 - **“Base de datos no inicializada”** o página en blanco: comprobar que exista `database/app.sqlite` y que `config/config.php` apunte a la ruta correcta.
 - **Error al escribir en SQLite:** permisos de carpeta/archivo en `database/`.
-- **Error SQL al cargar personas** (columnas `axis_*` inexistentes): ejecutar `database/migrate_team_people_pentagon.php` o recrear la BD con `init.php` (solo si puedes perder datos).
+- **Error SQL en temas** (columnas `priority`/`importance` con tipo o restricciones antiguas): ejecutar `database/migrate_topics_numeric_1_10.php` (tras las migraciones previas de temas si tu base es muy antigua) o recrear la BD con `init.php` si puedes perder datos.
 - **Clase `App\Bootstrap` ya declarada:** asegurarse de usar la versión actual de `bootstrap_web.php` (usa `require_once` y caché de configuración).
 - **Sesión / login:** comprobar que las cookies funcionen (mismo dominio, HTTPS en producción si aplica).
 

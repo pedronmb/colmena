@@ -20,23 +20,19 @@ $topicFormAction = $topicFormAction ?? basename($_SERVER['SCRIPT_NAME'] ?? 'inde
                     <textarea name="body" rows="4" placeholder="Contexto o criterios de aceptación"></textarea>
                 </label>
                 <label>
-                    Prioridad (urgencia)
+                    Prioridad (urgencia), 1–10
                     <select name="priority">
-                        <option value="very_low">Muy baja</option>
-                        <option value="low">Baja</option>
-                        <option value="medium" selected>Media</option>
-                        <option value="high">Alta</option>
-                        <option value="critical">Crítica</option>
+                        <?php for ($s = 1; $s <= 10; $s++) : ?>
+                        <option value="<?= $s ?>"<?= $s === 5 ? ' selected' : '' ?>><?= $s ?></option>
+                        <?php endfor; ?>
                     </select>
                 </label>
                 <label>
-                    Importancia
+                    Importancia, 1–10
                     <select name="importance">
-                        <option value="very_low">Muy baja</option>
-                        <option value="low">Baja</option>
-                        <option value="medium" selected>Media</option>
-                        <option value="high">Alta</option>
-                        <option value="very_high">Muy alta</option>
+                        <?php for ($s = 1; $s <= 10; $s++) : ?>
+                        <option value="<?= $s ?>"<?= $s === 5 ? ' selected' : '' ?>><?= $s ?></option>
+                        <?php endfor; ?>
                     </select>
                 </label>
                 <label id="topicCompletedWrap" class="topic-toolbar__toggle" hidden>

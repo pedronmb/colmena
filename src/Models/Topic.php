@@ -20,9 +20,9 @@ final class Topic
     private $title;
     /** @var string|null */
     private $body;
-    /** @var string Prioridad / urgencia (eje típico “urgente” en la matriz) */
+    /** @var int Prioridad / urgencia 1–10 (eje “urgente” en la matriz) */
     private $priority;
-    /** @var string Importancia (eje típico “importante” en la matriz) */
+    /** @var int Importancia 1–10 (eje “importante” en la matriz) */
     private $importance;
     /** @var string */
     private $status;
@@ -40,8 +40,8 @@ final class Topic
         ?int $personId,
         string $title,
         ?string $body,
-        string $priority,
-        string $importance,
+        int $priority,
+        int $importance,
         string $status,
         string $createdAt,
         string $updatedAt,
@@ -74,15 +74,8 @@ final class Topic
             $completed = (string) $row['completed_at'];
         }
 
-        $importance = isset($row['importance']) ? (string) $row['importance'] : 'medium';
-        if (!in_array($importance, TopicScales::IMPORTANCE_LEVELS, true)) {
-            $importance = 'medium';
-        }
-
-        $priority = isset($row['priority']) ? (string) $row['priority'] : 'medium';
-        if (!in_array($priority, TopicScales::PRIORITY_LEVELS, true)) {
-            $priority = 'medium';
-        }
+        $importance = TopicScales::normalizeImportance($row['importance'] ?? TopicScales::DEFAULT);
+        $priority = TopicScales::normalizePriority($row['priority'] ?? TopicScales::DEFAULT);
 
         return new self(
             (int) $row['id'],

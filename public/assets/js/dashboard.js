@@ -52,37 +52,27 @@
 
     let calendarYear = new Date().getFullYear();
 
-    const PRIORITY_RANK = {
-        very_low: 0,
-        low: 1,
-        medium: 2,
-        high: 3,
-        critical: 4,
-    };
+    const SCORE_MIN = 1;
+    const SCORE_MAX = 10;
+    const SCORE_DEFAULT = 5;
 
-    const IMPORTANCE_RANK = {
-        very_low: 0,
-        low: 1,
-        medium: 2,
-        high: 3,
-        very_high: 4,
-    };
+    function clampTopicScore(raw) {
+        const x = Number(raw);
+        if (!Number.isFinite(x)) {
+            return SCORE_DEFAULT;
+        }
+        return Math.max(SCORE_MIN, Math.min(SCORE_MAX, Math.round(x)));
+    }
 
-    const priorityLabels = {
-        very_low: "Muy baja",
-        low: "Baja",
-        medium: "Media",
-        high: "Alta",
-        critical: "Crítica",
-    };
+    function formatTopicScore(raw) {
+        return String(clampTopicScore(raw));
+    }
 
-    const importanceLabels = {
-        very_low: "Muy baja",
-        low: "Baja",
-        medium: "Media",
-        high: "Alta",
-        very_high: "Muy alta",
-    };
+    /** Posición 0–1 en el eje (1 → izquierda/abajo, 10 → derecha/arriba) */
+    function scoreAxisNorm(raw) {
+        const n = clampTopicScore(raw);
+        return (n - SCORE_MIN) / (SCORE_MAX - SCORE_MIN);
+    }
 
     /** Margen interior del cuadrado (%) para que los puntos no toquen el borde */
     const MATRIX_PAD = 6;
@@ -165,8 +155,8 @@
 
     function showMatrixPopup(anchor, topic) {
         const el = ensureMatrixPopup();
-        const pr = priorityLabels[topic.priority] || topic.priority;
-        const im = importanceLabels[topic.importance || "medium"] || importanceLabels.medium;
+        const pr = formatTopicScore(topic.priority);
+        const im = formatTopicScore(topic.importance);
         const titleEl = el.querySelector(".matrix-topic-popup__title");
         if (titleEl) {
             titleEl.textContent = topic.title || "";
@@ -398,33 +388,10 @@
         });
     }
 
-    function urgencyNorm(p) {
-        const m = {
-            very_low: 0,
-            low: 0.25,
-            medium: 0.5,
-            high: 0.75,
-            critical: 1,
-        };
-        return m[p] !== undefined ? m[p] : 0.5;
-    }
-
-    function importanceNorm(i) {
-        const k = i || "medium";
-        const m = {
-            very_low: 0,
-            low: 0.25,
-            medium: 0.5,
-            high: 0.75,
-            very_high: 1,
-        };
-        return m[k] !== undefined ? m[k] : 0.5;
-    }
-
     function basePercents(t) {
         const usable = 100 - 2 * MATRIX_PAD;
-        const u = urgencyNorm(t.priority);
-        const v = importanceNorm(t.importance);
+        const u = scoreAxisNorm(t.priority);
+        const v = scoreAxisNorm(t.importance);
         return {
             left: MATRIX_PAD + u * usable,
             bottom: MATRIX_PAD + v * usable,
@@ -432,7 +399,7 @@
     }
 
     function cellKey(t) {
-        return `${t.priority}|${t.importance || "medium"}`;
+        return `${clampTopicScore(t.priority)}|${clampTopicScore(t.importance)}`;
     }
 
     function jitterPx(indexInCell, totalInCell) {
@@ -503,9 +470,9 @@
                           const [jx, jy] = jitterPx(idx, group.length);
                           const pos = basePercents(t);
                           const done = t.status === "done";
-                          const pr = priorityLabels[t.priority] || t.priority;
-                          const im = importanceLabels[t.importance || "medium"] || importanceLabels.medium;
-                          const aria = `${t.title}. Persona: ${personLabel(t)}. Criticidad: ${pr}. Importancia: ${im}.`;
+                          const pr = formatTopicScore(t.priority);
+                          const im = formatTopicScore(t.importance);
+                          const aria = `${t.title}. Persona: ${personLabel(t)}. Urgencia: ${pr}. Importancia: ${im}.`;
                           return `<a href="${topicEditHref(t.id)}" class="matrix-dot${done ? " matrix-dot--done" : ""}"
             data-topic-id="${t.id}"
             style="left:${pos.left.toFixed(2)}%;bottom:${pos.bottom.toFixed(2)}%;transform:translate(calc(-50% + ${jx}px),calc(50% + ${jy}px));"
@@ -519,10 +486,10 @@
       <div class="matrix-plot">
         <div class="matrix-plot__inner">
             <span class="matrix-plot__axis matrix-plot__axis--y">
-            <span class="matrix-plot__axis-arrow" aria-hidden="true">↑</span> Importancia (muy baja → muy alta)
+            <span class="matrix-plot__axis-arrow" aria-hidden="true">↑</span> Importancia (1 → 10)
           </span>
             <div class="matrix-plot__square">
-            <div class="matrix-plot__chart" role="img" aria-label="Mapa tipo Eisenhower: urgencia de izquierda a derecha, importancia de abajo hacia arriba. Límites en valor media. Cuadrantes: arriba a la izquierda Planificar; arriba a la derecha Hacer ya; abajo a la izquierda Revisar; abajo a la derecha Delegar.">
+            <div class="matrix-plot__chart" role="img" aria-label="Mapa tipo Eisenhower: urgencia 1 a 10 de izquierda a derecha, importancia 1 a 10 de abajo hacia arriba. Límites en la mitad del rango (entre 5 y 6). Cuadrantes: arriba a la izquierda Planificar; arriba a la derecha Hacer ya; abajo a la izquierda Revisar; abajo a la derecha Delegar.">
               <div class="matrix-plot__quadrants" aria-hidden="true">
                 <div class="matrix-plot__quadrant matrix-plot__quadrant--planificar"><span class="matrix-plot__quadrant-label">Planificar</span></div>
                 <div class="matrix-plot__quadrant matrix-plot__quadrant--hacer-ya"><span class="matrix-plot__quadrant-label">Hacer ya</span></div>
@@ -536,7 +503,7 @@
           </div>
         </div>
         <p class="matrix-plot__axis matrix-plot__axis--x">
-          Urgencia (muy baja → crítica) <span class="matrix-plot__axis-arrow" aria-hidden="true">→</span>
+          Urgencia (1 → 10) <span class="matrix-plot__axis-arrow" aria-hidden="true">→</span>
         </p>
       </div>`;
 
@@ -569,8 +536,8 @@
         }
         listBody.innerHTML = topics
             .map((t) => {
-                const pr = priorityLabels[t.priority] || t.priority;
-                const im = importanceLabels[t.importance || "medium"] || importanceLabels.medium;
+                const pr = formatTopicScore(t.priority);
+                const im = formatTopicScore(t.importance);
                 return `<tr>
         <td><a href="${topicEditHref(t.id)}">${escapeHtml(t.title)}</a></td>
         <td>${escapeHtml(pr)}</td>
@@ -582,26 +549,17 @@
             .join("");
     }
 
-    function priorityRank(p) {
-        return PRIORITY_RANK[p] !== undefined ? PRIORITY_RANK[p] : PRIORITY_RANK.medium;
-    }
-
-    function importanceRank(i) {
-        const k = i || "medium";
-        return IMPORTANCE_RANK[k] !== undefined ? IMPORTANCE_RANK[k] : IMPORTANCE_RANK.medium;
-    }
-
     /**
      * Más urgente e importante primero; desempate por actualización e id.
      * @param {object[]} topics
      */
     function sortTopicsForFocus(topics) {
         return [...topics].sort((a, b) => {
-            const pd = priorityRank(b.priority) - priorityRank(a.priority);
+            const pd = clampTopicScore(b.priority) - clampTopicScore(a.priority);
             if (pd !== 0) {
                 return pd;
             }
-            const id = importanceRank(b.importance) - importanceRank(a.importance);
+            const id = clampTopicScore(b.importance) - clampTopicScore(a.importance);
             if (id !== 0) {
                 return id;
             }
@@ -627,8 +585,8 @@
         }
         focusBody.innerHTML = sorted
             .map((t) => {
-                const pr = priorityLabels[t.priority] || t.priority;
-                const im = importanceLabels[t.importance || "medium"] || importanceLabels.medium;
+                const pr = formatTopicScore(t.priority);
+                const im = formatTopicScore(t.importance);
                 const done = t.status === "done";
                 const rowClass = done ? ' class="dashboard-focus-row--done"' : "";
                 return `<tr${rowClass}>

@@ -32,28 +32,30 @@
     /** @type {{ kind: 'person' | 'unassigned' | null, personId: number | null }} */
     let personModalOpen = { kind: null, personId: null };
 
-    const priorityLabels = {
-        very_low: "Muy baja",
-        low: "Baja",
-        medium: "Media",
-        high: "Alta",
-        critical: "Crítica",
-    };
+    const SCORE_MIN = 1;
+    const SCORE_MAX = 10;
+    const SCORE_DEFAULT = 5;
 
-    const importanceLabels = {
-        very_low: "Muy baja",
-        low: "Baja",
-        medium: "Media",
-        high: "Alta",
-        very_high: "Muy alta",
-    };
+    /** @param {unknown} raw */
+    function clampTopicScore(raw) {
+        const x = Number(raw);
+        if (!Number.isFinite(x)) {
+            return SCORE_DEFAULT;
+        }
+        return Math.max(SCORE_MIN, Math.min(SCORE_MAX, Math.round(x)));
+    }
+
+    /** @param {unknown} raw */
+    function formatTopicScore(raw) {
+        return String(clampTopicScore(raw));
+    }
 
     function priorityLabel(p) {
-        return priorityLabels[p] || priorityLabels.medium;
+        return formatTopicScore(p);
     }
 
     function importanceLabel(i) {
-        return importanceLabels[i] || importanceLabels.medium;
+        return formatTopicScore(i);
     }
 
     function getTeamId() {
@@ -100,15 +102,17 @@
     }
 
     function priorityClass(p) {
-        if (p === "critical") return "pill pill--urgent";
-        if (p === "high") return "pill pill--high";
-        if (p === "low" || p === "very_low") return "pill pill--low";
+        const n = clampTopicScore(p);
+        if (n >= 9) return "pill pill--urgent";
+        if (n >= 7) return "pill pill--high";
+        if (n <= 3) return "pill pill--low";
         return "pill";
     }
 
     function importanceClass(i) {
-        if (i === "very_high" || i === "high") return "pill pill--high";
-        if (i === "very_low" || i === "low") return "pill pill--low";
+        const n = clampTopicScore(i);
+        if (n >= 9) return "pill pill--high";
+        if (n <= 3) return "pill pill--low";
         return "pill";
     }
 
@@ -396,8 +400,8 @@
         document.getElementById("pteTeamId").value = String(teamId);
         document.getElementById("pteTitle").value = t.title || "";
         document.getElementById("pteBody").value = t.body || "";
-        document.getElementById("ptePriority").value = t.priority || "medium";
-        document.getElementById("pteImportance").value = t.importance || "medium";
+        document.getElementById("ptePriority").value = String(clampTopicScore(t.priority));
+        document.getElementById("pteImportance").value = String(clampTopicScore(t.importance));
 
         const pid = t.person_id != null ? Number(t.person_id) : NaN;
         if (ptePersonWrap) {
@@ -660,8 +664,8 @@
         const title = String(document.getElementById("pteTitle").value || "").trim();
         let body = String(document.getElementById("pteBody").value || "").trim();
         if (body === "") body = null;
-        const priority = String(document.getElementById("ptePriority").value || "medium");
-        const importance = String(document.getElementById("pteImportance").value || "medium");
+        const priority = clampTopicScore(document.getElementById("ptePriority").value);
+        const importance = clampTopicScore(document.getElementById("pteImportance").value);
 
         if (!Number.isFinite(topicId) || topicId < 1) return;
         if (!Number.isFinite(personId) || personId < 1) {
