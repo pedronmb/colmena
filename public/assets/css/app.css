@@ -41,6 +41,21 @@
     --spinner-track: rgba(255, 255, 255, 0.35);
     --spinner-thumb: #ffffff;
     --code-bg: rgba(0, 0, 0, 0.06);
+    --pentagon-grid-stroke: #c4c4c0;
+    --pentagon-axis-stroke: #a8a8a4;
+    --pentagon-data-fill: rgba(37, 99, 235, 0.28);
+    --pentagon-data-stroke: #1d4ed8;
+    --pentagon-empty-fill: rgba(0, 0, 0, 0.05);
+    --pentagon-empty-stroke: #9ca3af;
+    --pentagon-label-fill: #4b5563;
+    --matrix-chart-border: #d4d4d0;
+    --matrix-grid-line: rgba(0, 0, 0, 0.14);
+    --matrix-quadrant-label-color: #6b7280;
+    --matrix-quadrant-label-opacity: 0.72;
+    --matrix-q-planificar: rgba(59, 130, 246, 0.14);
+    --matrix-q-hacer-ya: rgba(220, 38, 38, 0.12);
+    --matrix-q-revisar: rgba(107, 114, 128, 0.14);
+    --matrix-q-delegar: rgba(234, 179, 8, 0.16);
     font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
 }
 
@@ -86,6 +101,21 @@
     --spinner-track: rgba(20, 20, 20, 0.35);
     --spinner-thumb: #141414;
     --code-bg: rgba(255, 255, 255, 0.08);
+    --pentagon-grid-stroke: var(--border);
+    --pentagon-axis-stroke: var(--border);
+    --pentagon-data-fill: var(--accent-soft);
+    --pentagon-data-stroke: var(--accent);
+    --pentagon-empty-fill: var(--surface-hover);
+    --pentagon-empty-stroke: var(--muted);
+    --pentagon-label-fill: var(--muted);
+    --matrix-chart-border: var(--border);
+    --matrix-grid-line: rgba(255, 255, 255, 0.08);
+    --matrix-quadrant-label-color: var(--muted);
+    --matrix-quadrant-label-opacity: 0.44;
+    --matrix-q-planificar: rgba(96, 165, 250, 0.1);
+    --matrix-q-hacer-ya: rgba(248, 113, 113, 0.1);
+    --matrix-q-revisar: rgba(156, 163, 175, 0.1);
+    --matrix-q-delegar: rgba(250, 204, 21, 0.1);
 }
 
 * {
@@ -1832,6 +1862,14 @@ select.topic-toolbar__search-input {
     color: var(--muted);
 }
 
+:root[data-theme="light"] .matrix-plot__axis {
+    color: #4b5563;
+}
+
+:root[data-theme="light"] .matrix-plot__axis-arrow {
+    opacity: 0.75;
+}
+
 .matrix-plot__axis--y {
     writing-mode: vertical-rl;
     transform: rotate(180deg);
@@ -1861,7 +1899,7 @@ select.topic-toolbar__search-input {
     position: relative;
     width: 100%;
     height: 100%;
-    border: 1px solid var(--border);
+    border: 1px solid var(--matrix-chart-border);
     border-radius: var(--radius);
     background: var(--surface);
     box-shadow: var(--shadow);
@@ -1891,28 +1929,28 @@ select.topic-toolbar__search-input {
 .matrix-plot__quadrant--planificar {
     left: 0;
     top: 0;
-    background: rgba(59, 130, 246, 0.07);
+    background: var(--matrix-q-planificar);
     border-radius: var(--radius) 0 0 0;
 }
 
 .matrix-plot__quadrant--hacer-ya {
     left: 50%;
     top: 0;
-    background: rgba(220, 38, 38, 0.07);
+    background: var(--matrix-q-hacer-ya);
     border-radius: 0 var(--radius) 0 0;
 }
 
 .matrix-plot__quadrant--revisar {
     left: 0;
     top: 50%;
-    background: rgba(107, 114, 128, 0.08);
+    background: var(--matrix-q-revisar);
     border-radius: 0 0 0 var(--radius);
 }
 
 .matrix-plot__quadrant--delegar {
     left: 50%;
     top: 50%;
-    background: rgba(234, 179, 8, 0.09);
+    background: var(--matrix-q-delegar);
     border-radius: 0 0 var(--radius) 0;
 }
 
@@ -1921,26 +1959,10 @@ select.topic-toolbar__search-input {
     font-weight: 800;
     line-height: 1.15;
     letter-spacing: -0.02em;
-    color: var(--muted);
-    opacity: 0.44;
+    color: var(--matrix-quadrant-label-color);
+    opacity: var(--matrix-quadrant-label-opacity);
     max-width: 95%;
     text-wrap: balance;
-}
-
-:root[data-theme="dark"] .matrix-plot__quadrant--planificar {
-    background: rgba(96, 165, 250, 0.1);
-}
-
-:root[data-theme="dark"] .matrix-plot__quadrant--hacer-ya {
-    background: rgba(248, 113, 113, 0.1);
-}
-
-:root[data-theme="dark"] .matrix-plot__quadrant--revisar {
-    background: rgba(156, 163, 175, 0.1);
-}
-
-:root[data-theme="dark"] .matrix-plot__quadrant--delegar {
-    background: rgba(250, 204, 21, 0.1);
 }
 
 .matrix-plot__grid {
@@ -1951,36 +1973,18 @@ select.topic-toolbar__search-input {
         linear-gradient(
             to right,
             transparent calc(50% - 0.5px),
-            rgba(0, 0, 0, 0.06) calc(50% - 0.5px),
-            rgba(0, 0, 0, 0.06) calc(50% + 0.5px),
+            var(--matrix-grid-line) calc(50% - 0.5px),
+            var(--matrix-grid-line) calc(50% + 0.5px),
             transparent calc(50% + 0.5px)
         ),
         linear-gradient(
             to top,
             transparent calc(50% - 0.5px),
-            rgba(0, 0, 0, 0.06) calc(50% - 0.5px),
-            rgba(0, 0, 0, 0.06) calc(50% + 0.5px),
+            var(--matrix-grid-line) calc(50% - 0.5px),
+            var(--matrix-grid-line) calc(50% + 0.5px),
             transparent calc(50% + 0.5px)
         );
     pointer-events: none;
-}
-
-:root[data-theme="dark"] .matrix-plot__grid {
-    background:
-        linear-gradient(
-            to right,
-            transparent calc(50% - 0.5px),
-            rgba(255, 255, 255, 0.08) calc(50% - 0.5px),
-            rgba(255, 255, 255, 0.08) calc(50% + 0.5px),
-            transparent calc(50% + 0.5px)
-        ),
-        linear-gradient(
-            to top,
-            transparent calc(50% - 0.5px),
-            rgba(255, 255, 255, 0.08) calc(50% - 0.5px),
-            rgba(255, 255, 255, 0.08) calc(50% + 0.5px),
-            transparent calc(50% + 0.5px)
-        );
 }
 
 .matrix-plot__empty {
@@ -2019,6 +2023,15 @@ select.topic-toolbar__search-input {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);
     z-index: 5;
     filter: brightness(1.08);
+}
+
+:root[data-theme="light"] .matrix-dot {
+    border-color: #ffffff;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18), 0 0 0 1px rgba(0, 0, 0, 0.08);
+}
+
+:root[data-theme="light"] .matrix-dot:hover {
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.1);
 }
 
 .matrix-dot:focus-visible {
@@ -2623,35 +2636,55 @@ a.devops-card__link:focus-visible {
 
 .pentagon-radar-svg__grid {
     fill: none;
-    stroke: var(--border);
+    stroke: var(--pentagon-grid-stroke);
     stroke-width: 1;
-    opacity: 0.65;
 }
 
 .pentagon-radar-svg__axis {
-    stroke: var(--border);
+    stroke: var(--pentagon-axis-stroke);
     stroke-width: 1;
     stroke-dasharray: 3 3;
-    opacity: 0.5;
 }
 
 .pentagon-radar-svg__data {
-    fill: var(--accent-soft);
-    stroke: var(--accent);
+    fill: var(--pentagon-data-fill);
+    stroke: var(--pentagon-data-stroke);
     stroke-width: 2;
-    fill-opacity: 0.45;
 }
 
 .pentagon-radar-svg__data--empty {
-    fill: var(--surface-hover);
-    stroke: var(--muted);
-    fill-opacity: 0.2;
-    stroke-opacity: 0.45;
+    fill: var(--pentagon-empty-fill);
+    stroke: var(--pentagon-empty-stroke);
+    stroke-opacity: 0.55;
 }
 
 .pentagon-radar-svg__label {
     font-size: 0.625rem;
     font-weight: 500;
-    fill: var(--muted);
+    fill: var(--pentagon-label-fill);
     cursor: help;
+}
+
+:root[data-theme="light"] .pentagon-radar-svg__grid {
+    stroke-width: 1.1;
+}
+
+:root[data-theme="light"] .pentagon-radar-svg__axis {
+    opacity: 0.9;
+}
+
+:root[data-theme="dark"] .pentagon-radar-svg__grid {
+    opacity: 0.65;
+}
+
+:root[data-theme="dark"] .pentagon-radar-svg__axis {
+    opacity: 0.5;
+}
+
+:root[data-theme="dark"] .pentagon-radar-svg__data {
+    fill-opacity: 0.45;
+}
+
+:root[data-theme="dark"] .pentagon-radar-svg__data--empty {
+    fill-opacity: 0.2;
 }
