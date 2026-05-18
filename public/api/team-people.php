@@ -12,6 +12,7 @@ use App\Repositories\TeamRepository;
 use App\Repositories\UserRepository;
 use App\Services\AuthService;
 use App\Support\BirthdayNormalizer;
+use App\Support\DirectTeamNormalizer;
 use App\Support\PentagonAxisNormalizer;
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -100,16 +101,18 @@ try {
     }
 
     try {
-        $axisSv = PentagonAxisNormalizer::parseFromData($data, 'axis_strategic_vision');
-        $axisTe = PentagonAxisNormalizer::parseFromData($data, 'axis_technical_execution');
-        $axisTm = PentagonAxisNormalizer::parseFromData($data, 'axis_team_management');
-        $axisDr = PentagonAxisNormalizer::parseFromData($data, 'axis_data_risk');
-        $axisIn = PentagonAxisNormalizer::parseFromData($data, 'axis_innovation');
+        $axisAp = PentagonAxisNormalizer::parseFromData($data, 'axis_autonomy_problem_solving');
+        $axisIs = PentagonAxisNormalizer::parseFromData($data, 'axis_impact_scope');
+        $axisIm = PentagonAxisNormalizer::parseFromData($data, 'axis_influence_mentorship');
+        $axisBc = PentagonAxisNormalizer::parseFromData($data, 'axis_business_communication');
+        $axisTc = PentagonAxisNormalizer::parseFromData($data, 'axis_technical_competence');
     } catch (\InvalidArgumentException $e) {
         http_response_code(422);
         echo json_encode(['ok' => false, 'error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
         exit;
     }
+
+    $isDirectTeam = DirectTeamNormalizer::parseFromData($data);
 
     $newId = $peopleRepo->create(
         $teamId,
@@ -118,11 +121,12 @@ try {
         $role,
         $birthday,
         $extraInfo,
-        $axisSv,
-        $axisTe,
-        $axisTm,
-        $axisDr,
-        $axisIn
+        $axisAp,
+        $axisIs,
+        $axisIm,
+        $axisBc,
+        $axisTc,
+        $isDirectTeam
     );
     $created = $peopleRepo->findById($newId);
 

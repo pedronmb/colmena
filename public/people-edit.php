@@ -70,6 +70,11 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                         Rol (opcional)
                         <input name="role" type="text" maxlength="120" autocomplete="off" placeholder="Ej. Desarrollo, PM, Diseño…">
                     </label>
+                    <label class="form__checkbox">
+                        <input type="checkbox" name="is_direct_team" value="1">
+                        Equipo directo
+                    </label>
+                    <p class="muted form__hint">Los colaboradores se muestran como hasta ahora.</p>
                     <?php
                     $bfIdPrefix = 'newPerson';
                     require __DIR__ . '/includes/birthday-month-day.php';
@@ -139,6 +144,11 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                     Rol (opcional)
                     <input name="role" id="editRole" type="text" maxlength="120" autocomplete="off" placeholder="Ej. Desarrollo, PM…">
                 </label>
+                <label class="form__checkbox">
+                    <input type="checkbox" name="is_direct_team" id="editIsDirectTeam" value="1">
+                    Equipo directo
+                </label>
+                <p class="muted form__hint">Los colaboradores se muestran como hasta ahora.</p>
                 <?php
                 $bfIdPrefix = 'edit';
                 require __DIR__ . '/includes/birthday-month-day.php';
@@ -162,8 +172,12 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
         </div>
     </div>
 
+    <?php require __DIR__ . '/includes/pentagon-seniority-help-modal.php'; ?>
+
     <script src="assets/js/theme.js" defer></script>
+    <script src="assets/js/pentagon-seniority-help.js" defer></script>
     <script src="assets/js/birthday-fields.js" defer></script>
+    <script src="assets/js/person-direct-team.js" defer></script>
     <script src="assets/js/people.js" defer></script>
     <script src="assets/js/people-edit.js" defer></script>
     <script src="assets/js/app-shell.js" defer></script>

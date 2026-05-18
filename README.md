@@ -130,7 +130,9 @@ Si ya tienes un `app.sqlite` antiguo y **no** quieres borrarlo con `init.php`, e
 |--------|-----------|
 | `database/migrate_team_people.php` | Tabla `team_people` si faltaba |
 | `database/migrate_team_people_role.php` | Campo `role` en personas |
-| `database/migrate_team_people_pentagon.php` | Campos `axis_strategic_vision`, `axis_technical_execution`, `axis_team_management`, `axis_data_risk`, `axis_innovation` en `team_people` |
+| `database/migrate_team_people_pentagon.php` | Campos del pentágono en `team_people` (instalaciones sin ejes previos) |
+| `database/migrate_team_people_direct_team.php` | Campo `is_direct_team` en personas (equipo directo vs colaborador) |
+| `database/migrate_pentagon_axes_v2.php` | Renombra columnas del pentágono v1 → v2 (`axis_autonomy_problem_solving`, `axis_impact_scope`, `axis_influence_mentorship`, `axis_business_communication`, `axis_technical_competence`) |
 | `database/migrate_topic_completed_at.php` | Campo `completed_at` en temas |
 | `database/migrate_topics_importance_priority.php` | Importancia y prioridad ampliada |
 | `database/migrate_topics_five_levels.php` | Escala de 5 niveles en urgencia/importancia (histórico; bases nuevas no lo necesitan) |
@@ -143,13 +145,17 @@ Ejemplo (desde la raíz del proyecto):
 
 ```bash
 php database/migrate_team_people_pentagon.php
+php database/migrate_pentagon_axes_v2.php   # si ya tenías columnas axis_* antiguas
 ```
 
 En Windows con XAMPP, si `php` no está en el PATH:
 
 ```powershell
 c:\xampp\php\php.exe database\migrate_team_people_pentagon.php
+c:\xampp\php\php.exe database\migrate_pentagon_axes_v2.php
 ```
+
+También podés aplicar el SQL directo: `database/migrate_pentagon_axes_v2.sql` (SQLite 3.25+).
 
 El orden debe respetar el **historial de tu base**: si partes de una versión muy antigua, puede ser necesario ejecutar migraciones anteriores primero.
 

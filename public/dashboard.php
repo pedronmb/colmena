@@ -140,7 +140,8 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                     data-team-id="<?= (int) $personalTeamId ?>"
                 >
                     <p class="muted pentagon-dashboard__lead">
-                        Cada tarjeta del equipo tiene un gráfico radial con cinco ejes (escala <strong>0–10</strong>). Editá valores en <a href="people-edit.php">Editar fichas</a>.
+                        <span class="pentagon-dashboard__lead-text">Cada tarjeta del equipo tiene un gráfico radial con cinco ejes (escala <strong>0–10</strong>). Editá valores en <a href="people-edit.php">Editar fichas</a>.</span>
+                        <?php require __DIR__ . '/includes/pentagon-help-trigger.php'; ?>
                     </p>
                     <p class="muted" id="pentagonDashboardLoading" aria-live="polite" hidden></p>
                     <div class="pentagon-dashboard__grid" id="pentagonDashboardGrid"></div>
@@ -152,6 +153,7 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
     <input type="hidden" id="dashboardTeamId" value="<?= (int) $personalTeamId ?>">
 
     <?php require __DIR__ . '/includes/topic-modal.php'; ?>
+    <?php require __DIR__ . '/includes/pentagon-seniority-help-modal.php'; ?>
 
     <div id="pentagonCardModal" class="modal" hidden aria-modal="true" role="dialog" aria-labelledby="pentagonCardModalTitle">
         <div class="modal__backdrop" data-pentagon-modal-close></div>
@@ -170,6 +172,8 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
 
     <script src="assets/js/theme.js" defer></script>
     <script src="assets/js/pentagon-radar-svg.js" defer></script>
+    <script src="assets/js/pentagon-seniority-help.js" defer></script>
+    <script src="assets/js/person-direct-team.js" defer></script>
     <script src="assets/js/pentagon-dashboard.js" defer></script>
     <script src="assets/js/dashboard.js" defer></script>
     <script src="assets/js/topics.js" defer></script>

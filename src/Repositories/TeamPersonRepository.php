@@ -24,20 +24,21 @@ final class TeamPersonRepository
         ?string $role,
         ?string $birthday,
         ?string $extraInfo,
-        ?int $axisStrategicVision = null,
-        ?int $axisTechnicalExecution = null,
-        ?int $axisTeamManagement = null,
-        ?int $axisDataRisk = null,
-        ?int $axisInnovation = null
+        ?int $axisAutonomyProblemSolving = null,
+        ?int $axisImpactScope = null,
+        ?int $axisInfluenceMentorship = null,
+        ?int $axisBusinessCommunication = null,
+        ?int $axisTechnicalCompetence = null,
+        bool $isDirectTeam = false
     ): int {
         $stmt = $this->pdo->prepare(
             'INSERT INTO team_people (
                 team_id, display_name, email, role, birthday, extra_info,
-                axis_strategic_vision, axis_technical_execution, axis_team_management,
-                axis_data_risk, axis_innovation
+                axis_autonomy_problem_solving, axis_impact_scope, axis_influence_mentorship,
+                axis_business_communication, axis_technical_competence, is_direct_team
              ) VALUES (
                 :tid, :name, :email, :role, :birthday, :extra,
-                :axis_sv, :axis_te, :axis_tm, :axis_dr, :axis_in
+                :axis_ap, :axis_is, :axis_im, :axis_bc, :axis_tc, :direct
              )'
         );
         $stmt->execute([
@@ -47,11 +48,12 @@ final class TeamPersonRepository
             'role' => $role !== null && trim($role) !== '' ? trim($role) : null,
             'birthday' => $birthday,
             'extra' => $extraInfo !== null && trim($extraInfo) !== '' ? trim($extraInfo) : null,
-            'axis_sv' => $axisStrategicVision,
-            'axis_te' => $axisTechnicalExecution,
-            'axis_tm' => $axisTeamManagement,
-            'axis_dr' => $axisDataRisk,
-            'axis_in' => $axisInnovation,
+            'axis_ap' => $axisAutonomyProblemSolving,
+            'axis_is' => $axisImpactScope,
+            'axis_im' => $axisInfluenceMentorship,
+            'axis_bc' => $axisBusinessCommunication,
+            'axis_tc' => $axisTechnicalCompetence,
+            'direct' => $isDirectTeam ? 1 : 0,
         ]);
 
         return (int) $this->pdo->lastInsertId();
@@ -64,11 +66,12 @@ final class TeamPersonRepository
         ?string $role,
         ?string $birthday,
         ?string $extraInfo,
-        ?int $axisStrategicVision,
-        ?int $axisTechnicalExecution,
-        ?int $axisTeamManagement,
-        ?int $axisDataRisk,
-        ?int $axisInnovation
+        ?int $axisAutonomyProblemSolving,
+        ?int $axisImpactScope,
+        ?int $axisInfluenceMentorship,
+        ?int $axisBusinessCommunication,
+        ?int $axisTechnicalCompetence,
+        bool $isDirectTeam = false
     ): void {
         $stmt = $this->pdo->prepare(
             'UPDATE team_people SET
@@ -77,11 +80,12 @@ final class TeamPersonRepository
                 role = :role,
                 birthday = :birthday,
                 extra_info = :extra,
-                axis_strategic_vision = :axis_sv,
-                axis_technical_execution = :axis_te,
-                axis_team_management = :axis_tm,
-                axis_data_risk = :axis_dr,
-                axis_innovation = :axis_in
+                axis_autonomy_problem_solving = :axis_ap,
+                axis_impact_scope = :axis_is,
+                axis_influence_mentorship = :axis_im,
+                axis_business_communication = :axis_bc,
+                axis_technical_competence = :axis_tc,
+                is_direct_team = :direct
              WHERE id = :id'
         );
         $stmt->execute([
@@ -91,11 +95,12 @@ final class TeamPersonRepository
             'role' => $role !== null && trim($role) !== '' ? trim($role) : null,
             'birthday' => $birthday,
             'extra' => $extraInfo !== null && trim($extraInfo) !== '' ? trim($extraInfo) : null,
-            'axis_sv' => $axisStrategicVision,
-            'axis_te' => $axisTechnicalExecution,
-            'axis_tm' => $axisTeamManagement,
-            'axis_dr' => $axisDataRisk,
-            'axis_in' => $axisInnovation,
+            'axis_ap' => $axisAutonomyProblemSolving,
+            'axis_is' => $axisImpactScope,
+            'axis_im' => $axisInfluenceMentorship,
+            'axis_bc' => $axisBusinessCommunication,
+            'axis_tc' => $axisTechnicalCompetence,
+            'direct' => $isDirectTeam ? 1 : 0,
         ]);
     }
 
@@ -116,11 +121,12 @@ final class TeamPersonRepository
             'extra_info' => isset($row['extra_info']) && $row['extra_info'] !== null && $row['extra_info'] !== ''
                 ? (string) $row['extra_info']
                 : null,
-            'axis_strategic_vision' => $this->mapAxisColumn($row['axis_strategic_vision'] ?? null),
-            'axis_technical_execution' => $this->mapAxisColumn($row['axis_technical_execution'] ?? null),
-            'axis_team_management' => $this->mapAxisColumn($row['axis_team_management'] ?? null),
-            'axis_data_risk' => $this->mapAxisColumn($row['axis_data_risk'] ?? null),
-            'axis_innovation' => $this->mapAxisColumn($row['axis_innovation'] ?? null),
+            'axis_autonomy_problem_solving' => $this->mapAxisColumn($row['axis_autonomy_problem_solving'] ?? null),
+            'axis_impact_scope' => $this->mapAxisColumn($row['axis_impact_scope'] ?? null),
+            'axis_influence_mentorship' => $this->mapAxisColumn($row['axis_influence_mentorship'] ?? null),
+            'axis_business_communication' => $this->mapAxisColumn($row['axis_business_communication'] ?? null),
+            'axis_technical_competence' => $this->mapAxisColumn($row['axis_technical_competence'] ?? null),
+            'is_direct_team' => $this->mapDirectTeamColumn($row['is_direct_team'] ?? null),
             'created_at' => (string) $row['created_at'],
         ];
     }
@@ -135,6 +141,16 @@ final class TeamPersonRepository
         return max(0, min(10, (int) $raw));
     }
 
+    /** @param mixed $raw */
+    private function mapDirectTeamColumn($raw): bool
+    {
+        if ($raw === null || $raw === '') {
+            return false;
+        }
+
+        return (int) $raw !== 0;
+    }
+
     /**
      * @return array{
      *   id:int,
@@ -144,11 +160,12 @@ final class TeamPersonRepository
      *   role:?string,
      *   birthday:?string,
      *   extra_info:?string,
-     *   axis_strategic_vision:?int,
-     *   axis_technical_execution:?int,
-     *   axis_team_management:?int,
-     *   axis_data_risk:?int,
-     *   axis_innovation:?int,
+     *   axis_autonomy_problem_solving:?int,
+     *   axis_impact_scope:?int,
+     *   axis_influence_mentorship:?int,
+     *   axis_business_communication:?int,
+     *   axis_technical_competence:?int,
+     *   is_direct_team:bool,
      *   created_at:string
      * }|null
      */
@@ -156,8 +173,8 @@ final class TeamPersonRepository
     {
         $stmt = $this->pdo->prepare(
             'SELECT id, team_id, display_name, email, role, birthday, extra_info,
-                    axis_strategic_vision, axis_technical_execution, axis_team_management,
-                    axis_data_risk, axis_innovation, created_at
+                    axis_autonomy_problem_solving, axis_impact_scope, axis_influence_mentorship,
+                    axis_business_communication, axis_technical_competence, is_direct_team, created_at
              FROM team_people WHERE id = :id LIMIT 1'
         );
         $stmt->execute(['id' => $id]);
@@ -176,8 +193,8 @@ final class TeamPersonRepository
     {
         $stmt = $this->pdo->prepare(
             'SELECT id, team_id, display_name, email, role, birthday, extra_info,
-                    axis_strategic_vision, axis_technical_execution, axis_team_management,
-                    axis_data_risk, axis_innovation, created_at
+                    axis_autonomy_problem_solving, axis_impact_scope, axis_influence_mentorship,
+                    axis_business_communication, axis_technical_competence, is_direct_team, created_at
              FROM team_people
              WHERE team_id = :tid
              ORDER BY display_name COLLATE NOCASE ASC'

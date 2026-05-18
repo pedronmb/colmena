@@ -6,28 +6,28 @@
     const MODAL_CHART_SIZE = 440;
 
     const AXIS_KEYS = [
-        "axis_strategic_vision",
-        "axis_technical_execution",
-        "axis_team_management",
-        "axis_data_risk",
-        "axis_innovation",
+        "axis_autonomy_problem_solving",
+        "axis_impact_scope",
+        "axis_influence_mentorship",
+        "axis_business_communication",
+        "axis_technical_competence",
     ];
 
     const AXIS_LABELS = [
-        "Visión estratégica",
-        "Ejecución técnica",
-        "Comunicación",
-        "Datos / riesgos",
-        "Innovación",
+        "Autonomía",
+        "Impacto / alcance",
+        "Influencia y mentoría",
+        "Negocio y comunicación",
+        "Competencia técnica",
     ];
 
     /** Definiciones (tooltips en el SVG); mismo orden que AXIS_KEYS */
     const AXIS_LABEL_TOOLTIPS = [
-        "Capacidad de ver el impacto a largo plazo.",
-        "Habilidad para picar código o resolver problemas complejos.",
-        "Claridad al expresar ideas, escucha activa y alineación con el equipo y las partes interesadas.",
-        "Evaluación de métricas y seguridad.",
-        "Capacidad de proponer soluciones fuera de la caja.",
+        "Capacidad de trabajar con poca supervisión, priorizar y desbloquear situaciones complejas.",
+        "Amplitud y relevancia del trabajo: alcance de iniciativas, sistemas o equipos que afecta.",
+        "Guía a otros, define estándares técnicos y eleva el nivel del equipo.",
+        "Entiende el contexto de negocio, negocia prioridades y comunica con claridad a stakeholders.",
+        "Dominio de herramientas, arquitectura y calidad en la ejecución técnica.",
     ];
 
     function personHasScores(p) {
@@ -127,7 +127,10 @@
         card.setAttribute("aria-label", `Ampliar perfil: ${displayName}`);
 
         const title = document.createElement("h2");
-        title.className = "pentagon-dashboard-card__title";
+        const extraClass = window.ColmenaPersonTeam?.directTeamNameClass?.(person) || "";
+        title.className = extraClass
+            ? `pentagon-dashboard-card__title ${extraClass}`
+            : "pentagon-dashboard-card__title";
         title.textContent = displayName;
         card.appendChild(title);
 
@@ -170,7 +173,7 @@
     }
 
     function sortPeopleByPentagonSum(people) {
-        return [...people].sort((a, b) => {
+        const byPentagonThenName = (a, b) => {
             const diff = pentagonStatsSum(b) - pentagonStatsSum(a);
             if (diff !== 0) {
                 return diff;
@@ -178,7 +181,11 @@
             return String(a.display_name || "").localeCompare(String(b.display_name || ""), "es", {
                 sensitivity: "base",
             });
-        });
+        };
+        if (window.ColmenaPersonTeam?.sortWithDirectTeamFirst) {
+            return window.ColmenaPersonTeam.sortWithDirectTeamFirst(people, byPentagonThenName);
+        }
+        return [...people].sort(byPentagonThenName);
     }
 
     async function load() {

@@ -12,6 +12,7 @@ use App\Repositories\TeamRepository;
 use App\Repositories\UserRepository;
 use App\Services\AuthService;
 use App\Support\BirthdayNormalizer;
+use App\Support\DirectTeamNormalizer;
 use App\Support\PentagonAxisNormalizer;
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -120,26 +121,30 @@ try {
     }
 
     try {
-        $axisSv = array_key_exists('axis_strategic_vision', $data)
-            ? PentagonAxisNormalizer::parseOptional($data['axis_strategic_vision'])
-            : $current['axis_strategic_vision'];
-        $axisTe = array_key_exists('axis_technical_execution', $data)
-            ? PentagonAxisNormalizer::parseOptional($data['axis_technical_execution'])
-            : $current['axis_technical_execution'];
-        $axisTm = array_key_exists('axis_team_management', $data)
-            ? PentagonAxisNormalizer::parseOptional($data['axis_team_management'])
-            : $current['axis_team_management'];
-        $axisDr = array_key_exists('axis_data_risk', $data)
-            ? PentagonAxisNormalizer::parseOptional($data['axis_data_risk'])
-            : $current['axis_data_risk'];
-        $axisIn = array_key_exists('axis_innovation', $data)
-            ? PentagonAxisNormalizer::parseOptional($data['axis_innovation'])
-            : $current['axis_innovation'];
+        $axisAp = array_key_exists('axis_autonomy_problem_solving', $data)
+            ? PentagonAxisNormalizer::parseOptional($data['axis_autonomy_problem_solving'])
+            : $current['axis_autonomy_problem_solving'];
+        $axisIs = array_key_exists('axis_impact_scope', $data)
+            ? PentagonAxisNormalizer::parseOptional($data['axis_impact_scope'])
+            : $current['axis_impact_scope'];
+        $axisIm = array_key_exists('axis_influence_mentorship', $data)
+            ? PentagonAxisNormalizer::parseOptional($data['axis_influence_mentorship'])
+            : $current['axis_influence_mentorship'];
+        $axisBc = array_key_exists('axis_business_communication', $data)
+            ? PentagonAxisNormalizer::parseOptional($data['axis_business_communication'])
+            : $current['axis_business_communication'];
+        $axisTc = array_key_exists('axis_technical_competence', $data)
+            ? PentagonAxisNormalizer::parseOptional($data['axis_technical_competence'])
+            : $current['axis_technical_competence'];
     } catch (\InvalidArgumentException $e) {
         http_response_code(422);
         echo json_encode(['ok' => false, 'error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
         exit;
     }
+
+    $isDirectTeam = array_key_exists('is_direct_team', $data)
+        ? DirectTeamNormalizer::parseFromData($data)
+        : (bool) $current['is_direct_team'];
 
     $peopleRepo->update(
         $id,
@@ -148,11 +153,12 @@ try {
         $role,
         $birthday,
         $extraInfo,
-        $axisSv,
-        $axisTe,
-        $axisTm,
-        $axisDr,
-        $axisIn
+        $axisAp,
+        $axisIs,
+        $axisIm,
+        $axisBc,
+        $axisTc,
+        $isDirectTeam
     );
     $updated = $peopleRepo->findById($id);
 

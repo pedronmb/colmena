@@ -84,6 +84,7 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
     <?php require __DIR__ . '/includes/topic-modal.php'; ?>
 
     <script src="assets/js/theme.js" defer></script>
+    <script src="assets/js/person-direct-team.js" defer></script>
     <script src="assets/js/topics.js" defer></script>
     <script src="assets/js/app-shell.js" defer></script>
 </body>

@@ -84,6 +84,13 @@
         return d.innerHTML;
     }
 
+    function personNameClassAttr(person, baseClass) {
+        if (window.ColmenaPersonTeam?.personNameClassAttr) {
+            return window.ColmenaPersonTeam.personNameClassAttr(person, baseClass);
+        }
+        return baseClass ? ` class="${baseClass}"` : "";
+    }
+
     function formatTopicDt(iso) {
         if (!iso) return "";
         const s = String(iso).trim();
@@ -208,6 +215,10 @@
         personCardModalTitle.textContent = isUnassigned
             ? "Sin tarjeta"
             : person.display_name || "Tarjeta";
+        personCardModalTitle.classList.remove("person-name--direct-team");
+        if (!isUnassigned && person && window.ColmenaPersonTeam?.isDirectTeam?.(person)) {
+            personCardModalTitle.classList.add("person-name--direct-team");
+        }
 
         if (isUnassigned) {
             personCardModalDetails.innerHTML =
@@ -457,7 +468,7 @@
 
             card.innerHTML = `
                 <header class="person-card__head">
-                    <h3 class="person-card__name">${escapeHtml(person.display_name)}</h3>
+                    <h3${personNameClassAttr(person, "person-card__name")}>${escapeHtml(person.display_name)}</h3>
                 </header>
                 ${contact}
                 ${personDetailsHtml(person)}
@@ -739,6 +750,7 @@
         const birthdayRaw = String(fd.get("birthday") || "").trim();
         const extraRaw = String(fd.get("extra_info") || "").trim();
         const roleRaw = String(fd.get("role") || "").trim();
+        const directEl = form.querySelector('[name="is_direct_team"]');
         const payload = {
             team_id: Number(fd.get("team_id")),
             display_name: String(fd.get("display_name") || "").trim(),
@@ -746,13 +758,14 @@
             role: roleRaw === "" ? null : roleRaw,
             birthday: birthdayRaw === "" ? null : birthdayRaw,
             extra_info: extraRaw === "" ? null : extraRaw,
+            is_direct_team: directEl instanceof HTMLInputElement && directEl.checked,
         };
         const pentagonKeys = [
-            "axis_strategic_vision",
-            "axis_technical_execution",
-            "axis_team_management",
-            "axis_data_risk",
-            "axis_innovation",
+            "axis_autonomy_problem_solving",
+            "axis_impact_scope",
+            "axis_influence_mentorship",
+            "axis_business_communication",
+            "axis_technical_competence",
         ];
         pentagonKeys.forEach((k) => {
             const inp = form.querySelector(`[name="${k}"]`);
@@ -851,7 +864,11 @@
             li.className = "topic-person-combobox__option";
             li.setAttribute("role", "option");
             li.setAttribute("data-id", String(p.id));
-            li.textContent = labelPerson(p);
+            if (window.ColmenaPersonTeam?.personOptionLabelHtml) {
+                li.innerHTML = window.ColmenaPersonTeam.personOptionLabelHtml(p);
+            } else {
+                li.textContent = labelPerson(p);
+            }
             peoplePersonListbox.appendChild(li);
         });
         if (matches.length > max) {

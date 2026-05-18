@@ -8,30 +8,33 @@ declare(strict_types=1);
 $pre = $pentagonIdPrefix ?? '';
 $namePre = $pentagonNamePrefix ?? '';
 $axes = [
-    'axis_strategic_vision' => [
-        'label' => 'Visión estratégica',
-        'hint' => 'Capacidad de ver el impacto a largo plazo.',
+    'axis_autonomy_problem_solving' => [
+        'label' => 'Autonomía y Resolución de Problemas',
+        'hint' => 'Capacidad de trabajar con poca supervisión, priorizar y desbloquear situaciones complejas.',
     ],
-    'axis_technical_execution' => [
-        'label' => 'Ejecución técnica',
-        'hint' => 'Habilidad para picar código o resolver problemas complejos.',
+    'axis_impact_scope' => [
+        'label' => 'Impacto y Alcance (Scope)',
+        'hint' => 'Amplitud y relevancia del trabajo: alcance de iniciativas, sistemas o equipos que afecta.',
     ],
-    'axis_team_management' => [
-        'label' => 'Comunicación',
-        'hint' => 'Claridad al expresar ideas, escucha activa y alineación con el equipo y las partes interesadas.',
+    'axis_influence_mentorship' => [
+        'label' => 'Influencia, Mentoría y Liderazgo Técnico',
+        'hint' => 'Guía a otros, define estándares técnicos y eleva el nivel del equipo.',
     ],
-    'axis_data_risk' => [
-        'label' => 'Análisis de datos / riesgos',
-        'hint' => 'Evaluación de métricas y seguridad.',
+    'axis_business_communication' => [
+        'label' => 'Negocio y Comunicación (Habilidades Blandas)',
+        'hint' => 'Entiende el contexto de negocio, negocia prioridades y comunica con claridad a stakeholders.',
     ],
-    'axis_innovation' => [
-        'label' => 'Innovación / creatividad',
-        'hint' => 'Capacidad de proponer soluciones fuera de la caja.',
+    'axis_technical_competence' => [
+        'label' => 'Competencia Técnica',
+        'hint' => 'Dominio de herramientas, arquitectura y calidad en la ejecución técnica.',
     ],
 ];
 ?>
 <fieldset class="pentagon-profile-fields form__full">
-    <legend class="pentagon-profile-fields__legend">Perfil (pentágono)</legend>
+    <div class="pentagon-profile-fields__head">
+        <legend class="pentagon-profile-fields__legend">Perfil (pentágono)</legend>
+        <?php require __DIR__ . '/pentagon-help-trigger.php'; ?>
+    </div>
     <p class="muted pentagon-profile-fields__lead">Escala 0 (bajo) a 10 (alto). En el radar, sin puntuación previa se muestra como 0.</p>
     <div class="pentagon-profile-fields__grid">
         <?php foreach ($axes as $name => $meta) :

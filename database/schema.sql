@@ -36,11 +36,12 @@ CREATE TABLE team_people (
     role TEXT,
     birthday TEXT,
     extra_info TEXT,
-    axis_strategic_vision INTEGER,
-    axis_technical_execution INTEGER,
-    axis_team_management INTEGER,
-    axis_data_risk INTEGER,
-    axis_innovation INTEGER,
+    axis_autonomy_problem_solving INTEGER,
+    axis_impact_scope INTEGER,
+    axis_influence_mentorship INTEGER,
+    axis_business_communication INTEGER,
+    axis_technical_competence INTEGER,
+    is_direct_team INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 

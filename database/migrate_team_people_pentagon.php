@@ -29,10 +29,10 @@ $add = static function (string $col) use ($pdo, $names): void {
     }
 };
 
-$add('axis_strategic_vision');
-$add('axis_technical_execution');
-$add('axis_team_management');
-$add('axis_data_risk');
-$add('axis_innovation');
+$add('axis_autonomy_problem_solving');
+$add('axis_impact_scope');
+$add('axis_influence_mentorship');
+$add('axis_business_communication');
+$add('axis_technical_competence');
 
 echo "OK: team_people pentágono listo.\n";

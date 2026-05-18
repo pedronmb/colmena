@@ -93,7 +93,11 @@
             li.className = "topic-person-combobox__option";
             li.setAttribute("role", "option");
             li.setAttribute("data-id", String(p.id));
-            li.textContent = personOptionLabel(p);
+            if (window.ColmenaPersonTeam?.personOptionLabelHtml) {
+                li.innerHTML = window.ColmenaPersonTeam.personOptionLabelHtml(p);
+            } else {
+                li.textContent = personOptionLabel(p);
+            }
             personListbox.appendChild(li);
         });
         if (matches.length > max) {

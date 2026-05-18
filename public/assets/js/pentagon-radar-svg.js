@@ -24,6 +24,54 @@ window.ColmenaPentagonRadar = (function () {
         return pts.join(" ");
     }
 
+    /** @returns {{ anchor: string, dx: number, dy: number, lines: string[] }} */
+    function labelLayout(angle, label) {
+        const c = Math.cos(angle);
+        const s = Math.sin(angle);
+        let anchor = "middle";
+        let dx = 0;
+        let dy = 0;
+
+        if (c > 0.35) {
+            anchor = "start";
+            dx = 5;
+        } else if (c < -0.35) {
+            anchor = "end";
+            dx = -5;
+        }
+
+        if (s > 0.35) {
+            dy = 7;
+        } else if (s < -0.35) {
+            dy = -7;
+        }
+
+        const lines = splitLabelLines(label);
+
+        return { anchor, dx, dy, lines };
+    }
+
+    /** @returns {string[]} */
+    function splitLabelLines(label) {
+        const trimmed = String(label).trim();
+        if (trimmed.length <= 14) {
+            return [trimmed];
+        }
+        if (trimmed.includes("/")) {
+            const parts = trimmed.split("/").map((p) => p.trim()).filter(Boolean);
+            if (parts.length >= 2) {
+                return parts.slice(0, 2);
+            }
+        }
+        const words = trimmed.split(/\s+/);
+        if (words.length >= 2) {
+            const mid = Math.ceil(words.length / 2);
+            return [words.slice(0, mid).join(" "), words.slice(mid).join(" ")];
+        }
+
+        return [trimmed];
+    }
+
     function dataPolygonPoints(cx, cy, maxR, values, maxValue) {
         const n = values.length;
         const pts = [];
@@ -61,10 +109,12 @@ window.ColmenaPentagonRadar = (function () {
         const cx = size / 2;
         const cy = size / 2;
         const maxR = size * 0.31;
-        const labelR = size * 0.4;
+        const labelR = size * 0.38;
+        const pad = Math.round(size * 0.14);
+        const vbSize = size + pad * 2;
 
         const svg = document.createElementNS(NS, "svg");
-        svg.setAttribute("viewBox", `0 0 ${size} ${size}`);
+        svg.setAttribute("viewBox", `${-pad} ${-pad} ${vbSize} ${vbSize}`);
         svg.setAttribute("width", String(size));
         svg.setAttribute("height", String(size));
         svg.setAttribute("class", "pentagon-radar-svg");
@@ -104,16 +154,31 @@ window.ColmenaPentagonRadar = (function () {
         );
         svg.appendChild(dataPoly);
 
+        const lineHeight = size < 300 ? 9 : 11;
+
         labels.forEach((label, i) => {
             const ang = angleForVertex(i, n);
             const [x, y] = point(cx, cy, labelR, ang);
+            const layout = labelLayout(ang, label);
+            const lineCount = layout.lines.length;
+            const yStart = y + layout.dy - ((lineCount - 1) * lineHeight) / 2;
             const text = document.createElementNS(NS, "text");
-            text.setAttribute("x", String(x));
-            text.setAttribute("y", String(y));
-            text.setAttribute("text-anchor", "middle");
+            text.setAttribute("x", String(x + layout.dx));
+            text.setAttribute("y", String(yStart));
+            text.setAttribute("text-anchor", layout.anchor);
             text.setAttribute("dominant-baseline", "middle");
             text.setAttribute("class", "pentagon-radar-svg__label");
-            text.textContent = label;
+
+            layout.lines.forEach((line, lineIndex) => {
+                const tspan = document.createElementNS(NS, "tspan");
+                tspan.setAttribute("x", String(x + layout.dx));
+                if (lineIndex > 0) {
+                    tspan.setAttribute("dy", String(lineHeight));
+                }
+                tspan.textContent = line;
+                text.appendChild(tspan);
+            });
+
             const tip = labelTooltips[i];
             if (tip && String(tip).trim() !== "") {
                 const titleEl = document.createElementNS(NS, "title");

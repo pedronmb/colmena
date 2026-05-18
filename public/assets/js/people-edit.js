@@ -12,11 +12,11 @@
     const oneUrl = "api/team-person.php";
 
     const PENTAGON_AXIS_KEYS = [
-        "axis_strategic_vision",
-        "axis_technical_execution",
-        "axis_team_management",
-        "axis_data_risk",
-        "axis_innovation",
+        "axis_autonomy_problem_solving",
+        "axis_impact_scope",
+        "axis_influence_mentorship",
+        "axis_business_communication",
+        "axis_technical_competence",
     ];
 
     function editModalAxisFieldName(apiKey) {
@@ -102,6 +102,11 @@
         document.getElementById("editEmail").value = p.email || "";
         const roleEl = document.getElementById("editRole");
         if (roleEl) roleEl.value = p.role || "";
+        const directEl = document.getElementById("editIsDirectTeam");
+        if (directEl instanceof HTMLInputElement) {
+            directEl.checked =
+                p.is_direct_team === true || p.is_direct_team === 1;
+        }
         if (window.ColmenaBirthday && form) {
             window.ColmenaBirthday.fillBirthdayFields(form, p.birthday);
         }
@@ -173,10 +178,16 @@
                 loadingEl.hidden = false;
                 return;
             }
-            data.people.forEach((p) => {
+            const people = window.ColmenaPersonTeam?.sortWithDirectTeamFirst
+                ? window.ColmenaPersonTeam.sortWithDirectTeamFirst(data.people)
+                : data.people;
+            people.forEach((p) => {
                 const tr = document.createElement("tr");
+                const nameClass =
+                    window.ColmenaPersonTeam?.directTeamNameClass?.(p) || "";
+                const nameTdAttr = nameClass ? ` class="${nameClass}"` : "";
                 tr.innerHTML = `
-                    <td>${escapeHtml(p.display_name)}</td>
+                    <td${nameTdAttr}>${escapeHtml(p.display_name)}</td>
                     <td>${p.role ? escapeHtml(p.role) : "—"}</td>
                     <td>${p.email ? escapeHtml(p.email) : "—"}</td>
                     <td>${formatBirthdayDisplay(p.birthday)}</td>
@@ -213,6 +224,7 @@
         const birthdayRaw = String(fd.get("birthday") || "").trim();
         const emailRaw = String(fd.get("email") || "").trim();
         const roleRaw = String(fd.get("role") || "").trim();
+        const directEl = form.querySelector('[name="is_direct_team"]');
         const payload = {
             id: Number(fd.get("id")),
             team_id: Number(fd.get("team_id")),
@@ -221,6 +233,8 @@
             role: roleRaw === "" ? null : roleRaw,
             birthday: birthdayRaw === "" ? null : birthdayRaw,
             extra_info: String(fd.get("extra_info") || "").trim() || null,
+            is_direct_team:
+                directEl instanceof HTMLInputElement && directEl.checked,
         };
         PENTAGON_AXIS_KEYS.forEach((k) => {
             const el = form.querySelector(`[name="${editModalAxisFieldName(k)}"]`);
