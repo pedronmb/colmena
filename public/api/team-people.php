@@ -13,6 +13,7 @@ use App\Repositories\UserRepository;
 use App\Services\AuthService;
 use App\Support\BirthdayNormalizer;
 use App\Support\DirectTeamNormalizer;
+use App\Support\InvgateIdNormalizer;
 use App\Support\PentagonAxisNormalizer;
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -114,6 +115,13 @@ try {
 
     $isDirectTeam = DirectTeamNormalizer::parseFromData($data);
 
+    $invgateId = InvgateIdNormalizer::optional($data['invgate_id'] ?? null);
+    if ($invgateId === false) {
+        http_response_code(422);
+        echo json_encode(['ok' => false, 'error' => 'ID Invgate inválido (debe ser un número entero)']);
+        exit;
+    }
+
     $newId = $peopleRepo->create(
         $teamId,
         $displayName,
@@ -126,7 +134,8 @@ try {
         $axisIm,
         $axisBc,
         $axisTc,
-        $isDirectTeam
+        $isDirectTeam,
+        $invgateId
     );
     $created = $peopleRepo->findById($newId);
 

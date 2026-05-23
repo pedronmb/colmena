@@ -29,15 +29,16 @@ final class TeamPersonRepository
         ?int $axisInfluenceMentorship = null,
         ?int $axisBusinessCommunication = null,
         ?int $axisTechnicalCompetence = null,
-        bool $isDirectTeam = false
+        bool $isDirectTeam = false,
+        ?int $invgateId = null
     ): int {
         $stmt = $this->pdo->prepare(
             'INSERT INTO team_people (
-                team_id, display_name, email, role, birthday, extra_info,
+                team_id, display_name, email, role, invgate_id, birthday, extra_info,
                 axis_autonomy_problem_solving, axis_impact_scope, axis_influence_mentorship,
                 axis_business_communication, axis_technical_competence, is_direct_team
              ) VALUES (
-                :tid, :name, :email, :role, :birthday, :extra,
+                :tid, :name, :email, :role, :invgate_id, :birthday, :extra,
                 :axis_ap, :axis_is, :axis_im, :axis_bc, :axis_tc, :direct
              )'
         );
@@ -46,6 +47,7 @@ final class TeamPersonRepository
             'name' => trim($displayName),
             'email' => $email !== null && trim($email) !== '' ? trim($email) : null,
             'role' => $role !== null && trim($role) !== '' ? trim($role) : null,
+            'invgate_id' => $invgateId,
             'birthday' => $birthday,
             'extra' => $extraInfo !== null && trim($extraInfo) !== '' ? trim($extraInfo) : null,
             'axis_ap' => $axisAutonomyProblemSolving,
@@ -71,13 +73,15 @@ final class TeamPersonRepository
         ?int $axisInfluenceMentorship,
         ?int $axisBusinessCommunication,
         ?int $axisTechnicalCompetence,
-        bool $isDirectTeam = false
+        bool $isDirectTeam = false,
+        ?int $invgateId = null
     ): void {
         $stmt = $this->pdo->prepare(
             'UPDATE team_people SET
                 display_name = :name,
                 email = :email,
                 role = :role,
+                invgate_id = :invgate_id,
                 birthday = :birthday,
                 extra_info = :extra,
                 axis_autonomy_problem_solving = :axis_ap,
@@ -93,6 +97,7 @@ final class TeamPersonRepository
             'name' => trim($displayName),
             'email' => $email !== null && trim($email) !== '' ? trim($email) : null,
             'role' => $role !== null && trim($role) !== '' ? trim($role) : null,
+            'invgate_id' => $invgateId,
             'birthday' => $birthday,
             'extra' => $extraInfo !== null && trim($extraInfo) !== '' ? trim($extraInfo) : null,
             'axis_ap' => $axisAutonomyProblemSolving,
@@ -117,6 +122,7 @@ final class TeamPersonRepository
             'role' => isset($row['role']) && $row['role'] !== null && trim((string) $row['role']) !== ''
                 ? trim((string) $row['role'])
                 : null,
+            'invgate_id' => $this->mapOptionalIntColumn($row['invgate_id'] ?? null),
             'birthday' => BirthdayNormalizer::canonicalMonthDay($row['birthday'] ?? null),
             'extra_info' => isset($row['extra_info']) && $row['extra_info'] !== null && $row['extra_info'] !== ''
                 ? (string) $row['extra_info']
@@ -129,6 +135,16 @@ final class TeamPersonRepository
             'is_direct_team' => $this->mapDirectTeamColumn($row['is_direct_team'] ?? null),
             'created_at' => (string) $row['created_at'],
         ];
+    }
+
+    /** @param mixed $raw */
+    private function mapOptionalIntColumn($raw): ?int
+    {
+        if ($raw === null || $raw === '') {
+            return null;
+        }
+
+        return (int) $raw;
     }
 
     /** @param mixed $raw */
@@ -158,6 +174,7 @@ final class TeamPersonRepository
      *   display_name:string,
      *   email:?string,
      *   role:?string,
+     *   invgate_id:?int,
      *   birthday:?string,
      *   extra_info:?string,
      *   axis_autonomy_problem_solving:?int,
@@ -172,7 +189,7 @@ final class TeamPersonRepository
     public function findById(int $id): ?array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT id, team_id, display_name, email, role, birthday, extra_info,
+            'SELECT id, team_id, display_name, email, role, invgate_id, birthday, extra_info,
                     axis_autonomy_problem_solving, axis_impact_scope, axis_influence_mentorship,
                     axis_business_communication, axis_technical_competence, is_direct_team, created_at
              FROM team_people WHERE id = :id LIMIT 1'
@@ -192,7 +209,7 @@ final class TeamPersonRepository
     public function listByTeam(int $teamId): array
     {
         $stmt = $this->pdo->prepare(
-            'SELECT id, team_id, display_name, email, role, birthday, extra_info,
+            'SELECT id, team_id, display_name, email, role, invgate_id, birthday, extra_info,
                     axis_autonomy_problem_solving, axis_impact_scope, axis_influence_mentorship,
                     axis_business_communication, axis_technical_competence, is_direct_team, created_at
              FROM team_people

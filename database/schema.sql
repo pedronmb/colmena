@@ -34,6 +34,7 @@ CREATE TABLE team_people (
     display_name TEXT NOT NULL,
     email TEXT,
     role TEXT,
+    invgate_id INTEGER,
     birthday TEXT,
     extra_info TEXT,
     axis_autonomy_problem_solving INTEGER,
@@ -112,3 +113,33 @@ CREATE TABLE user_files (
 );
 
 CREATE INDEX idx_user_files_user ON user_files(user_id);
+
+-- Tickets sincronizados desde InvGate (por persona del equipo)
+CREATE TABLE invgate_tickets (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    person_id INTEGER REFERENCES team_people(id) ON DELETE SET NULL,
+    invgate_incident_id INTEGER NOT NULL UNIQUE,
+    user_id INTEGER,
+    title TEXT NOT NULL,
+    description TEXT,
+    category_id INTEGER,
+    created_at TEXT NOT NULL,
+    last_update TEXT NOT NULL,
+    priority INTEGER
+);
+
+CREATE INDEX idx_invgate_tickets_person ON invgate_tickets(person_id);
+CREATE INDEX idx_invgate_tickets_last_update ON invgate_tickets(last_update DESC);
+
+CREATE TABLE invgate_ticket_comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    incident_id INTEGER NOT NULL REFERENCES invgate_tickets(id) ON DELETE CASCADE,
+    author_id INTEGER,
+    message TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    msg_num INTEGER NOT NULL,
+    is_solution INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(incident_id, msg_num)
+);
+
+CREATE INDEX idx_invgate_ticket_comments_incident ON invgate_ticket_comments(incident_id);

@@ -70,6 +70,10 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                         Rol (opcional)
                         <input name="role" type="text" maxlength="120" autocomplete="off" placeholder="Ej. Desarrollo, PM, Diseño…">
                     </label>
+                    <label>
+                        ID Invgate (opcional)
+                        <input name="invgate_id" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="Ej. 12345">
+                    </label>
                     <label class="form__checkbox">
                         <input type="checkbox" name="is_direct_team" value="1">
                         Equipo directo
@@ -109,6 +113,7 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                         <tr>
                             <th>Nombre</th>
                             <th>Rol</th>
+                            <th>ID Invgate</th>
                             <th>Contacto</th>
                             <th>Cumpleaños</th>
                             <th>Notas</th>
@@ -143,6 +148,10 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                 <label>
                     Rol (opcional)
                     <input name="role" id="editRole" type="text" maxlength="120" autocomplete="off" placeholder="Ej. Desarrollo, PM…">
+                </label>
+                <label>
+                    ID Invgate (opcional)
+                    <input name="invgate_id" id="editInvgateId" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" placeholder="Ej. 12345">
                 </label>
                 <label class="form__checkbox">
                     <input type="checkbox" name="is_direct_team" id="editIsDirectTeam" value="1">

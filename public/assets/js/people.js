@@ -145,6 +145,9 @@
         if (person.role && String(person.role).trim() !== "") {
             bits.push(`<p class="person-card__meta muted"><span class="person-card__role-label">Rol:</span> ${escapeHtml(String(person.role).trim())}</p>`);
         }
+        if (person.invgate_id != null && person.invgate_id !== "") {
+            bits.push(`<p class="person-card__meta muted">ID Invgate: ${escapeHtml(String(person.invgate_id))}</p>`);
+        }
         if (person.birthday) {
             bits.push(`<p class="person-card__meta muted">Cumpleaños: ${escapeHtml(formatBirthdayEs(person.birthday))}</p>`);
         }
@@ -750,12 +753,14 @@
         const birthdayRaw = String(fd.get("birthday") || "").trim();
         const extraRaw = String(fd.get("extra_info") || "").trim();
         const roleRaw = String(fd.get("role") || "").trim();
+        const invgateRaw = String(fd.get("invgate_id") || "").trim();
         const directEl = form.querySelector('[name="is_direct_team"]');
         const payload = {
             team_id: Number(fd.get("team_id")),
             display_name: String(fd.get("display_name") || "").trim(),
             email: emailRaw === "" ? null : emailRaw,
             role: roleRaw === "" ? null : roleRaw,
+            invgate_id: invgateRaw === "" ? null : Number(invgateRaw),
             birthday: birthdayRaw === "" ? null : birthdayRaw,
             extra_info: extraRaw === "" ? null : extraRaw,
             is_direct_team: directEl instanceof HTMLInputElement && directEl.checked,

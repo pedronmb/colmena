@@ -102,6 +102,13 @@
         document.getElementById("editEmail").value = p.email || "";
         const roleEl = document.getElementById("editRole");
         if (roleEl) roleEl.value = p.role || "";
+        const invgateEl = document.getElementById("editInvgateId");
+        if (invgateEl) {
+            invgateEl.value =
+                p.invgate_id !== null && p.invgate_id !== undefined && p.invgate_id !== ""
+                    ? String(p.invgate_id)
+                    : "";
+        }
         const directEl = document.getElementById("editIsDirectTeam");
         if (directEl instanceof HTMLInputElement) {
             directEl.checked =
@@ -189,6 +196,7 @@
                 tr.innerHTML = `
                     <td${nameTdAttr}>${escapeHtml(p.display_name)}</td>
                     <td>${p.role ? escapeHtml(p.role) : "—"}</td>
+                    <td>${p.invgate_id != null && p.invgate_id !== "" ? escapeHtml(String(p.invgate_id)) : "—"}</td>
                     <td>${p.email ? escapeHtml(p.email) : "—"}</td>
                     <td>${formatBirthdayDisplay(p.birthday)}</td>
                     <td class="data-table__notes">${truncate(p.extra_info, 80)}</td>
@@ -224,6 +232,7 @@
         const birthdayRaw = String(fd.get("birthday") || "").trim();
         const emailRaw = String(fd.get("email") || "").trim();
         const roleRaw = String(fd.get("role") || "").trim();
+        const invgateRaw = String(fd.get("invgate_id") || "").trim();
         const directEl = form.querySelector('[name="is_direct_team"]');
         const payload = {
             id: Number(fd.get("id")),
@@ -231,6 +240,7 @@
             display_name: String(fd.get("display_name") || "").trim(),
             email: emailRaw === "" ? null : emailRaw,
             role: roleRaw === "" ? null : roleRaw,
+            invgate_id: invgateRaw === "" ? null : Number(invgateRaw),
             birthday: birthdayRaw === "" ? null : birthdayRaw,
             extra_info: String(fd.get("extra_info") || "").trim() || null,
             is_direct_team:
