@@ -19,4 +19,11 @@ return [
         'max_items' => 200,
         'wiql' => null,
     ],
+    // InvGate Service Desk (sync de tickets). No subas config.php si incluye la contraseña.
+    'invgate' => [
+        'server_url' => '', // ej. https://empresa.cloud.invgate.net (con https://, sin barra final)
+        'user' => '',
+        'password' => '',
+        'limit' => 100,
+    ],
 ];

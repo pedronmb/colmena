@@ -123,6 +123,9 @@ CREATE TABLE invgate_tickets (
     title TEXT NOT NULL,
     description TEXT,
     category_id INTEGER,
+    source_id INTEGER,
+    status_id INTEGER,
+    type_id INTEGER,
     created_at TEXT NOT NULL,
     last_update TEXT NOT NULL,
     priority INTEGER
@@ -130,6 +133,23 @@ CREATE TABLE invgate_tickets (
 
 CREATE INDEX idx_invgate_tickets_person ON invgate_tickets(person_id);
 CREATE INDEX idx_invgate_tickets_last_update ON invgate_tickets(last_update DESC);
+
+-- Catálogos lookup para mostrar nombres (InvGate)
+CREATE TABLE invgate_categories (
+    invgate_id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    parent_category_id INTEGER
+);
+
+CREATE TABLE invgate_types (
+    invgate_id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL
+);
+
+CREATE TABLE invgate_statuses (
+    invgate_id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL
+);
 
 CREATE TABLE invgate_ticket_comments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

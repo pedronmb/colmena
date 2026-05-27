@@ -1,6 +1,6 @@
 # Colmena
 
-Aplicación web en **PHP** con **SQLite** para gestionar equipos, personas (tarjetas sin cuenta de acceso), temas con **urgencia e importancia en escala numérica 1–10**, dashboards tipo matriz Eisenhower con **perfiles en pentágono** (cinco ejes 0–10 y gráfico radar en la pestaña del mismo nombre), alertas con fecha de cumplimiento, vista **DevOps** (integración con Azure DevOps), **bloc personal** (notas y archivos por usuario) y administración de usuarios.
+Aplicación web en **PHP** con **SQLite** para gestionar equipos, personas (tarjetas sin cuenta de acceso), temas con **urgencia e importancia en escala numérica 1–10**, dashboards tipo matriz Eisenhower con **perfiles en pentágono** (cinco ejes 0–10 y gráfico radar en la pestaña del mismo nombre), alertas con fecha de cumplimiento, vista **DevOps** (integración con Azure DevOps), **InvGate** (tickets sincronizados por persona con catálogos de categorías, tipos y estados), **bloc personal** (notas y archivos por usuario) y administración de usuarios.
 
 Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
 
@@ -11,7 +11,7 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
 | Requisito | Notas |
 |-----------|--------|
 | PHP | 8.0 o superior (recomendado 8.1+) |
-| Extensiones | `pdo_sqlite`, `json`, `session` |
+| Extensiones | `pdo_sqlite`, `json`, `session`, `curl` (InvGate y Azure DevOps) |
 | Servidor web | Apache, nginx u otro con soporte PHP (en local suele usarse **XAMPP** u homólogo) |
 | Base de datos | SQLite (archivo `database/app.sqlite`; no hace falta servidor MySQL) |
 | Front-end | HTML, CSS y JavaScript **vanilla** (sin npm ni bundler obligatorio) |
@@ -38,18 +38,32 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
    - Inserta un usuario demo, un equipo, miembros y tarjetas de ejemplo.
    - **Advertencia:** si `app.sqlite` ya existía, **se borra** y se vuelve a crear desde cero.
 
-3. **Configurar el virtual host o la ruta** para que la **raíz pública** sea el directorio `public/` (recomendado).
+3. **Copiar la configuración** (si aún no existe `config/config.php`):
+
+   ```bash
+   cp config/config.php.default config/config.php
+   ```
+
+   En Windows:
+
+   ```powershell
+   copy config\config.php.default config\config.php
+   ```
+
+   Ajustá `db.path` y, si vas a usar integraciones, los bloques `azure_devops` e `invgate` (ver sección **Configuración**).
+
+4. **Configurar el virtual host o la ruta** para que la **raíz pública** sea el directorio `public/` (recomendado).
 
    Si no puedes apuntar el document root a `public/`, coloca el proyecto en una subcarpeta y accede a `http://localhost/colmena/public/` (ajusta la ruta según tu entorno).
 
-4. **Abrir la aplicación** en el navegador y entrar con la cuenta demo:
+5. **Abrir la aplicación** en el navegador y entrar con la cuenta demo:
 
    | Campo | Valor |
    |--------|--------|
    | Email | `demo@local.test` |
    | Contraseña | `demo123` |
 
-5. **Permisos (Linux/macOS):** el usuario del servidor web debe poder **leer y escribir** `database/app.sqlite` (y la carpeta `database/` si hace falta crear el archivo).
+6. **Permisos (Linux/macOS):** el usuario del servidor web debe poder **leer y escribir** `database/app.sqlite` (y la carpeta `database/` si hace falta crear el archivo).
 
 ---
 
@@ -59,6 +73,93 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
 
 - **Equipo en contexto:** la aplicación usa el **espacio de trabajo personal** del usuario (`PersonalTeamBootstrap`) para `team_id` en formularios y API cuando corresponde.
 
+- **Azure DevOps (vista DevOps):** en `config/config.php`, bloque `azure_devops`:
+
+  ```php
+  'azure_devops' => [
+      'organization' => 'mi-org',
+      'project' => 'mi-proyecto',
+      'pat' => '', // Personal Access Token (Work items: Read)
+      'max_items' => 200,
+      'wiql' => null, // opcional: consulta WIQL personalizada
+  ],
+  ```
+
+  No subas `config.php` al repositorio si incluye el PAT.
+
+- **InvGate (sincronización de tickets):** en `config/config.php`, bloque `invgate`:
+
+  ```php
+  'invgate' => [
+      'server_url' => 'https://helpdesk.empresa.com', // sin barra final
+      'user' => 'usuario_api',
+      'password' => 'contraseña',
+      'limit' => 100,
+  ],
+  ```
+
+  Copiá los valores desde `config/config.php.default` si aún no tenés el bloque. No subas `config.php` al repositorio si incluye credenciales.
+
+  En cada ficha de persona (**Editar fichas**) podés cargar el **ID InvGate** (`team_people.invgate_id`).
+
+  #### Scripts de sincronización (CLI)
+
+  Hay **tres scripts** independientes. El orden recomendado es:
+
+  1. **Catálogo** — nombres de categorías, tipos y estados (`invgate_categories`, `invgate_types`, `invgate_statuses`).
+  2. **Tickets** — incidentes abiertos por agente (`invgate_tickets`).
+  3. **Comentarios** — respuestas de cada ticket (`invgate_ticket_comments`).
+
+  | Script | Endpoint InvGate | Tabla destino |
+  |--------|------------------|---------------|
+  | `database/sync_invgate_catalog.php` | `/categories`, `/incident.attributes.type`, `/incident.attributes.status` | `invgate_categories`, `invgate_types`, `invgate_statuses` |
+  | `database/sync_invgate_tickets.php` | `/incidents.by.agent` | `invgate_tickets` |
+  | `database/sync_invgate_comments.php` | `/incident.comment` | `invgate_ticket_comments` |
+
+  El sync de **catálogo** hace upsert (inserta nuevos y actualiza nombres si cambiaron en InvGate; no borra registros locales). Si hay IDs en tickets que no aparecieron en el listado completo, intenta traerlos individualmente con `?id=`.
+
+  El sync de **tickets** guarda por incidente: `title`, `description`, `category_id`, `source_id`, `status_id`, `type_id`, `priority`, fechas y solicitante (`user_id`). Solo inserta/actualiza los que devuelve la API (tickets abiertos asignados al agente).
+
+  El sync de **comentarios** solo **inserta** comentarios nuevos (clave local: ticket + `msg_num`).
+
+  **Ejecutar sincronización manual:**
+
+  ```bash
+  php database/sync_invgate_catalog.php
+  php database/sync_invgate_tickets.php
+  php database/sync_invgate_comments.php
+  ```
+
+  En Windows (XAMPP):
+
+  ```powershell
+  c:\xampp\php\php.exe database\sync_invgate_catalog.php
+  c:\xampp\php\php.exe database\sync_invgate_tickets.php
+  c:\xampp\php\php.exe database\sync_invgate_comments.php
+  ```
+
+  **Tarea programada (Windows):** Programador de tareas → crear tarea básica → acción «Iniciar un programa»:
+
+  - Programa: `c:\xampp\php\php.exe`
+  - Argumentos: `database\sync_invgate_catalog.php`
+  - Iniciar en: carpeta raíz del proyecto (donde está `database/`)
+
+  Si querés programar tickets/comentarios, repetí la tarea cambiando los argumentos a:
+  - `database\sync_invgate_tickets.php`
+  - `database\sync_invgate_comments.php`
+
+  En Linux/macOS podés usar `cron`, por ejemplo cada hora:
+
+  ```bash
+  0 * * * * cd /ruta/a/colmena && php database/sync_invgate_catalog.php && php database/sync_invgate_tickets.php && php database/sync_invgate_comments.php
+  ```
+
+  Los tickets cerrados en InvGate dejan de actualizarse pero **permanecen** en la base local.
+
+  #### Interfaz web
+
+  La solapa **InvGate** (`public/invgate.php`) muestra tickets agrupados por persona (incluye fichas con ID InvGate aunque no tengan tickets abiertos). Las columnas **Estado**, **Tipo** y **Categoría** muestran el nombre del catálogo sincronizado; si falta el catálogo, se muestra el ID numérico. Al hacer clic en un ticket se abre el detalle con descripción y comentarios sincronizados.
+
 ---
 
 ## Estructura del proyecto (resumen)
@@ -67,16 +168,21 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
 colmena/
 ├── bootstrap_web.php      # Bootstrap web: autoload, sesión, config
 ├── config/
-│   └── config.php         # Configuración (BD, etc.)
+│   ├── config.php         # Configuración local (no versionada)
+│   └── config.php.default # Plantilla de configuración
 ├── database/
 │   ├── schema.sql         # Esquema completo (instalaciones nuevas)
 │   ├── init.php           # Crea DB desde cero + datos demo
-│   └── migrate_*.php      # Migraciones para bases ya existentes
+│   ├── migrate_*.php      # Migraciones para bases ya existentes
+│   ├── sync_invgate_catalog.php   # Sync CLI catálogo InvGate
+│   ├── sync_invgate_tickets.php   # Sync CLI tickets → invgate_tickets
+│   └── sync_invgate_comments.php  # Sync CLI comentarios → invgate_ticket_comments
 ├── public/                # Document root recomendado
 │   ├── index.php          # Temas
 │   ├── dashboard.php      # Matriz, lista, foco, calendario y pestaña Perfiles (pentágono)
 │   ├── pentagon-dashboard.php  # Redirección a dashboard.php?panel=pentagon (compatibilidad)
 │   ├── devops.php         # DevOps (Azure DevOps)
+│   ├── invgate.php        # InvGate (tickets agrupados por persona)
 │   ├── alerts.php         # Alertas
 │   ├── people.php         # Tablero de personas y temas
 │   ├── people-edit.php    # CRUD de fichas + perfil pentágono
@@ -90,8 +196,8 @@ colmena/
     ├── Bootstrap.php
     ├── Database/
     ├── Models/
-    ├── Repositories/
-    ├── Services/
+    ├── Repositories/      # Incl. InvgateTicketRepository, InvgateCatalogRepository, …
+    ├── Services/          # Incl. InvgateClient, Invgate*SyncService, AzureDevOpsClient, …
     └── Support/           # Incl. BirthdayNormalizer, PentagonAxisNormalizer, …
 ```
 
@@ -105,7 +211,8 @@ colmena/
 - **Perfil (pentágono):** cinco ejes opcionales en `team_people` (escala **0–10**): visión estratégica, ejecución técnica, comunicación, análisis de datos/riesgos, innovación/creatividad. Se editan en **Editar fichas**; el radar por persona está en **Dashboards → pestaña Perfiles (pentágono)** (`dashboard.php?panel=pentagon`), con SVG nativo (sin npm).
 - **Dashboards:** matriz urgencia × importancia, lista, «Hacer hoy», calendario de alertas y la pestaña anterior.
 - **Alertas:** fecha de cumplimiento; aviso tras iniciar sesión si la fecha está vencida o en los próximos 7 días.
-- **DevOps:** interfaz para enlazar trabajo con **Azure DevOps** (configuración/API según entorno).
+- **DevOps:** interfaz para enlazar trabajo con **Azure DevOps** (work items vía `azure-devops-workitems.php`; configuración en `config.php`).
+- **InvGate:** solapa de solo lectura con tickets sincronizados en `invgate_tickets`, agrupados por persona. Muestra estado, tipo y categoría por **nombre** (tablas lookup `invgate_statuses`, `invgate_types`, `invgate_categories`). Detalle con descripción y comentarios (`invgate_ticket_comments`). Requiere ID InvGate en la ficha de persona y ejecutar los scripts CLI de sincronización.
 - **Bloc personal:** notas y archivos privados del usuario conectado.
 - **Usuarios:** alta y gestión de cuentas (rol administrativo).
 - **Tema claro/oscuro:** preferencia en el cliente (`theme.js`).
@@ -118,7 +225,9 @@ Los endpoints viven en `public/api/*.php` (mismo origen que la app, `credentials
 - `topics.php`, `topic.php` (**priority** e **importance** como enteros **1–10** en JSON), `people-board.php`
 - `team-people.php`, `team-person.php` (personas; **PUT/POST** aceptan las claves `axis_*` del pentágono)
 - `alerts.php`, `users.php`, `teams.php`
-- `user-scratchpad.php`, `user-files.php`
+- `azure-devops-workitems.php` (GET: work items de Azure DevOps)
+- `invgate-tickets.php` (GET: tickets agrupados por persona), `invgate-ticket.php` (GET: detalle + comentarios de un ticket)
+- `user-scratchpad.php`, `user-files.php`, `user-file-download.php`
 
 ---
 
@@ -140,6 +249,10 @@ Si ya tienes un `app.sqlite` antiguo y **no** quieres borrarlo con `init.php`, e
 | `database/migrate_team_alerts.php` | Tabla `team_alerts` |
 | `database/migrate_personal_workspace.php` | Espacio de trabajo personal por usuario |
 | `database/migrate_user_scratchpad_files.php` | Tablas/recursos de bloc y archivos personales |
+| `database/migrate_team_people_invgate_id.php` | Campo `invgate_id` en personas |
+| `database/migrate_invgate_tickets.php` | Tablas `invgate_tickets` e `invgate_ticket_comments` |
+| `database/migrate_invgate_tickets_source_status_type.php` | Campos `source_id`, `status_id` y `type_id` en tickets InvGate |
+| `database/migrate_invgate_catalog.php` | Tablas lookup: categorías, tipos y estados de InvGate |
 
 Ejemplo (desde la raíz del proyecto):
 
@@ -159,6 +272,17 @@ También podés aplicar el SQL directo: `database/migrate_pentagon_axes_v2.sql` 
 
 El orden debe respetar el **historial de tu base**: si partes de una versión muy antigua, puede ser necesario ejecutar migraciones anteriores primero.
 
+**Ejemplo — habilitar InvGate en una base existente** (después de las migraciones previas que correspondan):
+
+```bash
+php database/migrate_team_people_invgate_id.php
+php database/migrate_invgate_tickets.php
+php database/migrate_invgate_tickets_source_status_type.php
+php database/migrate_invgate_catalog.php
+```
+
+Luego configurá `config.php` y ejecutá los sync CLI en el orden indicado arriba.
+
 ---
 
 ## Solución de problemas
@@ -168,6 +292,10 @@ El orden debe respetar el **historial de tu base**: si partes de una versión mu
 - **Error SQL en temas** (columnas `priority`/`importance` con tipo o restricciones antiguas): ejecutar `database/migrate_topics_numeric_1_10.php` (tras las migraciones previas de temas si tu base es muy antigua) o recrear la BD con `init.php` si puedes perder datos.
 - **Clase `App\Bootstrap` ya declarada:** asegurarse de usar la versión actual de `bootstrap_web.php` (usa `require_once` y caché de configuración).
 - **Sesión / login:** comprobar que las cookies funcionen (mismo dominio, HTTPS en producción si aplica).
+- **InvGate — columnas Estado/Tipo/Categoría muestran IDs o `—`:** ejecutar `database/sync_invgate_catalog.php` (requiere credenciales en `config.php`). Si la tabla no existe, correr antes `database/migrate_invgate_catalog.php`.
+- **InvGate — sin tickets:** verificar que las personas tengan `invgate_id` en **Editar fichas** y ejecutar `database/sync_invgate_tickets.php`.
+- **InvGate — sin comentarios en el detalle:** ejecutar `database/sync_invgate_comments.php` (requiere tickets ya sincronizados).
+- **InvGate — error de autenticación o red:** revisar `server_url` (con `https://`, sin barra final), usuario/contraseña API y que PHP tenga la extensión `curl` habilitada.
 
 ---
 
@@ -200,5 +328,7 @@ Este proyecto se publica bajo **GNU General Public License v3.0** — ver el arc
 - API en `public/api/*.php`: JSON, `Content-Type: application/json; charset=utf-8`.
 - Sin framework obligatorio; autoload PSR-4 simple para `App\*` bajo `src/`.
 - Gráficos del pentágono: `public/assets/js/pentagon-radar-svg.js`; la carga de tarjetas usa `pentagon-dashboard.js`, invocada desde la pestaña en `dashboard.js`.
+- InvGate (UI): `public/assets/js/invgate.js`; consume `api/invgate-tickets.php` y `api/invgate-ticket.php`.
+- Sync InvGate (CLI): `src/Services/InvgateClient.php`, `InvgateCatalogSyncService`, `InvgateTicketSyncService`, `InvgateCommentSyncService`.
 
 Para cambios en el esquema, actualiza `database/schema.sql` y, si aplica, añade o ajusta un `migrate_*.php` para quien ya tenga datos en producción.

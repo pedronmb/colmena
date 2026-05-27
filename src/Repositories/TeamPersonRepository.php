@@ -234,4 +234,58 @@ final class TeamPersonRepository
 
         return $stmt->fetch() !== false;
     }
+
+    /**
+     * Personas con ID de agente InvGate para sincronización de tickets.
+     *
+     * @return list<array{id:int, invgate_id:int, display_name:string}>
+     */
+    public function listWithInvgateId(): array
+    {
+        $stmt = $this->pdo->query(
+            'SELECT id, invgate_id, display_name
+             FROM team_people
+             WHERE invgate_id IS NOT NULL
+             ORDER BY display_name COLLATE NOCASE ASC'
+        );
+        $out = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $invgateId = isset($row['invgate_id']) ? (int) $row['invgate_id'] : 0;
+            if ($invgateId <= 0) {
+                continue;
+            }
+            $out[] = [
+                'id' => (int) $row['id'],
+                'invgate_id' => $invgateId,
+                'display_name' => (string) ($row['display_name'] ?? ''),
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
+     * Devuelve el ID de persona local dado un ID de agente InvGate.
+     */
+    public function findPersonIdByInvgateId(int $invgateId): ?int
+    {
+        if ($invgateId <= 0) {
+            return null;
+        }
+
+        $stmt = $this->pdo->prepare(
+            'SELECT id
+             FROM team_people
+             WHERE invgate_id = :invgate_id
+             LIMIT 1'
+        );
+        $stmt->execute(['invgate_id' => $invgateId]);
+        $id = $stmt->fetchColumn();
+        if ($id === false) {
+            return null;
+        }
+        $personId = (int) $id;
+
+        return $personId > 0 ? $personId : null;
+    }
 }

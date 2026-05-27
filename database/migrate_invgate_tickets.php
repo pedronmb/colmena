@@ -27,6 +27,9 @@ if (!$ticketsExists) {
         title TEXT NOT NULL,
         description TEXT,
         category_id INTEGER,
+        source_id INTEGER,
+        status_id INTEGER,
+        type_id INTEGER,
         created_at TEXT NOT NULL,
         last_update TEXT NOT NULL,
         priority INTEGER
