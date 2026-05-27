@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Repositories;
 
+use App\Support\InvgateFinalStatuses;
 use PDO;
 
 final class InvgateTicketRepository
@@ -121,14 +122,15 @@ final class InvgateTicketRepository
      */
     public function listForCommentSync(): array
     {
-        $stmt = $this->pdo->query(
+        $finalStatusIds = InvgateFinalStatuses::ids();
+        $placeholders = InvgateFinalStatuses::sqlNotInPlaceholders();
+        $stmt = $this->pdo->prepare(
             'SELECT id, invgate_incident_id
              FROM invgate_tickets
+             WHERE status_id IS NULL OR status_id NOT IN (' . $placeholders . ')
              ORDER BY last_update DESC'
         );
-        if ($stmt === false) {
-            return [];
-        }
+        $stmt->execute($finalStatusIds);
 
         $tickets = [];
         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
@@ -282,8 +284,8 @@ final class InvgateTicketRepository
      */
     public function listGroupedByTeam(int $teamId): array
     {
-        $finalStatusIds = [5, 6, 7, 8];
-        $finalPlaceholders = implode(',', array_fill(0, count($finalStatusIds), '?'));
+        $finalStatusIds = InvgateFinalStatuses::ids();
+        $finalPlaceholders = InvgateFinalStatuses::sqlNotInPlaceholders();
 
         $stmt = $this->pdo->prepare(
             'SELECT it.id, it.person_id, it.invgate_incident_id, it.user_id, it.title, it.description,

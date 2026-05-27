@@ -158,7 +158,28 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
 
   #### Interfaz web
 
-  La solapa **InvGate** (`public/invgate.php`) muestra tickets agrupados por persona (incluye fichas con ID InvGate aunque no tengan tickets abiertos). Las columnas **Estado**, **Tipo** y **Categoría** muestran el nombre del catálogo sincronizado; si falta el catálogo, se muestra el ID numérico. Al hacer clic en un ticket se abre el detalle con descripción y comentarios sincronizados.
+  La solapa **InvGate** (`public/invgate.php`) tiene dos pestañas:
+
+  - **Tickets** — listado agrupado por persona (incluye fichas con ID InvGate aunque no tengan tickets abiertos). Las columnas **Estado**, **Tipo** y **Categoría** muestran el nombre del catálogo sincronizado; si falta el catálogo, se muestra el ID numérico. Al hacer clic en un ticket se abre el detalle con descripción y comentarios sincronizados.
+  - **Estadísticas** — métricas por persona y resumen del equipo (`GET api/invgate-stats.php?team_id=&period=7|30|all&stale_days=3`).
+
+  **Métricas disponibles (por persona):**
+
+  | Bloque | Métrica | Definición |
+  |--------|---------|------------|
+  | Carga | Abiertos | Tickets con estado no final (IDs 5–8) |
+  | Carga | Carga ponderada | Suma de pesos por prioridad (P1=5, P2=3, P3=2, resto=1) |
+  | Carga | % P1/P2 | Porcentaje de abiertos con prioridad 1 o 2 |
+  | Aging | Edad promedio / mediana | Días desde `created_at` en abiertos |
+  | Aging | Stale | Abiertos sin interacción hace N días (`last_update` o último comentario) |
+  | Aging | P1/P2 envejecidos | Abiertos alta prioridad con más de N días |
+  | Distribución | Por estado / tipo / categoría | Conteo y % sobre abiertos |
+  | Histórico | Resueltos (período / 7d / 30d) | Tickets finales con `last_update` en la ventana |
+  | Histórico | Tiempo de resolución | `last_update − created_at` (promedio, p50, p90) en finales del período |
+  | Histórico | Throughput semanal | Cierres por semana ISO (últimas 8 semanas) |
+  | Comentarios | Actividad | Comentarios por ticket, total del agente, 1ª respuesta, idle, tasa con solución |
+
+  **Limitaciones:** el sync de tickets solo trae incidentes **abiertos**; los cierres históricos solo aparecen si el ticket estuvo abierto al sincronizar y luego se actualizó el estado local. Las métricas de comentarios requieren `sync_invgate_comments.php` y que `author_id` coincida con el ID InvGate de la persona.
 
 ---
 
@@ -212,7 +233,7 @@ colmena/
 - **Dashboards:** matriz urgencia × importancia, lista, «Hacer hoy», calendario de alertas y la pestaña anterior.
 - **Alertas:** fecha de cumplimiento; aviso tras iniciar sesión si la fecha está vencida o en los próximos 7 días.
 - **DevOps:** interfaz para enlazar trabajo con **Azure DevOps** (work items vía `azure-devops-workitems.php`; configuración en `config.php`).
-- **InvGate:** solapa de solo lectura con tickets sincronizados en `invgate_tickets`, agrupados por persona. Muestra estado, tipo y categoría por **nombre** (tablas lookup `invgate_statuses`, `invgate_types`, `invgate_categories`). Detalle con descripción y comentarios (`invgate_ticket_comments`). Requiere ID InvGate en la ficha de persona y ejecutar los scripts CLI de sincronización.
+- **InvGate:** solapa con pestañas **Tickets** (solo lectura, agrupados por persona) y **Estadísticas** (carga, distribución, aging, histórico y comentarios por persona). Muestra estado, tipo y categoría por **nombre** (tablas lookup). Detalle con descripción y comentarios. Requiere ID InvGate en la ficha y scripts CLI de sincronización.
 - **Bloc personal:** notas y archivos privados del usuario conectado.
 - **Usuarios:** alta y gestión de cuentas (rol administrativo).
 - **Tema claro/oscuro:** preferencia en el cliente (`theme.js`).
@@ -226,7 +247,7 @@ Los endpoints viven en `public/api/*.php` (mismo origen que la app, `credentials
 - `team-people.php`, `team-person.php` (personas; **PUT/POST** aceptan las claves `axis_*` del pentágono)
 - `alerts.php`, `users.php`, `teams.php`
 - `azure-devops-workitems.php` (GET: work items de Azure DevOps)
-- `invgate-tickets.php` (GET: tickets agrupados por persona), `invgate-ticket.php` (GET: detalle + comentarios de un ticket)
+- `invgate-tickets.php` (GET: tickets agrupados por persona), `invgate-ticket.php` (GET: detalle + comentarios de un ticket), `invgate-stats.php` (GET: estadísticas por persona del equipo)
 - `user-scratchpad.php`, `user-files.php`, `user-file-download.php`
 
 ---
@@ -328,7 +349,8 @@ Este proyecto se publica bajo **GNU General Public License v3.0** — ver el arc
 - API en `public/api/*.php`: JSON, `Content-Type: application/json; charset=utf-8`.
 - Sin framework obligatorio; autoload PSR-4 simple para `App\*` bajo `src/`.
 - Gráficos del pentágono: `public/assets/js/pentagon-radar-svg.js`; la carga de tarjetas usa `pentagon-dashboard.js`, invocada desde la pestaña en `dashboard.js`.
-- InvGate (UI): `public/assets/js/invgate.js`; consume `api/invgate-tickets.php` y `api/invgate-ticket.php`.
+- InvGate (UI): `public/assets/js/invgate-common.js`, `invgate.js`, `invgate-stats.js`; consume `api/invgate-tickets.php`, `api/invgate-ticket.php` y `api/invgate-stats.php`.
+- InvGate (stats): `src/Services/InvgateStatsService.php`, `src/Repositories/InvgateStatsRepository.php`.
 - Sync InvGate (CLI): `src/Services/InvgateClient.php`, `InvgateCatalogSyncService`, `InvgateTicketSyncService`, `InvgateCommentSyncService`.
 
 Para cambios en el esquema, actualiza `database/schema.sql` y, si aplica, añade o ajusta un `migrate_*.php` para quien ya tenga datos en producción.

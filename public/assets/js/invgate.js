@@ -4,6 +4,7 @@
 (function () {
     const apiUrl = "api/invgate-tickets.php";
     const ticketApiUrl = "api/invgate-ticket.php";
+    const C = window.InvgateCommon;
     const loadingEl = document.getElementById("invgateLoading");
     const metaEl = document.getElementById("invgateMeta");
     const rootEl = document.getElementById("invgateRoot");
@@ -17,52 +18,16 @@
 
     let groupIdSeq = 0;
 
-    function getTeamId() {
-        const appEl = document.getElementById("appPersonalTeamId");
-        if (appEl) {
-            const n = Number(appEl.value);
-            if (Number.isFinite(n) && n > 0) {
-                return n;
-            }
-        }
-        return 0;
-    }
-
     function escapeHtml(s) {
-        const d = document.createElement("div");
-        d.textContent = s;
-        return d.innerHTML;
+        return C.escapeHtml(s);
     }
 
     function formatCell(value) {
-        if (value === null || value === undefined || value === "") {
-            return '<span class="muted">—</span>';
-        }
-        return escapeHtml(String(value));
+        return C.formatCell(value);
     }
 
     function formatTimestamp(raw) {
-        if (raw === null || raw === undefined || raw === "" || raw === "0") {
-            return "—";
-        }
-        const s = String(raw).trim();
-        const n = Number(s);
-        if (Number.isFinite(n) && n > 1e9) {
-            const d = new Date(n * 1000);
-            if (!Number.isNaN(d.getTime())) {
-                return d.toLocaleString("es-AR", {
-                    dateStyle: "short",
-                    timeStyle: "short",
-                });
-            }
-        }
-        if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
-            const p = s.slice(0, 10).split("-");
-            if (p.length === 3) {
-                return `${p[2]}/${p[1]}/${p[0]}`;
-            }
-        }
-        return escapeHtml(s);
+        return C.formatTimestamp(raw);
     }
 
     function personSubtitle(person) {
@@ -244,7 +209,7 @@
     }
 
     async function openTicketDetail(ticketId) {
-        const teamId = getTeamId();
+        const teamId = C.getTeamId();
         if (ticketId < 1 || teamId < 1) {
             return;
         }
@@ -473,7 +438,7 @@
     }
 
     async function loadTickets() {
-        const teamId = getTeamId();
+        const teamId = C.getTeamId();
         if (teamId < 1) {
             if (loadingEl) {
                 loadingEl.textContent = "No se pudo determinar el equipo de trabajo.";
@@ -527,5 +492,35 @@
         }
     });
 
+    function initInvgateTabs() {
+        const tabs = document.querySelectorAll(".invgate-tab");
+        const panels = document.querySelectorAll(".invgate-panel");
+        if (!tabs.length || !panels.length) {
+            return;
+        }
+
+        tabs.forEach((tab) => {
+            tab.addEventListener("click", () => {
+                const panelId = tab.getAttribute("aria-controls");
+                if (!panelId) {
+                    return;
+                }
+                tabs.forEach((t) => {
+                    const active = t === tab;
+                    t.classList.toggle("invgate-tab--active", active);
+                    t.setAttribute("aria-selected", active ? "true" : "false");
+                });
+                panels.forEach((panel) => {
+                    const show = panel.id === panelId;
+                    panel.hidden = !show;
+                });
+                if (panelId === "invgatePanelStats" && window.InvgateStats) {
+                    window.InvgateStats.loadStats(false);
+                }
+            });
+        });
+    }
+
+    initInvgateTabs();
     loadTickets();
 })();

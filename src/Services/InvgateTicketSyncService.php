@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Repositories\InvgateTicketRepository;
 use App\Repositories\TeamPersonRepository;
+use App\Support\InvgateFinalStatuses;
 
 final class InvgateTicketSyncService
 {
@@ -102,7 +103,7 @@ final class InvgateTicketSyncService
             $personId = (int) $person['id'];
             $agentId = (int) $person['invgate_id'];
             $displayName = (string) $person['display_name'];
-            $finalStatusIds = [5, 6, 7, 8];
+            $finalStatusIds = InvgateFinalStatuses::ids();
 
             try {
                 $incidents = $this->client->fetchIncidentsByAgent($agentId);
