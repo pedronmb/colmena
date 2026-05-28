@@ -9,9 +9,13 @@
     const metaEl = document.getElementById("invgateMeta");
     const rootEl = document.getElementById("invgateRoot");
     const detailEl = document.getElementById("invgateDetail");
+    const searchInput = document.getElementById("invgateTicketSearch");
 
     let selectedTicketId = null;
     let detailRequestSeq = 0;
+    let cachedGroups = [];
+    let cachedOrphanTickets = [];
+    let cachedMeta = null;
 
     const chevronSvg =
         '<svg class="icon icon--chevron" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
@@ -361,7 +365,65 @@
         });
     }
 
-    function renderGroup(person, tickets) {
+    function getSearchQuery() {
+        return searchInput ? searchInput.value : "";
+    }
+
+    function countTicketsInView(groups, orphanTickets) {
+        let n = 0;
+        (Array.isArray(groups) ? groups : []).forEach((g) => {
+            n += Array.isArray(g.tickets) ? g.tickets.length : 0;
+        });
+        n += Array.isArray(orphanTickets) ? orphanTickets.length : 0;
+        return n;
+    }
+
+    function ticketIdInView(ticketId, groups, orphanTickets) {
+        if (ticketId == null || ticketId < 1) {
+            return false;
+        }
+        const lists = [];
+        (Array.isArray(groups) ? groups : []).forEach((g) => {
+            if (Array.isArray(g.tickets)) {
+                lists.push(...g.tickets);
+            }
+        });
+        if (Array.isArray(orphanTickets)) {
+            lists.push(...orphanTickets);
+        }
+        return lists.some((t) => Number(t.id) === ticketId);
+    }
+
+    function applySearch(groups, orphanTickets, rawQuery) {
+        const q = String(rawQuery || "").trim();
+        if (!q) {
+            return {
+                groups: Array.isArray(groups) ? groups : [],
+                orphanTickets: Array.isArray(orphanTickets) ? orphanTickets : [],
+                searching: false,
+            };
+        }
+        const filteredGroups = (Array.isArray(groups) ? groups : [])
+            .map((g) => ({
+                person: g.person,
+                tickets: C.filterTicketsBySearch(
+                    Array.isArray(g.tickets) ? g.tickets : [],
+                    q
+                ),
+            }))
+            .filter((g) => g.tickets.length > 0);
+        const filteredOrphans = C.filterTicketsBySearch(
+            Array.isArray(orphanTickets) ? orphanTickets : [],
+            q
+        );
+        return {
+            groups: filteredGroups,
+            orphanTickets: filteredOrphans,
+            searching: true,
+        };
+    }
+
+    function renderGroup(person, tickets, options) {
         const name = escapeHtml(person.display_name || "Sin nombre");
         const count = tickets.length;
         const countLabel = count === 1 ? "1 ticket" : `${count} tickets`;
@@ -372,23 +434,25 @@
         } else {
             body = renderTicketTable(tickets);
         }
-        return renderGroupShell(titleHtml, body, { collapsed: true });
+        const searching = options && options.searching === true;
+        return renderGroupShell(titleHtml, body, { collapsed: !searching });
     }
 
-    function renderOrphans(tickets) {
+    function renderOrphans(tickets, options) {
         if (!tickets.length) {
             return "";
         }
         const countLabel =
             tickets.length === 1 ? "1 ticket" : `${tickets.length} tickets`;
         const titleHtml = `Sin persona asignada <span class="invgate-group__count muted">— ${countLabel}</span>`;
+        const searching = options && options.searching === true;
         return renderGroupShell(titleHtml, renderTicketTable(tickets), {
             extraClass: "invgate-group--orphan",
-            collapsed: true,
+            collapsed: !searching,
         });
     }
 
-    function renderMeta(meta, groupCount) {
+    function renderMeta(meta, groupCount, viewOptions) {
         if (!metaEl) {
             return;
         }
@@ -398,20 +462,32 @@
             meta && typeof meta.people_with_invgate_id === "number"
                 ? meta.people_with_invgate_id
                 : 0;
-        metaEl.textContent = `${total} ticket${total === 1 ? "" : "s"} en total · ${groupCount} persona${groupCount === 1 ? "" : "s"} · ${withId} con ID InvGate`;
+        const searching = viewOptions && viewOptions.searching === true;
+        const shown =
+            viewOptions && typeof viewOptions.shownTotal === "number"
+                ? viewOptions.shownTotal
+                : total;
+        let ticketLabel = `${total} ticket${total === 1 ? "" : "s"} en total`;
+        if (searching && shown !== total) {
+            ticketLabel = `${shown} de ${total} tickets`;
+        }
+        metaEl.textContent = `${ticketLabel} · ${groupCount} persona${groupCount === 1 ? "" : "s"} · ${withId} con ID InvGate`;
         metaEl.hidden = false;
     }
 
-    function renderAll(groups, orphanTickets, meta) {
+    function renderAll(groups, orphanTickets, meta, viewOptions) {
         if (!rootEl) {
             return;
         }
         const groupList = Array.isArray(groups) ? groups : [];
         const orphans = Array.isArray(orphanTickets) ? orphanTickets : [];
-        const hasGroups = groupList.length > 0;
-        const hasOrphans = orphans.length > 0;
+        const searching = viewOptions && viewOptions.searching === true;
+        const hasCachedData =
+            (Array.isArray(cachedGroups) && cachedGroups.length > 0) ||
+            (Array.isArray(cachedOrphanTickets) && cachedOrphanTickets.length > 0) ||
+            (meta && typeof meta.ticket_total === "number" && meta.ticket_total > 0);
 
-        if (!hasGroups && !hasOrphans) {
+        if (!hasCachedData && groupList.length === 0 && orphans.length === 0) {
             rootEl.innerHTML =
                 '<p class="muted">Ningún ticket en la base de datos. Configurá el ID InvGate en <strong>Editar fichas</strong> y ejecutá <code>php database/sync_invgate_tickets.php</code>.</p>';
             rootEl.hidden = false;
@@ -421,20 +497,48 @@
             return;
         }
 
+        if (searching && groupList.length === 0 && orphans.length === 0) {
+            rootEl.innerHTML =
+                '<p class="muted">Ningún ticket coincide con la búsqueda.</p>';
+            rootEl.hidden = false;
+            if (selectedTicketId != null) {
+                closeDetail();
+            }
+            renderMeta(meta, 0, viewOptions);
+            return;
+        }
+
         groupIdSeq = 0;
+        const groupOptions = { searching };
         const sections = groupList
             .map((g) => {
                 const person = g.person && typeof g.person === "object" ? g.person : {};
                 const tickets = Array.isArray(g.tickets) ? g.tickets : [];
-                return renderGroup(person, tickets);
+                return renderGroup(person, tickets, groupOptions);
             })
             .join("");
-        closeDetail();
-        rootEl.innerHTML = sections + renderOrphans(orphans);
+        if (
+            selectedTicketId != null &&
+            !ticketIdInView(selectedTicketId, groupList, orphans)
+        ) {
+            closeDetail();
+        }
+        rootEl.innerHTML = sections + renderOrphans(orphans, groupOptions);
         rootEl.hidden = false;
         bindGroupToggles();
         bindTicketRows();
-        renderMeta(meta, groupList.length);
+        highlightSelectedRow();
+        renderMeta(meta, groupList.length, viewOptions);
+    }
+
+    function rerenderFromCache() {
+        const query = getSearchQuery();
+        const filtered = applySearch(cachedGroups, cachedOrphanTickets, query);
+        const shownTotal = countTicketsInView(filtered.groups, filtered.orphanTickets);
+        renderAll(filtered.groups, filtered.orphanTickets, cachedMeta, {
+            searching: filtered.searching,
+            shownTotal,
+        });
     }
 
     async function loadTickets() {
@@ -470,7 +574,12 @@
             if (loadingEl) {
                 loadingEl.hidden = true;
             }
-            renderAll(data.groups, data.orphan_tickets, data.meta);
+            cachedGroups = Array.isArray(data.groups) ? data.groups : [];
+            cachedOrphanTickets = Array.isArray(data.orphan_tickets)
+                ? data.orphan_tickets
+                : [];
+            cachedMeta = data.meta && typeof data.meta === "object" ? data.meta : null;
+            rerenderFromCache();
         } catch (e) {
             if (loadingEl) {
                 loadingEl.hidden = false;
@@ -526,6 +635,13 @@
             });
         });
     }
+
+    searchInput?.addEventListener("input", () => {
+        if (!cachedMeta) {
+            return;
+        }
+        rerenderFromCache();
+    });
 
     initInvgateTabs();
     loadTickets();

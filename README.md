@@ -188,14 +188,25 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
   | Carga | Abiertos | Tickets con estado no final (IDs 5–8) |
   | Carga | Carga ponderada | Suma de pesos por prioridad (P1=5, P2=3, P3=2, resto=1) |
   | Carga | % P1/P2 | Porcentaje de abiertos con prioridad 1 o 2 |
-  | Aging | Edad promedio / mediana | Días desde `created_at` en abiertos |
+  | Aging | Edad promedio / mediana / máxima | Días desde `created_at` en abiertos; máxima incluye `#invgate_incident_id` del caso más antiguo |
   | Aging | Stale | Abiertos sin interacción hace N días (`last_update` o último comentario) |
   | Aging | P1/P2 envejecidos | Abiertos alta prioridad con más de N días |
   | Distribución | Por estado / tipo / categoría | Conteo y % sobre abiertos |
   | Histórico | Resueltos (período / 7d / 30d) | Tickets finales con `last_update` en la ventana |
   | Histórico | Tiempo de resolución | `last_update − created_at` (promedio, p50, p90) en finales del período |
   | Histórico | Throughput semanal | Cierres por semana ISO (últimas 8 semanas) |
-  | Comentarios | Actividad | Comentarios por ticket, total del agente, 1ª respuesta, idle, tasa con solución |
+  | Comentarios | Actividad | Comentarios por ticket, total del agente, idle, tasa con solución |
+
+  **Métricas disponibles (resumen del equipo):**
+
+  | Bloque | Métrica | Definición |
+  |--------|---------|------------|
+  | Aging | Ticket más antiguo | Máxima edad del backlog asignado al equipo; indica persona y `#ID` |
+  | Balanceo | Ratio de desequilibrio | Carga ponderada máxima ÷ promedio por persona |
+  | Balanceo | Concentración | % de la carga total en la persona más cargada |
+  | Balanceo | Capacidad relativa | Personas con carga, abiertos y stale por debajo del promedio del equipo |
+  | Distribución | Por categoría / tipo (equipo) | Agregado de todos los abiertos asignados a personas del equipo |
+  | Huérfanos | Sin asignar | Tickets abiertos con `person_id` nulo (globales, mismo criterio que pestaña Tickets) |
 
   **Limitaciones:** el sync de tickets solo trae incidentes **abiertos**; los cierres históricos solo aparecen si el ticket estuvo abierto al sincronizar y luego se actualizó el estado local. Las métricas de comentarios requieren `sync_invgate_comments.php` y que `author_id` coincida con el ID InvGate de la persona.
 

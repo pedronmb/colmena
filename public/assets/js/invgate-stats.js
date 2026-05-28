@@ -69,6 +69,22 @@
             "Promedio de horas desde la última interacción (actualización o comentario) en tickets abiertos.",
         solution_rate:
             "Porcentaje de tickets con al menos un comentario marcado como solución en InvGate.",
+        backlog_age_max:
+            "Mayor cantidad de días desde la creación entre los tickets abiertos (el caso más antiguo del backlog).",
+        oldest_ticket:
+            "Incidente InvGate (#ID) con mayor antigüedad entre los tickets abiertos considerados.",
+        load_imbalance:
+            "Carga máxima del equipo dividida por la carga ponderada promedio por persona. Valores altos indican desequilibrio.",
+        load_concentration:
+            "Porcentaje de la carga ponderada total del equipo que concentra la persona más cargada.",
+        underloaded:
+            "Personas con carga ponderada, abiertos y stale estrictamente por debajo del promedio del equipo (capacidad relativa).",
+        team_dist_category:
+            "Distribución de todos los tickets abiertos asignados a personas del equipo, agrupados por categoría.",
+        team_dist_type:
+            "Distribución de todos los tickets abiertos asignados a personas del equipo, agrupados por tipo.",
+        orphans:
+            "Tickets abiertos sin persona asignada en la base local (globales, no filtrados por equipo). Mismo criterio que la pestaña Tickets.",
     };
 
     function helpText(key, staleDays) {
@@ -146,14 +162,229 @@
                     const pct = total > 0 ? Math.round((100 * count) / total) : 0;
                     const width = Math.round((100 * count) / max);
                     const label = item.label != null ? String(item.label) : "—";
+                    const ticketIds = Array.isArray(item.ticket_ids)
+                        ? item.ticket_ids.map((id) => Number(id)).filter((id) => id > 0)
+                        : [];
+                    const trackAttrs =
+                        ticketIds.length > 0
+                            ? ` data-ticket-ids="${C.escapeHtml(ticketIds.join(","))}" tabindex="0"`
+                            : "";
+                    const trackAria =
+                        ticketIds.length > 0
+                            ? ` aria-label="${C.escapeHtml(`${label}: ${count} tickets`)}"`
+                            : ' aria-hidden="true"';
                     return `<li class="invgate-stat-bars__item">
                         <span class="invgate-stat-bars__label">${C.escapeHtml(label)}</span>
-                        <span class="invgate-stat-bars__track" aria-hidden="true"><span class="invgate-stat-bars__fill" style="width:${width}%"></span></span>
+                        <span class="invgate-stat-bars__track${ticketIds.length > 0 ? " invgate-stat-bars__track--interactive" : ""}"${trackAttrs}${trackAria}><span class="invgate-stat-bars__fill" style="width:${width}%"></span></span>
                         <span class="invgate-stat-bars__count">${count} <span class="muted">(${pct}%)</span></span>
                     </li>`;
                 })
                 .join("")}
         </ul>`;
+    }
+
+    /** @type {HTMLElement | null} */
+    let distTooltipEl = null;
+
+    /** @type {HTMLElement | null} */
+    let distTooltipAnchor = null;
+
+    function ensureDistTooltip() {
+        if (distTooltipEl) {
+            return distTooltipEl;
+        }
+        const el = document.createElement("div");
+        el.id = "invgateStatBarsTooltip";
+        el.className = "invgate-stat-bars-tooltip";
+        el.hidden = true;
+        el.setAttribute("role", "tooltip");
+        document.body.appendChild(el);
+        distTooltipEl = el;
+        return el;
+    }
+
+    function hideDistTooltip() {
+        if (distTooltipEl) {
+            distTooltipEl.hidden = true;
+        }
+        distTooltipAnchor = null;
+    }
+
+    function positionDistTooltip(anchor) {
+        const el = ensureDistTooltip();
+        el.style.visibility = "hidden";
+        el.hidden = false;
+        const rect = anchor.getBoundingClientRect();
+        const pad = 10;
+        const gap = 8;
+        const pw = el.offsetWidth;
+        const ph = el.offsetHeight;
+        let left = rect.left + rect.width / 2 - pw / 2;
+        let top = rect.bottom + gap;
+        if (top + ph > window.innerHeight - pad) {
+            top = rect.top - ph - gap;
+        }
+        if (left < pad) {
+            left = pad;
+        }
+        if (left + pw > window.innerWidth - pad) {
+            left = window.innerWidth - pw - pad;
+        }
+        if (top < pad) {
+            top = pad;
+        }
+        el.style.left = `${Math.round(left)}px`;
+        el.style.top = `${Math.round(top)}px`;
+        el.style.visibility = "";
+    }
+
+    function showDistTooltip(anchor) {
+        const raw = anchor.getAttribute("data-ticket-ids") || "";
+        const ids = raw.split(",").filter(Boolean);
+        if (ids.length === 0) {
+            hideDistTooltip();
+            return;
+        }
+        const labelEl = anchor.closest(".invgate-stat-bars__item")?.querySelector(".invgate-stat-bars__label");
+        const label = labelEl ? labelEl.textContent || "" : "";
+        const el = ensureDistTooltip();
+        const idsHtml = ids.map((id) => `#${C.escapeHtml(id)}`).join(", ");
+        el.innerHTML = `<div class="invgate-stat-bars-tooltip__title">${C.escapeHtml(label)}</div>
+            <div class="invgate-stat-bars-tooltip__ids">${idsHtml}</div>`;
+        el.hidden = false;
+        distTooltipAnchor = anchor;
+        positionDistTooltip(anchor);
+    }
+
+    function bindDistributionTooltips() {
+        if (!rootEl || rootEl.dataset.distTooltipBound === "1") {
+            return;
+        }
+        rootEl.dataset.distTooltipBound = "1";
+
+        rootEl.addEventListener("mouseover", (e) => {
+            const track = e.target.closest(".invgate-stat-bars__track[data-ticket-ids]");
+            if (!track || !rootEl.contains(track)) {
+                return;
+            }
+            if (distTooltipAnchor === track && distTooltipEl && !distTooltipEl.hidden) {
+                return;
+            }
+            showDistTooltip(track);
+        });
+
+        rootEl.addEventListener("mouseout", (e) => {
+            const track = e.target.closest(".invgate-stat-bars__track[data-ticket-ids]");
+            if (!track) {
+                return;
+            }
+            const related = e.relatedTarget;
+            if (related instanceof Node && track.contains(related)) {
+                return;
+            }
+            hideDistTooltip();
+        });
+
+        rootEl.addEventListener("focusin", (e) => {
+            const track = e.target.closest(".invgate-stat-bars__track[data-ticket-ids]");
+            if (!track || !rootEl.contains(track)) {
+                return;
+            }
+            showDistTooltip(track);
+        });
+
+        rootEl.addEventListener("focusout", (e) => {
+            const track = e.target.closest(".invgate-stat-bars__track[data-ticket-ids]");
+            if (!track) {
+                return;
+            }
+            const related = e.relatedTarget;
+            if (related instanceof Node && track.contains(related)) {
+                return;
+            }
+            hideDistTooltip();
+        });
+
+        window.addEventListener(
+            "scroll",
+            () => {
+                if (distTooltipAnchor && distTooltipEl && !distTooltipEl.hidden) {
+                    positionDistTooltip(distTooltipAnchor);
+                }
+            },
+            true
+        );
+    }
+
+    function formatOldestTicketHint(oldest) {
+        if (!oldest || oldest.invgate_incident_id == null) {
+            return "";
+        }
+        const parts = [`#${oldest.invgate_incident_id}`];
+        if (oldest.person_display_name) {
+            parts.push(C.escapeHtml(String(oldest.person_display_name)));
+        }
+        return parts.join(" · ");
+    }
+
+    function renderRankingList(items, formatLine) {
+        if (!Array.isArray(items) || items.length === 0) {
+            return '<p class="muted">Sin datos.</p>';
+        }
+        return `<ol class="invgate-stats-ranking">
+            ${items.map((item, i) => `<li>${formatLine(item, i)}</li>`).join("")}
+        </ol>`;
+    }
+
+    function renderOrphanTicketsList(orphans) {
+        if (!orphans || typeof orphans !== "object") {
+            return "";
+        }
+        const tickets = Array.isArray(orphans.tickets) ? orphans.tickets : [];
+        if (tickets.length === 0) {
+            return '<p class="muted invgate-stats__empty">No hay tickets huérfanos abiertos.</p>';
+        }
+        return `<ul class="invgate-stats-orphan-list">
+            ${tickets
+                .map((t) => {
+                    const id = t.invgate_incident_id != null ? `#${t.invgate_incident_id}` : "—";
+                    const age =
+                        t.age_days != null ? `${C.formatNumber(t.age_days, 1)} d` : "—";
+                    const cat = t.category_name ? C.escapeHtml(String(t.category_name)) : "—";
+                    const typ = t.type_name ? C.escapeHtml(String(t.type_name)) : "—";
+                    return `<li><strong>${C.escapeHtml(id)}</strong> — ${age} · ${cat} · ${typ}</li>`;
+                })
+                .join("")}
+        </ul>`;
+    }
+
+    function renderLoadBalanceSection(loadBalance, staleDays) {
+        const lb = loadBalance && typeof loadBalance === "object" ? loadBalance : {};
+        const underloaded = Array.isArray(lb.underloaded) ? lb.underloaded : [];
+        const underHtml = renderRankingList(underloaded, (p) => {
+            const name = C.escapeHtml(String(p.display_name || "—"));
+            return `<strong>${name}</strong> — carga ${C.formatNumber(p.weighted_load)}, ${C.formatNumber(p.open_count)} abiertos, ${C.formatNumber(p.stale_count)} stale`;
+        });
+
+        const imbalance =
+            lb.imbalance_ratio != null ? C.formatNumber(lb.imbalance_ratio, 2) : "—";
+        const concentration =
+            lb.concentration_pct != null ? C.formatPct(lb.concentration_pct) : "—";
+        const avgHint =
+            lb.avg_weighted_load != null
+                ? `Promedios: carga ${C.formatNumber(lb.avg_weighted_load, 2)}, abiertos ${C.formatNumber(lb.avg_open_count, 2)}, stale ${C.formatNumber(lb.avg_stale_count, 2)}`
+                : "";
+
+        return `<div class="invgate-stats-team__block">
+            <h4 class="invgate-stats-section-title">Balanceo de carga</h4>
+            <ul class="invgate-stats-metrics-list">
+                ${renderMetricListItem("Ratio de desequilibrio", imbalance, "load_imbalance", staleDays)}
+                ${renderMetricListItem("Concentración (persona más cargada)", concentration, "load_concentration", staleDays)}
+            </ul>
+            ${avgHint ? `<p class="muted invgate-stats__hint">${avgHint}</p>` : ""}
+            <h5 class="invgate-stats-subtitle">${renderLabelWithHelp("Personas con capacidad relativa", "underloaded", staleDays)}</h5>
+            ${underHtml}
+        </div>`;
     }
 
     function renderThroughputTable(rows) {
@@ -176,17 +407,28 @@
             return "";
         }
         const top = Array.isArray(summary.top_by_load) ? summary.top_by_load : [];
-        const topHtml =
-            top.length === 0
-                ? '<p class="muted">Sin carga asignada.</p>'
-                : `<ol class="invgate-stats-ranking">
-            ${top
-                .map(
-                    (p, i) =>
-                        `<li><strong>${C.escapeHtml(String(p.display_name))}</strong> — carga ${C.formatNumber(p.weighted_load)}, ${C.formatNumber(p.open_count)} abiertos</li>`
-                )
-                .join("")}
-        </ol>`;
+        const topHtml = renderRankingList(top, (p) => {
+            const name = C.escapeHtml(String(p.display_name || "—"));
+            return `<strong>${name}</strong> — carga ${C.formatNumber(p.weighted_load)}, ${C.formatNumber(p.open_count)} abiertos`;
+        });
+
+        const maxAgeVal =
+            summary.backlog_age_max_days != null
+                ? `${C.formatNumber(summary.backlog_age_max_days, 1)} d`
+                : "—";
+        const oldestHint = formatOldestTicketHint(summary.oldest_open_ticket);
+
+        const teamDist = summary.distributions || {};
+        const openTotal = Number(summary.open_total) || 0;
+
+        const orphans = summary.orphans || {};
+        const orphanCount = Number(orphans.open_count) || 0;
+        const orphanLoad = Number(orphans.weighted_load) || 0;
+        const orphanMaxAge =
+            orphans.backlog_age_max_days != null
+                ? `${C.formatNumber(orphans.backlog_age_max_days, 1)} d`
+                : "—";
+        const orphanOldestHint = formatOldestTicketHint(orphans.oldest_open_ticket);
 
         return `<section class="invgate-stats-team">
             <h3 class="invgate-stats-team__title">Resumen del equipo</h3>
@@ -194,12 +436,31 @@
                 ${renderStatCard("Abiertos (total)", C.formatNumber(summary.open_total), { helpKey: "open_total" })}
                 ${renderStatCard("Carga ponderada", C.formatNumber(summary.weighted_load_total), { helpKey: "weighted_load_total" })}
                 ${renderStatCard("Edad promedio", summary.backlog_age_avg_total != null ? `${C.formatNumber(summary.backlog_age_avg_total, 1)} d` : "—", { helpKey: "backlog_age_avg_total" })}
+                ${renderStatCard("Ticket más antiguo", maxAgeVal, { helpKey: "backlog_age_max", hint: oldestHint || undefined })}
                 ${renderStatCard("Stale (total)", C.formatNumber(summary.stale_total), { helpKey: "stale_total", staleDays, hint: "sin movimiento" })}
                 ${renderStatCard("Resueltos 30d", C.formatNumber(summary.resolved_30d_total), { helpKey: "resolved_30d_total" })}
             </div>
             <div class="invgate-stats-team__ranking">
                 <h4 class="invgate-stats-section-title">${renderLabelWithHelp("Top 3 por carga ponderada", "top_by_load")}</h4>
                 ${topHtml}
+            </div>
+            ${renderLoadBalanceSection(summary.load_balance, staleDays)}
+            <div class="invgate-stats-team__block">
+                ${renderSectionTitle("Carga por categoría (equipo)", "team_dist_category", staleDays)}
+                ${renderDistributionBars(teamDist.by_category, openTotal)}
+            </div>
+            <div class="invgate-stats-team__block">
+                ${renderSectionTitle("Carga por tipo (equipo)", "team_dist_type", staleDays)}
+                ${renderDistributionBars(teamDist.by_type, openTotal)}
+            </div>
+            <div class="invgate-stats-team__block">
+                <h4 class="invgate-stats-section-title">${renderLabelWithHelp("Tickets huérfanos", "orphans", staleDays)}</h4>
+                <div class="invgate-stats-kpis invgate-stats-kpis--compact">
+                    ${renderStatCard("Abiertos sin asignar", C.formatNumber(orphanCount), { helpKey: "orphans" })}
+                    ${renderStatCard("Carga ponderada", C.formatNumber(orphanLoad), { helpKey: "weighted_load" })}
+                    ${renderStatCard("Más antiguo", orphanMaxAge, { helpKey: "backlog_age_max", hint: orphanOldestHint || undefined })}
+                </div>
+                ${renderOrphanTicketsList(orphans)}
             </div>
         </section>`;
     }
@@ -223,11 +484,21 @@
             current.backlog_age_median_days != null
                 ? `${C.formatNumber(current.backlog_age_median_days, 1)} d`
                 : "—";
+        const maxAgeVal =
+            current.backlog_age_max_days != null
+                ? `${C.formatNumber(current.backlog_age_max_days, 1)} d`
+                : "—";
+        const oldest = current.oldest_open_ticket;
+        const oldestVal =
+            oldest && oldest.invgate_incident_id != null
+                ? `${maxAgeVal} <span class="muted">(#${C.escapeHtml(String(oldest.invgate_incident_id))})</span>`
+                : maxAgeVal;
 
         return `<div class="invgate-stats-detail">
             <section class="invgate-stats-detail__block">
                 <h4 class="invgate-stats-section-title">Aging</h4>
                 <ul class="invgate-stats-metrics-list">
+                    ${renderMetricListItem("Ticket más antiguo", oldestVal, "backlog_age_max", staleDays)}
                     ${renderMetricListItem("Edad mediana del backlog", medianVal, "backlog_age_median", staleDays)}
                     ${renderMetricListItem(`P1/P2 con más de ${staleDays} días`, C.formatNumber(current.aging_high_priority_count), "aging_high_priority", staleDays)}
                 </ul>
@@ -337,6 +608,7 @@
                 renderTeamSummary(data.team_summary, staleDays) +
                 people.map((p) => renderPersonGroup(p, staleDays)).join("");
             bindGroupToggles();
+            bindDistributionTooltips();
         }
         rootEl.hidden = false;
 

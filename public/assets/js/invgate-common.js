@@ -89,6 +89,45 @@
         return `${formatNumber(value, 1)}%`;
     }
 
+    /**
+     * @param {object} ticket
+     * @param {string} rawQuery
+     */
+    function ticketMatchesSearch(ticket, rawQuery) {
+        const q = String(rawQuery || "")
+            .trim()
+            .toLowerCase();
+        if (!q) {
+            return true;
+        }
+        const incidentId =
+            ticket.invgate_incident_id != null && ticket.invgate_incident_id !== ""
+                ? String(ticket.invgate_incident_id).toLowerCase()
+                : "";
+        const title =
+            ticket.title != null && ticket.title !== ""
+                ? String(ticket.title).toLowerCase()
+                : "";
+        const hay = `${incidentId} ${title}`;
+        const words = q.split(/\s+/).filter(Boolean);
+        return words.every((w) => hay.includes(w));
+    }
+
+    /**
+     * @param {object[]} tickets
+     * @param {string} rawQuery
+     */
+    function filterTicketsBySearch(tickets, rawQuery) {
+        if (!Array.isArray(tickets)) {
+            return [];
+        }
+        const q = String(rawQuery || "").trim();
+        if (!q) {
+            return tickets;
+        }
+        return tickets.filter((t) => ticketMatchesSearch(t, q));
+    }
+
     window.InvgateCommon = {
         getTeamId,
         escapeHtml,
@@ -97,5 +136,7 @@
         formatNumber,
         formatHours,
         formatPct,
+        ticketMatchesSearch,
+        filterTicketsBySearch,
     };
 })();

@@ -900,6 +900,44 @@ body {
     display: none !important;
 }
 
+.invgate-search-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.75rem 1rem;
+    margin: 0 0 1rem;
+}
+
+.invgate-search-toolbar__field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1 1 14rem;
+    min-width: 0;
+    max-width: 24rem;
+    font-size: 0.88rem;
+    color: var(--muted);
+}
+
+.invgate-search-toolbar__input {
+    width: 100%;
+    padding: 0.45rem 0.65rem;
+    font-size: 0.95rem;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+    color: var(--text);
+}
+
+.invgate-search-toolbar__input::placeholder {
+    color: var(--muted);
+}
+
+.invgate-search-toolbar__input:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
 .invgate-stats-toolbar {
     display: flex;
     flex-wrap: wrap;
@@ -948,6 +986,24 @@ body {
 
 .invgate-stats-kpis--person {
     margin-bottom: 1.25rem;
+}
+
+.invgate-stats-kpis--compact {
+    margin-bottom: 0.75rem;
+}
+
+.invgate-stats-team__block {
+    margin-top: 1.25rem;
+}
+
+.invgate-stats-orphan-list {
+    margin: 0;
+    padding-left: 1.25rem;
+    font-size: 0.9rem;
+}
+
+.invgate-stats-orphan-list li {
+    margin-bottom: 0.35rem;
 }
 
 .invgate-stat-card {
@@ -1096,12 +1152,49 @@ body {
     overflow: hidden;
 }
 
+.invgate-stat-bars__track--interactive {
+    cursor: help;
+    outline: none;
+}
+
+.invgate-stat-bars__track--interactive:focus-visible {
+    box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent);
+}
+
 .invgate-stat-bars__fill {
     display: block;
     height: 100%;
     border-radius: 4px;
     background: var(--accent);
     min-width: 2px;
+    pointer-events: none;
+}
+
+.invgate-stat-bars-tooltip {
+    position: fixed;
+    z-index: 10000;
+    max-width: min(24rem, calc(100vw - 1.5rem));
+    padding: 0.55rem 0.75rem;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    box-shadow: var(--modal-shadow);
+    font-size: 0.82rem;
+    line-height: 1.4;
+    pointer-events: none;
+}
+
+.invgate-stat-bars-tooltip__title {
+    font-weight: 600;
+    margin: 0 0 0.35rem;
+    color: var(--text);
+}
+
+.invgate-stat-bars-tooltip__ids {
+    margin: 0;
+    color: var(--text);
+    font-variant-numeric: tabular-nums;
+    word-break: break-word;
 }
 
 .invgate-stat-bars__count {

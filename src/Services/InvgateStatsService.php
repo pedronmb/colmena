@@ -37,6 +37,7 @@ final class InvgateStatsService
 
         $people = $this->repo->listPeopleForTeam($teamId);
         $allTickets = $this->repo->listTicketsForTeam($teamId);
+        $orphanTickets = $this->repo->listOrphanOpenTickets();
         $allComments = $this->repo->listCommentsForTeam($teamId);
 
         $commentsByTicket = [];
@@ -89,7 +90,14 @@ final class InvgateStatsService
             }
         );
 
-        $teamSummary = $this->buildTeamSummary($peopleStats);
+        $teamOpenTickets = [];
+        foreach ($allTickets as $ticket) {
+            if (!InvgateFinalStatuses::isFinal($ticket['status_id'])) {
+                $teamOpenTickets[] = $ticket;
+            }
+        }
+
+        $teamSummary = $this->buildTeamSummary($peopleStats, $teamOpenTickets, $orphanTickets, $nowTs);
 
         $periodLabel = 'all';
         if ($periodDays === 7) {
@@ -185,9 +193,10 @@ final class InvgateStatsService
                 }
             }
 
-            $this->incrementDistribution($statusDist, $ticket['status_id'], $ticket['status_name'] ?? 'Sin estado');
-            $this->incrementDistribution($typeDist, $ticket['type_id'], $ticket['type_name'] ?? 'Sin tipo');
-            $this->incrementDistribution($categoryDist, $ticket['category_id'], $ticket['category_name'] ?? 'Sin categoría');
+            $incidentId = (int) $ticket['invgate_incident_id'];
+            $this->incrementDistribution($statusDist, $ticket['status_id'], $ticket['status_name'] ?? 'Sin estado', $incidentId);
+            $this->incrementDistribution($typeDist, $ticket['type_id'], $ticket['type_name'] ?? 'Sin tipo', $incidentId);
+            $this->incrementDistribution($categoryDist, $ticket['category_id'], $ticket['category_name'] ?? 'Sin categoría', $incidentId);
         }
 
         $resolvedInPeriod = 0;
@@ -249,6 +258,8 @@ final class InvgateStatsService
             ? round(100 * $ticketsWithSolution / count($tickets), 1)
             : null;
 
+        $oldestMeta = $this->resolveOldestOpenTicket($openTickets, $nowTs);
+
         return [
             'person' => [
                 'id' => $person['id'],
@@ -262,6 +273,8 @@ final class InvgateStatsService
                 'weighted_load' => $weightedLoad,
                 'backlog_age_avg_days' => $this->avg($agesDays),
                 'backlog_age_median_days' => $this->median($agesDays),
+                'backlog_age_max_days' => $oldestMeta['backlog_age_max_days'],
+                'oldest_open_ticket' => $oldestMeta['oldest_open_ticket'],
                 'stale_count' => $staleCount,
                 'aging_high_priority_count' => $agingHighPriorityCount,
             ],
@@ -355,20 +368,23 @@ final class InvgateStatsService
     }
 
     /**
-     * @param array<string|int, array{label: string, count: int}> $dist
+     * @param array<string|int, array{id: ?int, label: string, count: int, ticket_ids: list<int>}> $dist
      */
-    private function incrementDistribution(array &$dist, ?int $id, string $label): void
+    private function incrementDistribution(array &$dist, ?int $id, string $label, int $ticketIncidentId): void
     {
         $key = $id !== null ? (string) $id : '_null';
         if (!isset($dist[$key])) {
-            $dist[$key] = ['id' => $id, 'label' => $label, 'count' => 0];
+            $dist[$key] = ['id' => $id, 'label' => $label, 'count' => 0, 'ticket_ids' => []];
         }
         $dist[$key]['count']++;
+        if ($ticketIncidentId > 0) {
+            $dist[$key]['ticket_ids'][] = $ticketIncidentId;
+        }
     }
 
     /**
-     * @param array<string, array{id: ?int, label: string, count: int}> $dist
-     * @return list<array{id: ?int, label: string, count: int, pct: ?float}>
+     * @param array<string, array{id: ?int, label: string, count: int, ticket_ids: list<int>}> $dist
+     * @return list<array{id: ?int, label: string, count: int, pct: ?float, ticket_ids: list<int>}>
      */
     private function distributionToList(array $dist, int $total): array
     {
@@ -379,6 +395,11 @@ final class InvgateStatsService
         );
         foreach ($list as &$item) {
             $item['pct'] = $total > 0 ? round(100 * $item['count'] / $total, 1) : null;
+            if (isset($item['ticket_ids'])) {
+                sort($item['ticket_ids'], SORT_NUMERIC);
+            } else {
+                $item['ticket_ids'] = [];
+            }
         }
         unset($item);
 
@@ -421,11 +442,57 @@ final class InvgateStatsService
     }
 
     /**
+     * @param list<array<string, mixed>> $openTickets
+     * @return array{backlog_age_max_days: ?float, oldest_open_ticket: ?array{invgate_incident_id: int, age_days: float, person_display_name?: string}}
+     */
+    private function resolveOldestOpenTicket(array $openTickets, int $nowTs, ?string $personDisplayName = null): array
+    {
+        $maxAge = null;
+        $oldest = null;
+
+        foreach ($openTickets as $ticket) {
+            $createdTs = InvgateTimestamp::epochSeconds($ticket['created_at']);
+            if ($createdTs === null) {
+                continue;
+            }
+            $ageDays = ($nowTs - $createdTs) / 86400;
+            $incidentId = (int) $ticket['invgate_incident_id'];
+            $isNewerMax = $maxAge === null || $ageDays > $maxAge;
+            $isTieBreak = $maxAge !== null
+                && abs($ageDays - $maxAge) < 0.0001
+                && $oldest !== null
+                && $incidentId < $oldest['invgate_incident_id'];
+
+            if ($isNewerMax || $isTieBreak) {
+                $maxAge = $ageDays;
+                $oldest = [
+                    'invgate_incident_id' => $incidentId,
+                    'age_days' => round($ageDays, 2),
+                ];
+                if ($personDisplayName !== null) {
+                    $oldest['person_display_name'] = $personDisplayName;
+                }
+            }
+        }
+
+        return [
+            'backlog_age_max_days' => $maxAge !== null ? round($maxAge, 2) : null,
+            'oldest_open_ticket' => $oldest,
+        ];
+    }
+
+    /**
      * @param list<array<string, mixed>> $peopleStats
+     * @param list<array<string, mixed>> $teamOpenTickets
+     * @param list<array<string, mixed>> $orphanTickets
      * @return array<string, mixed>
      */
-    private function buildTeamSummary(array $peopleStats): array
-    {
+    private function buildTeamSummary(
+        array $peopleStats,
+        array $teamOpenTickets,
+        array $orphanTickets,
+        int $nowTs
+    ): array {
         $openTotal = 0;
         $weightedTotal = 0;
         $staleTotal = 0;
@@ -459,6 +526,8 @@ final class InvgateStatsService
             static fn (array $a, array $b): int => $b['weighted_load'] <=> $a['weighted_load']
         );
 
+        $teamOldest = $this->resolveOldestOpenTicketWithPerson($teamOpenTickets, $peopleStats, $nowTs);
+
         return [
             'open_total' => $openTotal,
             'weighted_load_total' => $weightedTotal,
@@ -467,7 +536,202 @@ final class InvgateStatsService
             'backlog_age_avg_total' => $backlogAgeOpenCount > 0
                 ? round($backlogAgeWeightedSum / $backlogAgeOpenCount, 2)
                 : null,
+            'backlog_age_max_days' => $teamOldest['backlog_age_max_days'],
+            'oldest_open_ticket' => $teamOldest['oldest_open_ticket'],
             'top_by_load' => array_slice($ranking, 0, 3),
+            'load_balance' => $this->buildTeamLoadBalance($peopleStats),
+            'distributions' => $this->aggregateOpenDistributions($teamOpenTickets),
+            'orphans' => $this->buildOrphanSummary($orphanTickets, $nowTs),
+        ];
+    }
+
+    /**
+     * @param list<array<string, mixed>> $teamOpenTickets
+     * @param list<array<string, mixed>> $peopleStats
+     * @return array{backlog_age_max_days: ?float, oldest_open_ticket: ?array{invgate_incident_id: int, age_days: float, person_display_name?: string}}
+     */
+    private function resolveOldestOpenTicketWithPerson(
+        array $teamOpenTickets,
+        array $peopleStats,
+        int $nowTs
+    ): array {
+        $personNames = [];
+        foreach ($peopleStats as $row) {
+            $personNames[(int) $row['person']['id']] = (string) $row['person']['display_name'];
+        }
+
+        $maxAge = null;
+        $oldest = null;
+
+        foreach ($teamOpenTickets as $ticket) {
+            $createdTs = InvgateTimestamp::epochSeconds($ticket['created_at']);
+            if ($createdTs === null) {
+                continue;
+            }
+            $ageDays = ($nowTs - $createdTs) / 86400;
+            $incidentId = (int) $ticket['invgate_incident_id'];
+            $isNewerMax = $maxAge === null || $ageDays > $maxAge;
+            $isTieBreak = $maxAge !== null
+                && abs($ageDays - $maxAge) < 0.0001
+                && $oldest !== null
+                && $incidentId < $oldest['invgate_incident_id'];
+
+            if ($isNewerMax || $isTieBreak) {
+                $maxAge = $ageDays;
+                $personId = (int) $ticket['person_id'];
+                $oldest = [
+                    'invgate_incident_id' => $incidentId,
+                    'age_days' => round($ageDays, 2),
+                    'person_display_name' => $personNames[$personId] ?? null,
+                ];
+            }
+        }
+
+        return [
+            'backlog_age_max_days' => $maxAge !== null ? round($maxAge, 2) : null,
+            'oldest_open_ticket' => $oldest,
+        ];
+    }
+
+    /**
+     * @param list<array<string, mixed>> $peopleStats
+     * @return array<string, mixed>
+     */
+    private function buildTeamLoadBalance(array $peopleStats): array
+    {
+        $n = count($peopleStats);
+        if ($n === 0) {
+            return [
+                'avg_weighted_load' => null,
+                'avg_open_count' => null,
+                'avg_stale_count' => null,
+                'max_weighted_load' => null,
+                'min_weighted_load' => null,
+                'imbalance_ratio' => null,
+                'concentration_pct' => null,
+                'underloaded' => [],
+            ];
+        }
+
+        $sumLoad = 0;
+        $sumOpen = 0;
+        $sumStale = 0;
+        $maxLoad = 0;
+        $minLoad = PHP_INT_MAX;
+
+        foreach ($peopleStats as $row) {
+            $current = $row['current'] ?? [];
+            $load = (int) ($current['weighted_load'] ?? 0);
+            $open = (int) ($current['open_count'] ?? 0);
+            $stale = (int) ($current['stale_count'] ?? 0);
+            $sumLoad += $load;
+            $sumOpen += $open;
+            $sumStale += $stale;
+            if ($load > $maxLoad) {
+                $maxLoad = $load;
+            }
+            if ($load < $minLoad) {
+                $minLoad = $load;
+            }
+        }
+
+        $avgLoad = $sumLoad / $n;
+        $avgOpen = $sumOpen / $n;
+        $avgStale = $sumStale / $n;
+
+        $underloaded = [];
+        foreach ($peopleStats as $row) {
+            $current = $row['current'] ?? [];
+            $load = (int) ($current['weighted_load'] ?? 0);
+            $open = (int) ($current['open_count'] ?? 0);
+            $stale = (int) ($current['stale_count'] ?? 0);
+            if ($load < $avgLoad && $open < $avgOpen && $stale < $avgStale) {
+                $underloaded[] = [
+                    'person_id' => $row['person']['id'],
+                    'display_name' => $row['person']['display_name'],
+                    'weighted_load' => $load,
+                    'open_count' => $open,
+                    'stale_count' => $stale,
+                ];
+            }
+        }
+
+        usort(
+            $underloaded,
+            static fn (array $a, array $b): int => $a['weighted_load'] <=> $b['weighted_load']
+        );
+
+        return [
+            'avg_weighted_load' => round($avgLoad, 2),
+            'avg_open_count' => round($avgOpen, 2),
+            'avg_stale_count' => round($avgStale, 2),
+            'max_weighted_load' => $maxLoad,
+            'min_weighted_load' => $minLoad === PHP_INT_MAX ? 0 : $minLoad,
+            'imbalance_ratio' => $avgLoad > 0 ? round($maxLoad / $avgLoad, 2) : null,
+            'concentration_pct' => $sumLoad > 0 ? round(100 * $maxLoad / $sumLoad, 1) : null,
+            'underloaded' => $underloaded,
+        ];
+    }
+
+    /**
+     * @param list<array<string, mixed>> $openTickets
+     * @return array{by_category: list<array<string, mixed>>, by_type: list<array<string, mixed>>}
+     */
+    private function aggregateOpenDistributions(array $openTickets): array
+    {
+        $typeDist = [];
+        $categoryDist = [];
+        $total = count($openTickets);
+
+        foreach ($openTickets as $ticket) {
+            $incidentId = (int) $ticket['invgate_incident_id'];
+            $this->incrementDistribution($typeDist, $ticket['type_id'], $ticket['type_name'] ?? 'Sin tipo', $incidentId);
+            $this->incrementDistribution(
+                $categoryDist,
+                $ticket['category_id'],
+                $ticket['category_name'] ?? 'Sin categoría',
+                $incidentId
+            );
+        }
+
+        return [
+            'by_category' => $this->distributionToList($categoryDist, $total),
+            'by_type' => $this->distributionToList($typeDist, $total),
+        ];
+    }
+
+    /**
+     * @param list<array<string, mixed>> $orphanTickets
+     * @return array<string, mixed>
+     */
+    private function buildOrphanSummary(array $orphanTickets, int $nowTs): array
+    {
+        $weightedLoad = 0;
+        foreach ($orphanTickets as $ticket) {
+            $weightedLoad += InvgatePriority::weight($ticket['priority']);
+        }
+
+        $oldestMeta = $this->resolveOldestOpenTicket($orphanTickets, $nowTs);
+
+        $tickets = [];
+        foreach ($orphanTickets as $ticket) {
+            $createdTs = InvgateTimestamp::epochSeconds($ticket['created_at']);
+            $ageDays = $createdTs !== null ? round(($nowTs - $createdTs) / 86400, 2) : null;
+            $tickets[] = [
+                'invgate_incident_id' => (int) $ticket['invgate_incident_id'],
+                'priority' => $ticket['priority'],
+                'age_days' => $ageDays,
+                'category_name' => $ticket['category_name'],
+                'type_name' => $ticket['type_name'],
+            ];
+        }
+
+        return [
+            'open_count' => count($orphanTickets),
+            'weighted_load' => $weightedLoad,
+            'backlog_age_max_days' => $oldestMeta['backlog_age_max_days'],
+            'oldest_open_ticket' => $oldestMeta['oldest_open_ticket'],
+            'tickets' => $tickets,
         ];
     }
 

@@ -10,10 +10,13 @@
     const rootEl = document.getElementById("invgateRecRoot");
     const detailEl = document.getElementById("invgateRecDetail");
     const panelEl = document.getElementById("invgatePanelRecommendations");
+    const searchInput = document.getElementById("invgateRecTicketSearch");
 
     let selectedTicketId = null;
     let hasLoaded = false;
     let detailRequestSeq = 0;
+    let cachedTickets = [];
+    let cachedMeta = null;
 
     function formatCell(value) {
         return C.formatCell(value);
@@ -40,7 +43,11 @@
         }
     }
 
-    function renderMeta(meta) {
+    function getSearchQuery() {
+        return searchInput ? searchInput.value : "";
+    }
+
+    function renderMeta(meta, viewOptions) {
         if (!metaEl) {
             return;
         }
@@ -48,14 +55,57 @@
         const withRecommendation = Number(
             meta && meta.with_recommendation ? meta.with_recommendation : 0
         );
-        metaEl.textContent = `${total} tickets abiertos · ${withRecommendation} con recomendación`;
+        const searching = viewOptions && viewOptions.searching === true;
+        const shown =
+            viewOptions && typeof viewOptions.shownTotal === "number"
+                ? viewOptions.shownTotal
+                : total;
+        let ticketLabel = `${total} tickets abiertos`;
+        if (searching && shown !== total) {
+            ticketLabel = `${shown} de ${total} tickets abiertos`;
+        }
+        metaEl.textContent = `${ticketLabel} · ${withRecommendation} con recomendación`;
         metaEl.hidden = false;
     }
 
-    function renderList(tickets, meta) {
+    function ticketIdInList(ticketId, tickets) {
+        if (ticketId == null || ticketId < 1 || !Array.isArray(tickets)) {
+            return false;
+        }
+        return tickets.some((t) => Number(t.id) === ticketId);
+    }
+
+    function renderList(tickets, meta, viewOptions) {
         if (!rootEl) {
             return;
         }
+        const searching = viewOptions && viewOptions.searching === true;
+        const hasCached =
+            Array.isArray(cachedTickets) &&
+            cachedTickets.length > 0 &&
+            meta &&
+            Number(meta.ticket_total) > 0;
+
+        if (!hasCached && (!Array.isArray(tickets) || tickets.length === 0)) {
+            rootEl.hidden = false;
+            rootEl.innerHTML =
+                '<p class="muted">No hay tickets abiertos para mostrar.</p>';
+            closeDetail();
+            renderMeta(meta || { ticket_total: 0, with_recommendation: 0 });
+            return;
+        }
+
+        if (searching && (!Array.isArray(tickets) || tickets.length === 0)) {
+            rootEl.hidden = false;
+            rootEl.innerHTML =
+                '<p class="muted">Ningún ticket coincide con la búsqueda.</p>';
+            if (selectedTicketId != null) {
+                closeDetail();
+            }
+            renderMeta(meta || { ticket_total: 0, with_recommendation: 0 }, viewOptions);
+            return;
+        }
+
         if (!Array.isArray(tickets) || tickets.length === 0) {
             rootEl.hidden = false;
             rootEl.innerHTML =
@@ -102,9 +152,22 @@
                 </tbody>
             </table>
         </div>`;
+        if (selectedTicketId != null && !ticketIdInList(selectedTicketId, tickets)) {
+            closeDetail();
+        }
         rootEl.hidden = false;
         bindRows();
-        renderMeta(meta || { ticket_total: tickets.length, with_recommendation: 0 });
+        renderMeta(meta || { ticket_total: tickets.length, with_recommendation: 0 }, viewOptions);
+    }
+
+    function rerenderFromCache() {
+        const query = getSearchQuery();
+        const searching = String(query || "").trim() !== "";
+        const filtered = C.filterTicketsBySearch(cachedTickets, query);
+        renderList(filtered, cachedMeta, {
+            searching,
+            shownTotal: filtered.length,
+        });
     }
 
     function renderDetailLoading(ticketId) {
@@ -258,7 +321,9 @@
             if (loadingEl) {
                 loadingEl.hidden = true;
             }
-            renderList(data.tickets, data.meta);
+            cachedTickets = Array.isArray(data.tickets) ? data.tickets : [];
+            cachedMeta = data.meta && typeof data.meta === "object" ? data.meta : null;
+            rerenderFromCache();
         } catch (e) {
             if (loadingEl) {
                 loadingEl.hidden = false;
@@ -276,7 +341,12 @@
 
     function reset() {
         hasLoaded = false;
+        cachedTickets = [];
+        cachedMeta = null;
         closeDetail();
+        if (searchInput) {
+            searchInput.value = "";
+        }
         if (rootEl) {
             rootEl.innerHTML = "";
             rootEl.hidden = true;
@@ -294,6 +364,13 @@
         if (e.key === "Escape" && selectedTicketId != null) {
             closeDetail();
         }
+    });
+
+    searchInput?.addEventListener("input", () => {
+        if (!hasLoaded) {
+            return;
+        }
+        rerenderFromCache();
     });
 
     window.InvgateRecommendations = {

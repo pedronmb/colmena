@@ -63,6 +63,12 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
             <div id="invgatePanelTickets" class="invgate-panel" role="tabpanel" aria-labelledby="invgateTabTickets">
                 <h2 class="panel__title">Tickets por persona</h2>
                 <p class="muted panel__lead">Los datos provienen del sync CLI (<code>database/sync_invgate_tickets.php</code>). Las personas con ID InvGate configurado aparecen aunque no tengan tickets abiertos.</p>
+                <div class="invgate-search-toolbar">
+                    <label class="invgate-search-toolbar__field" for="invgateTicketSearch">
+                        Buscar ticket
+                        <input type="search" id="invgateTicketSearch" class="invgate-search-toolbar__input" placeholder="Número o título…" autocomplete="off" />
+                    </label>
+                </div>
                 <p class="invgate-meta muted" id="invgateMeta" aria-live="polite" hidden></p>
                 <div id="invgateListWrap" class="invgate-list-wrap">
                     <p class="muted" id="invgateLoading">Cargando…</p>
@@ -97,6 +103,12 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
             <div id="invgatePanelRecommendations" class="invgate-panel" role="tabpanel" aria-labelledby="invgateTabRecommendations" hidden>
                 <h2 class="panel__title">Recomendaciones IA por ticket</h2>
                 <p class="muted panel__lead">Resumen y sugerencia generados diariamente con Ollama sobre título, descripción y comentarios del ticket.</p>
+                <div class="invgate-search-toolbar">
+                    <label class="invgate-search-toolbar__field" for="invgateRecTicketSearch">
+                        Buscar ticket
+                        <input type="search" id="invgateRecTicketSearch" class="invgate-search-toolbar__input" placeholder="Número o título…" autocomplete="off" />
+                    </label>
+                </div>
                 <p class="invgate-meta muted" id="invgateRecMeta" aria-live="polite" hidden></p>
                 <div id="invgateRecListWrap" class="invgate-list-wrap">
                     <p class="muted" id="invgateRecLoading">Seleccioná esta pestaña para cargar recomendaciones.</p>

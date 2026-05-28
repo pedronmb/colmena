@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Repositories;
 
+use App\Support\InvgateFinalStatuses;
 use PDO;
 
 final class InvgateStatsRepository
@@ -110,6 +111,64 @@ final class InvgateStatsRepository
             $tickets[] = [
                 'id' => (int) $row['id'],
                 'person_id' => $personId,
+                'invgate_incident_id' => (int) $row['invgate_incident_id'],
+                'status_id' => $this->optionalInt($row['status_id'] ?? null),
+                'status_name' => $this->nullableString($row['status_name'] ?? null),
+                'type_id' => $this->optionalInt($row['type_id'] ?? null),
+                'type_name' => $this->nullableString($row['type_name'] ?? null),
+                'category_id' => $this->optionalInt($row['category_id'] ?? null),
+                'category_name' => $this->nullableString($row['category_name'] ?? null),
+                'priority' => $this->optionalInt($row['priority'] ?? null),
+                'created_at' => (string) ($row['created_at'] ?? '0'),
+                'last_update' => (string) ($row['last_update'] ?? '0'),
+            ];
+        }
+
+        return $tickets;
+    }
+
+    /**
+     * Tickets abiertos sin persona asignada (huérfanos globales).
+     *
+     * @return list<array{
+     *   id: int,
+     *   invgate_incident_id: int,
+     *   status_id: ?int,
+     *   status_name: ?string,
+     *   type_id: ?int,
+     *   type_name: ?string,
+     *   category_id: ?int,
+     *   category_name: ?string,
+     *   priority: ?int,
+     *   created_at: string,
+     *   last_update: string
+     * }>
+     */
+    public function listOrphanOpenTickets(): array
+    {
+        $finalStatusIds = InvgateFinalStatuses::ids();
+        $finalPlaceholders = InvgateFinalStatuses::sqlNotInPlaceholders();
+
+        $stmt = $this->pdo->prepare(
+            'SELECT it.id, it.invgate_incident_id,
+                    it.status_id, st.name AS status_name,
+                    it.type_id, ty.name AS type_name,
+                    it.category_id, cat.name AS category_name,
+                    it.priority, it.created_at, it.last_update
+             FROM invgate_tickets it
+             LEFT JOIN invgate_statuses st ON st.invgate_id = it.status_id
+             LEFT JOIN invgate_types ty ON ty.invgate_id = it.type_id
+             LEFT JOIN invgate_categories cat ON cat.invgate_id = it.category_id
+             WHERE it.person_id IS NULL
+               AND (it.status_id IS NULL OR it.status_id NOT IN (' . $finalPlaceholders . '))
+             ORDER BY it.last_update DESC'
+        );
+        $stmt->execute($finalStatusIds);
+
+        $tickets = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $tickets[] = [
+                'id' => (int) $row['id'],
                 'invgate_incident_id' => (int) $row['invgate_incident_id'],
                 'status_id' => $this->optionalInt($row['status_id'] ?? null),
                 'status_name' => $this->nullableString($row['status_name'] ?? null),
