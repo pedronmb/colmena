@@ -192,8 +192,28 @@ final class InvgateRecommendationService
             }
         }
 
-        $summary = isset($decoded['resumen']) ? trim((string) $decoded['resumen']) : '';
-        $recommendation = isset($decoded['recomendacion']) ? trim((string) $decoded['recomendacion']) : '';
+        $summary = $this->pickStringByPaths($decoded, [
+            ['resumen'],
+            ['summary'],
+            ['data', 'resumen'],
+            ['data', 'summary'],
+            ['result', 'resumen'],
+            ['result', 'summary'],
+            ['output', 'resumen'],
+            ['output', 'summary'],
+        ]);
+        $recommendation = $this->pickStringByPaths($decoded, [
+            ['recomendacion'],
+            ['recommendation'],
+            ['next_steps'],
+            ['data', 'recomendacion'],
+            ['data', 'recommendation'],
+            ['data', 'next_steps'],
+            ['result', 'recomendacion'],
+            ['result', 'recommendation'],
+            ['output', 'recomendacion'],
+            ['output', 'recommendation'],
+        ]);
         if ($summary === '' || $recommendation === '') {
             throw new \RuntimeException('El JSON de Ollama no incluye resumen y recomendacion válidos.');
         }
@@ -212,6 +232,44 @@ final class InvgateRecommendationService
         $text = preg_replace("/\n{3,}/u", "\n\n", $text) ?? $text;
 
         return trim($text);
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     * @param list<list<string>> $paths
+     */
+    private function pickStringByPaths(array $data, array $paths): string
+    {
+        foreach ($paths as $path) {
+            $value = $this->valueByPath($data, $path);
+            if ($value === null) {
+                continue;
+            }
+            $text = trim((string) $value);
+            if ($text !== '') {
+                return $text;
+            }
+        }
+
+        return '';
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     * @param list<string> $path
+     * @return mixed
+     */
+    private function valueByPath(array $data, array $path)
+    {
+        $cursor = $data;
+        foreach ($path as $key) {
+            if (!is_array($cursor) || !array_key_exists($key, $cursor)) {
+                return null;
+            }
+            $cursor = $cursor[$key];
+        }
+
+        return $cursor;
     }
 
     private function cutText(string $text, int $maxLen): string
