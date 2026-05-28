@@ -7,7 +7,7 @@ namespace App\Services;
 final class OllamaClient
 {
     /** @var string */
-    private $endpointUrl;
+    private $baseUrl;
 
     /** @var string */
     private $model;
@@ -24,7 +24,7 @@ final class OllamaClient
         if (!preg_match('#^https?://#i', $baseUrl)) {
             $baseUrl = 'http://' . $baseUrl;
         }
-        $this->endpointUrl = str_ends_with($baseUrl, '/generate') ? $baseUrl : ($baseUrl . '/generate');
+        $this->baseUrl = $baseUrl;
         $this->model = trim($model);
         $this->timeout = max(10, $timeout);
 
@@ -53,9 +53,59 @@ final class OllamaClient
             throw new \RuntimeException('No se pudo serializar el payload para Ollama.');
         }
 
-        $ch = curl_init($this->endpointUrl);
+        $endpoints = $this->endpointCandidates();
+        $lastError = '';
+
+        foreach ($endpoints as $endpointUrl) {
+            $request = $this->request($endpointUrl, $payload);
+            if ($request['ok']) {
+                return $this->parseResponse((string) $request['raw']);
+            }
+            if ($request['http_code'] !== 404) {
+                throw new \RuntimeException($request['error']);
+            }
+            $lastError = $request['error'];
+        }
+
+        if ($lastError === '') {
+            $lastError = 'No se pudo contactar un endpoint válido de Ollama.';
+        }
+
+        throw new \RuntimeException($lastError);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function endpointCandidates(): array
+    {
+        if (str_ends_with($this->baseUrl, '/api/generate') || str_ends_with($this->baseUrl, '/generate')) {
+            return [$this->baseUrl];
+        }
+
+        if (str_ends_with($this->baseUrl, '/api')) {
+            return [$this->baseUrl . '/generate', preg_replace('#/api$#', '/generate', $this->baseUrl) ?: ($this->baseUrl . '/generate')];
+        }
+
+        return [
+            $this->baseUrl . '/generate',
+            $this->baseUrl . '/api/generate',
+        ];
+    }
+
+    /**
+     * @return array{ok: bool, raw: string, http_code: int, error: string}
+     */
+    private function request(string $endpointUrl, string $payload): array
+    {
+        $ch = curl_init($endpointUrl);
         if ($ch === false) {
-            throw new \RuntimeException('No se pudo iniciar la petición HTTP a Ollama.');
+            return [
+                'ok' => false,
+                'raw' => '',
+                'http_code' => 0,
+                'error' => 'No se pudo iniciar la petición HTTP a Ollama.',
+            ];
         }
 
         curl_setopt_array($ch, [
@@ -75,15 +125,33 @@ final class OllamaClient
         curl_close($ch);
 
         if ($raw === false || $errno !== 0) {
-            throw new \RuntimeException(
-                'Error de red al contactar Ollama: ' . ($err !== '' ? $err : 'desconocido')
-            );
+            return [
+                'ok' => false,
+                'raw' => '',
+                'http_code' => 0,
+                'error' => 'Error de red al contactar Ollama: ' . ($err !== '' ? $err : 'desconocido'),
+            ];
         }
         if ($code < 200 || $code >= 300) {
-            throw new \RuntimeException('Ollama respondió con código HTTP ' . $code);
+            return [
+                'ok' => false,
+                'raw' => '',
+                'http_code' => $code,
+                'error' => 'Ollama respondió con código HTTP ' . $code . ' (' . $endpointUrl . ')',
+            ];
         }
 
-        $decoded = json_decode((string) $raw, true);
+        return [
+            'ok' => true,
+            'raw' => (string) $raw,
+            'http_code' => $code,
+            'error' => '',
+        ];
+    }
+
+    private function parseResponse(string $raw): string
+    {
+        $decoded = json_decode($raw, true);
         if (!is_array($decoded)) {
             throw new \RuntimeException('Respuesta de Ollama inválida (JSON).');
         }
