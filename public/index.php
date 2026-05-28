@@ -52,6 +52,7 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                 <button type="button" class="btn primary" id="openTopicModal">
                     + Nuevo tema
                 </button>
+                <p id="topicTotalCount" class="topic-toolbar__total muted" role="status" aria-live="polite"></p>
                 <label class="topic-toolbar__search">
                     <span class="visually-hidden">Buscar en la lista de temas</span>
                     <input type="search" id="topicSearchFilter" class="topic-toolbar__search-input" placeholder="Buscar en la lista…" autocomplete="off" />

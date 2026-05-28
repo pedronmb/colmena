@@ -55,6 +55,9 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                 <button type="button" class="invgate-tab" role="tab" aria-selected="false" aria-controls="invgatePanelStats" id="invgateTabStats" data-panel="stats">
                     Estadísticas
                 </button>
+                <button type="button" class="invgate-tab" role="tab" aria-selected="false" aria-controls="invgatePanelRecommendations" id="invgateTabRecommendations" data-panel="recommendations">
+                    Recomendaciones IA
+                </button>
             </div>
 
             <div id="invgatePanelTickets" class="invgate-panel" role="tabpanel" aria-labelledby="invgateTabTickets">
@@ -90,6 +93,17 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                 <p class="muted" id="invgateStatsLoading">Seleccioná esta pestaña para cargar estadísticas.</p>
                 <div id="invgateStatsRoot" hidden></div>
             </div>
+
+            <div id="invgatePanelRecommendations" class="invgate-panel" role="tabpanel" aria-labelledby="invgateTabRecommendations" hidden>
+                <h2 class="panel__title">Recomendaciones IA por ticket</h2>
+                <p class="muted panel__lead">Resumen y sugerencia generados diariamente con Ollama sobre título, descripción y comentarios del ticket.</p>
+                <p class="invgate-meta muted" id="invgateRecMeta" aria-live="polite" hidden></p>
+                <div id="invgateRecListWrap" class="invgate-list-wrap">
+                    <p class="muted" id="invgateRecLoading">Seleccioná esta pestaña para cargar recomendaciones.</p>
+                    <article id="invgateRecDetail" class="invgate-detail" hidden aria-live="polite"></article>
+                    <div id="invgateRecRoot" hidden></div>
+                </div>
+            </div>
         </section>
     </div>
 
@@ -97,6 +111,7 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
     <script src="assets/js/invgate-common.js" defer></script>
     <script src="assets/js/invgate.js" defer></script>
     <script src="assets/js/invgate-stats.js" defer></script>
+    <script src="assets/js/invgate-recommendations.js" defer></script>
     <script src="assets/js/app-shell.js" defer></script>
 </body>
 </html>

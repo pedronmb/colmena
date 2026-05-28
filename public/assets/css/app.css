@@ -1126,6 +1126,15 @@ body {
     border-top: 1px dashed var(--border);
 }
 
+.invgate-rec-table-wrap {
+    margin-top: 0.5rem;
+}
+
+.invgate-rec-meta {
+    margin: 0;
+    font-size: 0.86rem;
+}
+
 .panel {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -1275,6 +1284,14 @@ a.btn:focus {
     align-items: center;
     gap: 0.75rem 1rem;
     margin-bottom: 0.75rem;
+}
+
+.topic-toolbar__total {
+    margin: 0;
+    font-size: 0.92rem;
+    font-weight: 600;
+    line-height: 1.25;
+    white-space: nowrap;
 }
 
 .topic-toolbar__toggles {

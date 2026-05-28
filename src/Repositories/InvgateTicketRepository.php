@@ -148,6 +148,44 @@ final class InvgateTicketRepository
     }
 
     /**
+     * Tickets abiertos para generar recomendaciones IA.
+     *
+     * @return list<array{id: int, invgate_incident_id: int, title: string, description: ?string}>
+     */
+    public function listForRecommendationSync(): array
+    {
+        $finalStatusIds = InvgateFinalStatuses::ids();
+        $placeholders = InvgateFinalStatuses::sqlNotInPlaceholders();
+        $stmt = $this->pdo->prepare(
+            'SELECT id, invgate_incident_id, title, description
+             FROM invgate_tickets
+             WHERE status_id IS NULL OR status_id NOT IN (' . $placeholders . ')
+             ORDER BY last_update DESC'
+        );
+        $stmt->execute($finalStatusIds);
+
+        $tickets = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $id = isset($row['id']) ? (int) $row['id'] : 0;
+            $incidentId = isset($row['invgate_incident_id']) ? (int) $row['invgate_incident_id'] : 0;
+            $title = isset($row['title']) ? trim((string) $row['title']) : '';
+            if ($id <= 0 || $incidentId <= 0 || $title === '') {
+                continue;
+            }
+
+            $description = isset($row['description']) ? trim((string) $row['description']) : '';
+            $tickets[] = [
+                'id' => $id,
+                'invgate_incident_id' => $incidentId,
+                'title' => $title,
+                'description' => $description !== '' ? $description : null,
+            ];
+        }
+
+        return $tickets;
+    }
+
+    /**
      * Tickets locales de una persona con estado NO final.
      *
      * @param array<int, int> $excludedStatusIds
@@ -388,6 +426,50 @@ final class InvgateTicketRepository
                 'people_with_invgate_id' => $peopleWithInvgateId,
             ],
         ];
+    }
+
+    /**
+     * Tickets abiertos del equipo en lista plana (sin agrupar).
+     *
+     * @return list<array<string, mixed>>
+     */
+    public function listOpenFlatByTeam(int $teamId): array
+    {
+        if ($teamId <= 0) {
+            return [];
+        }
+
+        $finalStatusIds = InvgateFinalStatuses::ids();
+        $finalPlaceholders = InvgateFinalStatuses::sqlNotInPlaceholders();
+        $stmt = $this->pdo->prepare(
+            'SELECT it.id, it.person_id, it.invgate_incident_id, it.user_id, it.title, it.description,
+                    it.category_id, cat.name AS category_name,
+                    it.source_id,
+                    it.status_id, st.name AS status_name,
+                    it.type_id, ty.name AS type_name,
+                    it.created_at, it.last_update, it.priority,
+                    tp.display_name
+             FROM invgate_tickets it
+             LEFT JOIN invgate_categories cat ON cat.invgate_id = it.category_id
+             LEFT JOIN invgate_statuses st ON st.invgate_id = it.status_id
+             LEFT JOIN invgate_types ty ON ty.invgate_id = it.type_id
+             LEFT JOIN team_people tp ON tp.id = it.person_id
+             WHERE (tp.team_id = ? OR it.person_id IS NULL)
+               AND (it.status_id IS NULL OR it.status_id NOT IN (' . $finalPlaceholders . '))
+             ORDER BY it.last_update DESC'
+        );
+        $stmt->execute(array_merge([$teamId], $finalStatusIds));
+
+        $tickets = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $ticket = $this->mapTicketRow($row);
+            $ticket['person_display_name'] = isset($row['display_name']) && trim((string) $row['display_name']) !== ''
+                ? (string) $row['display_name']
+                : null;
+            $tickets[] = $ticket;
+        }
+
+        return $tickets;
     }
 
     /**

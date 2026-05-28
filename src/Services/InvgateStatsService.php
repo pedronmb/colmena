@@ -260,9 +260,6 @@ final class InvgateStatsService
             'current' => [
                 'open_count' => $openCount,
                 'weighted_load' => $weightedLoad,
-                'high_priority_pct' => $openCount > 0
-                    ? round(100 * $highPriorityCount / $openCount, 1)
-                    : null,
                 'backlog_age_avg_days' => $this->avg($agesDays),
                 'backlog_age_median_days' => $this->median($agesDays),
                 'stale_count' => $staleCount,
@@ -309,7 +306,6 @@ final class InvgateStatsService
     ): array {
         $agentCommentTotal = 0;
         $ticketCommentCounts = [];
-        $firstResponseHours = [];
         $idleHours = [];
 
         foreach ($allTickets as $ticket) {
@@ -317,23 +313,10 @@ final class InvgateStatsService
             $ticketComments = $commentsByTicket[$ticketId] ?? [];
             $ticketCommentCounts[] = count($ticketComments);
 
-            $createdTs = InvgateTimestamp::epochSeconds($ticket['created_at']);
-            $firstAgentTs = null;
-
             foreach ($ticketComments as $comment) {
                 if ($comment['author_id'] === $invgateId) {
                     $agentCommentTotal++;
-                    $commentTs = InvgateTimestamp::epochSeconds($comment['created_at']);
-                    if ($commentTs !== null && $createdTs !== null && $commentTs > $createdTs) {
-                        if ($firstAgentTs === null || $commentTs < $firstAgentTs) {
-                            $firstAgentTs = $commentTs;
-                        }
-                    }
                 }
-            }
-
-            if ($firstAgentTs !== null && $createdTs !== null) {
-                $firstResponseHours[] = ($firstAgentTs - $createdTs) / 3600;
             }
         }
 
@@ -351,7 +334,6 @@ final class InvgateStatsService
                 ? round(array_sum($ticketCommentCounts) / count($allTickets), 2)
                 : null,
             'total' => $hasComments ? $agentCommentTotal : null,
-            'avg_first_response_hours' => $hasComments ? $this->avg($firstResponseHours) : null,
             'avg_idle_hours' => $hasComments ? $this->avg($idleHours) : null,
         ];
     }
@@ -448,14 +430,22 @@ final class InvgateStatsService
         $weightedTotal = 0;
         $staleTotal = 0;
         $resolved30Total = 0;
+        $backlogAgeWeightedSum = 0.0;
+        $backlogAgeOpenCount = 0;
         $ranking = [];
 
         foreach ($peopleStats as $row) {
             $current = $row['current'] ?? [];
-            $openTotal += (int) ($current['open_count'] ?? 0);
+            $openCount = (int) ($current['open_count'] ?? 0);
+            $openTotal += $openCount;
             $weightedTotal += (int) ($current['weighted_load'] ?? 0);
             $staleTotal += (int) ($current['stale_count'] ?? 0);
             $resolved30Total += (int) ($row['historical']['resolved_30d'] ?? 0);
+            $avgAge = $current['backlog_age_avg_days'] ?? null;
+            if ($openCount > 0 && $avgAge !== null) {
+                $backlogAgeWeightedSum += (float) $avgAge * $openCount;
+                $backlogAgeOpenCount += $openCount;
+            }
             $ranking[] = [
                 'person_id' => $row['person']['id'],
                 'display_name' => $row['person']['display_name'],
@@ -474,6 +464,9 @@ final class InvgateStatsService
             'weighted_load_total' => $weightedTotal,
             'stale_total' => $staleTotal,
             'resolved_30d_total' => $resolved30Total,
+            'backlog_age_avg_total' => $backlogAgeOpenCount > 0
+                ? round($backlogAgeWeightedSum / $backlogAgeOpenCount, 2)
+                : null,
             'top_by_load' => array_slice($ranking, 0, 3),
         ];
     }

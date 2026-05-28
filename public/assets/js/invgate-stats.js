@@ -27,8 +27,6 @@
             "Tickets asignados cuyo estado no es final (IDs 5–8 en InvGate). Coincide con la pestaña Tickets.",
         weighted_load:
             "Suma de pesos en abiertos: prioridad 1 = 5, 2 = 3, 3 = 2, resto o sin prioridad = 1. Compara carga real, no solo cantidad.",
-        high_priority_pct:
-            "Porcentaje de tickets abiertos con prioridad 1 o 2 (alta urgencia en InvGate).",
         backlog_age_avg:
             "Promedio de días desde la creación del ticket hasta hoy, solo sobre tickets abiertos.",
         backlog_age_median:
@@ -37,9 +35,9 @@
             `Tickets abiertos sin actividad (última actualización o comentario) hace más de ${days} días.`,
         aging_high_priority: (days) =>
             `Tickets abiertos con prioridad 1 o 2 creados hace más de ${days} días.`,
-        first_response:
-            "Promedio de horas desde la creación hasta el primer comentario del agente (ID InvGate de la persona). Requiere sync de comentarios.",
         open_total: "Total de tickets abiertos del equipo (estado no final).",
+        backlog_age_avg_total:
+            "Promedio de días desde la creación hasta hoy en todos los tickets abiertos del equipo.",
         weighted_load_total: "Suma de la carga ponderada de todas las personas del equipo.",
         stale_total: (days) =>
             `Total de tickets abiertos del equipo sin movimiento hace más de ${days} días.`,
@@ -195,6 +193,7 @@
             <div class="invgate-stats-kpis">
                 ${renderStatCard("Abiertos (total)", C.formatNumber(summary.open_total), { helpKey: "open_total" })}
                 ${renderStatCard("Carga ponderada", C.formatNumber(summary.weighted_load_total), { helpKey: "weighted_load_total" })}
+                ${renderStatCard("Edad promedio", summary.backlog_age_avg_total != null ? `${C.formatNumber(summary.backlog_age_avg_total, 1)} d` : "—", { helpKey: "backlog_age_avg_total" })}
                 ${renderStatCard("Stale (total)", C.formatNumber(summary.stale_total), { helpKey: "stale_total", staleDays, hint: "sin movimiento" })}
                 ${renderStatCard("Resueltos 30d", C.formatNumber(summary.resolved_30d_total), { helpKey: "resolved_30d_total" })}
             </div>
@@ -205,14 +204,12 @@
         </section>`;
     }
 
-    function renderPersonKpis(current, comments, staleDays) {
+    function renderPersonKpis(current, staleDays) {
         return `<div class="invgate-stats-kpis invgate-stats-kpis--person">
             ${renderStatCard("Abiertos", C.formatNumber(current.open_count), { helpKey: "open_count" })}
             ${renderStatCard("Carga ponderada", C.formatNumber(current.weighted_load), { helpKey: "weighted_load" })}
-            ${renderStatCard("% P1/P2", C.formatPct(current.high_priority_pct), { helpKey: "high_priority_pct" })}
             ${renderStatCard("Edad promedio", current.backlog_age_avg_days != null ? `${C.formatNumber(current.backlog_age_avg_days, 1)} d` : "—", { helpKey: "backlog_age_avg" })}
             ${renderStatCard("Stale", C.formatNumber(current.stale_count), { helpKey: "stale_count", staleDays })}
-            ${renderStatCard("1ª respuesta", C.formatHours(comments.avg_first_response_hours), { helpKey: "first_response" })}
         </div>`;
     }
 
@@ -279,7 +276,7 @@
         const openCount = personRow.current?.open_count ?? 0;
         const bodyId = nextGroupDomId("invgate-stats-body");
         const detailHtml = renderPersonDetail(personRow, staleDays);
-        const kpisHtml = renderPersonKpis(personRow.current || {}, personRow.comments || {}, staleDays);
+        const kpisHtml = renderPersonKpis(personRow.current || {}, staleDays);
 
         return `<section class="invgate-group invgate-group--collapsed invgate-stats-person">
             <div class="invgate-group__head">

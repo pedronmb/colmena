@@ -26,4 +26,10 @@ return [
         'password' => '',
         'limit' => 100,
     ],
+    // Ollama local para recomendaciones IA de tickets InvGate.
+    'ollama' => [
+        'base_url' => 'http://localhost:11434',
+        'model' => 'llama3.1',
+        'timeout' => 120,
+    ],
 ];

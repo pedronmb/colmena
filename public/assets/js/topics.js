@@ -23,6 +23,7 @@
     const viewByPriorityToggle = document.getElementById("topicViewByPriority");
     const searchInput = document.getElementById("topicSearchFilter");
     const personFilterSelect = document.getElementById("topicPersonFilter");
+    const topicTotalCount = document.getElementById("topicTotalCount");
 
     const apiUrl = "api/topics.php";
     const topicOneUrl = "api/topic.php";
@@ -447,6 +448,31 @@
      * @param {object[]} topics
      * @param {string} personIdStr
      */
+    function temaCountLabel(count) {
+        const n = Number(count);
+        if (!Number.isFinite(n) || n < 0) {
+            return "0 temas";
+        }
+        return n === 1 ? "1 tema" : `${n} temas`;
+    }
+
+    function updateTopicTotalCount(filteredCount) {
+        if (!topicTotalCount) {
+            return;
+        }
+        const total = lastTopics.length;
+        const shown =
+            typeof filteredCount === "number" ? filteredCount : total;
+        const hasActiveFilters =
+            (searchInput && searchInput.value.trim() !== "") ||
+            (personFilterSelect && personFilterSelect.value !== "");
+        let text = temaCountLabel(total);
+        if (hasActiveFilters && shown !== total) {
+            text = `${temaCountLabel(shown)} de ${total}`;
+        }
+        topicTotalCount.textContent = text;
+    }
+
     function filterTopicsByPerson(topics, personIdStr) {
         const pid = personIdStr ? Number(personIdStr) : NaN;
         if (!Number.isFinite(pid) || pid < 1) {
@@ -473,6 +499,8 @@
             viewByImportanceToggle && viewByImportanceToggle.checked;
         const viewByPriority =
             viewByPriorityToggle && viewByPriorityToggle.checked;
+
+        updateTopicTotalCount(filtered.length);
 
         feed.innerHTML = "";
         feed.className = "topic-feed-root";

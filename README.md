@@ -100,21 +100,35 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
 
   Copiá los valores desde `config/config.php.default` si aún no tenés el bloque. No subas `config.php` al repositorio si incluye credenciales.
 
+- **Ollama (recomendaciones IA de InvGate):** en `config/config.php`, bloque `ollama`:
+
+  ```php
+  'ollama' => [
+      'base_url' => 'http://localhost:11434',
+      'model' => 'llama3.1',
+      'timeout' => 120,
+  ],
+  ```
+
+  Se utiliza para generar resumen y recomendación de próximos pasos por ticket abierto.
+
   En cada ficha de persona (**Editar fichas**) podés cargar el **ID InvGate** (`team_people.invgate_id`).
 
   #### Scripts de sincronización (CLI)
 
-  Hay **tres scripts** independientes. El orden recomendado es:
+  Hay **cuatro scripts** independientes. El orden recomendado es:
 
   1. **Catálogo** — nombres de categorías, tipos y estados (`invgate_categories`, `invgate_types`, `invgate_statuses`).
   2. **Tickets** — incidentes abiertos por agente (`invgate_tickets`).
   3. **Comentarios** — respuestas de cada ticket (`invgate_ticket_comments`).
+  4. **Recomendaciones IA** — resumen + recomendación por ticket abierto (`invgate_ticket_recommendations`).
 
   | Script | Endpoint InvGate | Tabla destino |
   |--------|------------------|---------------|
   | `database/sync_invgate_catalog.php` | `/categories`, `/incident.attributes.type`, `/incident.attributes.status` | `invgate_categories`, `invgate_types`, `invgate_statuses` |
   | `database/sync_invgate_tickets.php` | `/incidents.by.agent` | `invgate_tickets` |
   | `database/sync_invgate_comments.php` | `/incident.comment` | `invgate_ticket_comments` |
+  | `database/generate_invgate_recommendations.php` | `http://localhost:11434/generate` | `invgate_ticket_recommendations` |
 
   El sync de **catálogo** hace upsert (inserta nuevos y actualiza nombres si cambiaron en InvGate; no borra registros locales). Si hay IDs en tickets que no aparecieron en el listado completo, intenta traerlos individualmente con `?id=`.
 
@@ -128,6 +142,7 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
   php database/sync_invgate_catalog.php
   php database/sync_invgate_tickets.php
   php database/sync_invgate_comments.php
+  php database/generate_invgate_recommendations.php
   ```
 
   En Windows (XAMPP):
@@ -136,6 +151,7 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
   c:\xampp\php\php.exe database\sync_invgate_catalog.php
   c:\xampp\php\php.exe database\sync_invgate_tickets.php
   c:\xampp\php\php.exe database\sync_invgate_comments.php
+  c:\xampp\php\php.exe database\generate_invgate_recommendations.php
   ```
 
   **Tarea programada (Windows):** Programador de tareas → crear tarea básica → acción «Iniciar un programa»:
@@ -144,24 +160,26 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
   - Argumentos: `database\sync_invgate_catalog.php`
   - Iniciar en: carpeta raíz del proyecto (donde está `database/`)
 
-  Si querés programar tickets/comentarios, repetí la tarea cambiando los argumentos a:
+  Si querés programar tickets/comentarios/recomendaciones, repetí la tarea cambiando los argumentos a:
   - `database\sync_invgate_tickets.php`
   - `database\sync_invgate_comments.php`
+  - `database\generate_invgate_recommendations.php`
 
   En Linux/macOS podés usar `cron`, por ejemplo cada hora:
 
   ```bash
-  0 * * * * cd /ruta/a/colmena && php database/sync_invgate_catalog.php && php database/sync_invgate_tickets.php && php database/sync_invgate_comments.php
+  0 * * * * cd /ruta/a/colmena && php database/sync_invgate_catalog.php && php database/sync_invgate_tickets.php && php database/sync_invgate_comments.php && php database/generate_invgate_recommendations.php
   ```
 
   Los tickets cerrados en InvGate dejan de actualizarse pero **permanecen** en la base local.
 
   #### Interfaz web
 
-  La solapa **InvGate** (`public/invgate.php`) tiene dos pestañas:
+  La solapa **InvGate** (`public/invgate.php`) tiene tres pestañas:
 
   - **Tickets** — listado agrupado por persona (incluye fichas con ID InvGate aunque no tengan tickets abiertos). Las columnas **Estado**, **Tipo** y **Categoría** muestran el nombre del catálogo sincronizado; si falta el catálogo, se muestra el ID numérico. Al hacer clic en un ticket se abre el detalle con descripción y comentarios sincronizados.
   - **Estadísticas** — métricas por persona y resumen del equipo (`GET api/invgate-stats.php?team_id=&period=7|30|all&stale_days=3`).
+  - **Recomendaciones IA** — lista plana de tickets abiertos con resumen y recomendación guardados en base local (`GET api/invgate-recommendations.php` y `GET api/invgate-recommendation.php`).
 
   **Métricas disponibles (por persona):**
 
@@ -197,7 +215,8 @@ colmena/
 │   ├── migrate_*.php      # Migraciones para bases ya existentes
 │   ├── sync_invgate_catalog.php   # Sync CLI catálogo InvGate
 │   ├── sync_invgate_tickets.php   # Sync CLI tickets → invgate_tickets
-│   └── sync_invgate_comments.php  # Sync CLI comentarios → invgate_ticket_comments
+│   ├── sync_invgate_comments.php  # Sync CLI comentarios → invgate_ticket_comments
+│   └── generate_invgate_recommendations.php # Recomendaciones IA con Ollama
 ├── public/                # Document root recomendado
 │   ├── index.php          # Temas
 │   ├── dashboard.php      # Matriz, lista, foco, calendario y pestaña Perfiles (pentágono)
@@ -233,7 +252,7 @@ colmena/
 - **Dashboards:** matriz urgencia × importancia, lista, «Hacer hoy», calendario de alertas y la pestaña anterior.
 - **Alertas:** fecha de cumplimiento; aviso tras iniciar sesión si la fecha está vencida o en los próximos 7 días.
 - **DevOps:** interfaz para enlazar trabajo con **Azure DevOps** (work items vía `azure-devops-workitems.php`; configuración en `config.php`).
-- **InvGate:** solapa con pestañas **Tickets** (solo lectura, agrupados por persona) y **Estadísticas** (carga, distribución, aging, histórico y comentarios por persona). Muestra estado, tipo y categoría por **nombre** (tablas lookup). Detalle con descripción y comentarios. Requiere ID InvGate en la ficha y scripts CLI de sincronización.
+- **InvGate:** solapa con pestañas **Tickets**, **Estadísticas** y **Recomendaciones IA**. Muestra estado, tipo y categoría por **nombre** (tablas lookup), detalle con descripción/comentarios y recomendaciones generadas por Ollama para tickets abiertos.
 - **Bloc personal:** notas y archivos privados del usuario conectado.
 - **Usuarios:** alta y gestión de cuentas (rol administrativo).
 - **Tema claro/oscuro:** preferencia en el cliente (`theme.js`).
@@ -247,7 +266,7 @@ Los endpoints viven en `public/api/*.php` (mismo origen que la app, `credentials
 - `team-people.php`, `team-person.php` (personas; **PUT/POST** aceptan las claves `axis_*` del pentágono)
 - `alerts.php`, `users.php`, `teams.php`
 - `azure-devops-workitems.php` (GET: work items de Azure DevOps)
-- `invgate-tickets.php` (GET: tickets agrupados por persona), `invgate-ticket.php` (GET: detalle + comentarios de un ticket), `invgate-stats.php` (GET: estadísticas por persona del equipo)
+- `invgate-tickets.php` (GET: tickets agrupados por persona), `invgate-ticket.php` (GET: detalle + comentarios de un ticket), `invgate-stats.php` (GET: estadísticas por persona del equipo), `invgate-recommendations.php` (GET: lista plana + estado de recomendación), `invgate-recommendation.php` (GET: detalle de recomendación por ticket)
 - `user-scratchpad.php`, `user-files.php`, `user-file-download.php`
 
 ---
@@ -274,6 +293,7 @@ Si ya tienes un `app.sqlite` antiguo y **no** quieres borrarlo con `init.php`, e
 | `database/migrate_invgate_tickets.php` | Tablas `invgate_tickets` e `invgate_ticket_comments` |
 | `database/migrate_invgate_tickets_source_status_type.php` | Campos `source_id`, `status_id` y `type_id` en tickets InvGate |
 | `database/migrate_invgate_catalog.php` | Tablas lookup: categorías, tipos y estados de InvGate |
+| `database/migrate_invgate_recommendations.php` | Tabla `invgate_ticket_recommendations` para recomendaciones IA |
 
 Ejemplo (desde la raíz del proyecto):
 
@@ -349,7 +369,7 @@ Este proyecto se publica bajo **GNU General Public License v3.0** — ver el arc
 - API en `public/api/*.php`: JSON, `Content-Type: application/json; charset=utf-8`.
 - Sin framework obligatorio; autoload PSR-4 simple para `App\*` bajo `src/`.
 - Gráficos del pentágono: `public/assets/js/pentagon-radar-svg.js`; la carga de tarjetas usa `pentagon-dashboard.js`, invocada desde la pestaña en `dashboard.js`.
-- InvGate (UI): `public/assets/js/invgate-common.js`, `invgate.js`, `invgate-stats.js`; consume `api/invgate-tickets.php`, `api/invgate-ticket.php` y `api/invgate-stats.php`.
+- InvGate (UI): `public/assets/js/invgate-common.js`, `invgate.js`, `invgate-stats.js`, `invgate-recommendations.js`; consume `api/invgate-tickets.php`, `api/invgate-ticket.php`, `api/invgate-stats.php`, `api/invgate-recommendations.php` y `api/invgate-recommendation.php`.
 - InvGate (stats): `src/Services/InvgateStatsService.php`, `src/Repositories/InvgateStatsRepository.php`.
 - Sync InvGate (CLI): `src/Services/InvgateClient.php`, `InvgateCatalogSyncService`, `InvgateTicketSyncService`, `InvgateCommentSyncService`.
 

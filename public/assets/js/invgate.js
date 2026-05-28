@@ -517,6 +517,12 @@
                 if (panelId === "invgatePanelStats" && window.InvgateStats) {
                     window.InvgateStats.loadStats(false);
                 }
+                if (
+                    panelId === "invgatePanelRecommendations" &&
+                    window.InvgateRecommendations
+                ) {
+                    window.InvgateRecommendations.load(false);
+                }
             });
         });
     }

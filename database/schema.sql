@@ -163,3 +163,12 @@ CREATE TABLE invgate_ticket_comments (
 );
 
 CREATE INDEX idx_invgate_ticket_comments_incident ON invgate_ticket_comments(incident_id);
+
+CREATE TABLE invgate_ticket_recommendations (
+    ticket_id INTEGER PRIMARY KEY REFERENCES invgate_tickets(id) ON DELETE CASCADE,
+    summary TEXT NOT NULL,
+    recommendation TEXT NOT NULL,
+    generated_at TEXT NOT NULL,
+    model TEXT,
+    error TEXT
+);
