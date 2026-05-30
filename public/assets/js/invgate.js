@@ -73,9 +73,11 @@
             <td>${typeCell}</td>
             <td>${formatCell(t.priority)}</td>
             <td>${categoryCell}</td>
-            <td>${formatCell(t.user_id)}</td>
-            <td>${formatTimestamp(t.created_at)}</td>
-            <td>${formatTimestamp(t.last_update)}</td>
+            <td class="invgate-table__date">${formatTimestamp(t.created_at)}</td>
+            <td class="invgate-table__date">${formatTimestamp(t.last_update)}</td>
+            <td class="invgate-table__actions">
+                <button type="button" class="btn btn--small invgate-ai-btn" data-ticket-id="${id > 0 ? id : ""}">Análisis IA</button>
+            </td>
         </tr>`;
             })
             .join("");
@@ -271,6 +273,9 @@
         }
         rootEl.dataset.invgateRowBound = "1";
         rootEl.addEventListener("click", (e) => {
+            if (e.target.closest(".invgate-ai-btn")) {
+                return;
+            }
             const row = e.target.closest(".invgate-table__row");
             if (!row || !rootEl.contains(row)) {
                 return;
@@ -285,6 +290,9 @@
             if (e.key !== "Enter" && e.key !== " ") {
                 return;
             }
+            if (e.target.closest(".invgate-ai-btn")) {
+                return;
+            }
             const row = e.target.closest(".invgate-table__row");
             if (!row || !rootEl.contains(row)) {
                 return;
@@ -293,6 +301,27 @@
             const ticketId = Number(row.getAttribute("data-ticket-id"));
             if (Number.isFinite(ticketId) && ticketId > 0) {
                 openTicketDetail(ticketId);
+            }
+        });
+    }
+
+    function bindAiButtons() {
+        if (!rootEl || rootEl.dataset.invgateAiBound === "1") {
+            return;
+        }
+        rootEl.dataset.invgateAiBound = "1";
+        rootEl.addEventListener("click", (e) => {
+            const btn = e.target.closest(".invgate-ai-btn");
+            if (!btn || !rootEl.contains(btn)) {
+                return;
+            }
+            e.stopPropagation();
+            const ticketId = Number(btn.getAttribute("data-ticket-id"));
+            if (!Number.isFinite(ticketId) || ticketId < 1) {
+                return;
+            }
+            if (window.InvgateRecommendations?.openForTicket) {
+                window.InvgateRecommendations.openForTicket(ticketId);
             }
         });
     }
@@ -307,9 +336,9 @@
                 <th>Tipo</th>
                 <th>Prioridad</th>
                 <th>Categoría</th>
-                <th>Solicitante</th>
-                <th>Creado</th>
-                <th>Última actualización</th>
+                <th class="invgate-table__date">Creado</th>
+                <th class="invgate-table__date">Actualizado</th>
+                <th class="invgate-table__actions-head">Análisis IA</th>
             </tr></thead>
             <tbody>${rows}</tbody>
         </table>`;
@@ -527,6 +556,7 @@
         rootEl.hidden = false;
         bindGroupToggles();
         bindTicketRows();
+        bindAiButtons();
         highlightSelectedRow();
         renderMeta(meta, groupList.length, viewOptions);
     }
@@ -601,10 +631,61 @@
         }
     });
 
-    function initInvgateTabs() {
+    function activateInvgateTab(panelId) {
         const tabs = document.querySelectorAll(".invgate-tab");
         const panels = document.querySelectorAll(".invgate-panel");
-        if (!tabs.length || !panels.length) {
+        if (!panelId || !tabs.length || !panels.length) {
+            return;
+        }
+        tabs.forEach((t) => {
+            const active = t.getAttribute("aria-controls") === panelId;
+            t.classList.toggle("invgate-tab--active", active);
+            t.setAttribute("aria-selected", active ? "true" : "false");
+        });
+        panels.forEach((panel) => {
+            panel.hidden = panel.id !== panelId;
+        });
+        if (panelId === "invgatePanelStats" && window.InvgateStats) {
+            window.InvgateStats.loadStats(false);
+        }
+    }
+
+    function ensureTicketVisibleInList(ticketId) {
+        if (!rootEl || ticketId < 1) {
+            return;
+        }
+        if (!ticketIdInView(ticketId, cachedGroups, cachedOrphanTickets)) {
+            if (searchInput) {
+                searchInput.value = "";
+            }
+            rerenderFromCache();
+        }
+        const row = rootEl.querySelector(
+            `.invgate-table__row[data-ticket-id="${ticketId}"]`
+        );
+        if (!row) {
+            return;
+        }
+        const group = row.closest(".invgate-group");
+        if (group && group.classList.contains("invgate-group--collapsed")) {
+            setGroupCollapsed(group, false);
+        }
+    }
+
+    function navigateToTicket(ticketId) {
+        const id = Number(ticketId);
+        if (!Number.isFinite(id) || id < 1) {
+            return;
+        }
+        activateInvgateTab("invgatePanelTickets");
+        ensureTicketVisibleInList(id);
+        selectedTicketId = null;
+        openTicketDetail(id);
+    }
+
+    function initInvgateTabs() {
+        const tabs = document.querySelectorAll(".invgate-tab");
+        if (!tabs.length) {
             return;
         }
 
@@ -614,24 +695,7 @@
                 if (!panelId) {
                     return;
                 }
-                tabs.forEach((t) => {
-                    const active = t === tab;
-                    t.classList.toggle("invgate-tab--active", active);
-                    t.setAttribute("aria-selected", active ? "true" : "false");
-                });
-                panels.forEach((panel) => {
-                    const show = panel.id === panelId;
-                    panel.hidden = !show;
-                });
-                if (panelId === "invgatePanelStats" && window.InvgateStats) {
-                    window.InvgateStats.loadStats(false);
-                }
-                if (
-                    panelId === "invgatePanelRecommendations" &&
-                    window.InvgateRecommendations
-                ) {
-                    window.InvgateRecommendations.load(false);
-                }
+                activateInvgateTab(panelId);
             });
         });
     }
@@ -642,6 +706,10 @@
         }
         rerenderFromCache();
     });
+
+    window.InvgateTickets = {
+        navigateToTicket,
+    };
 
     initInvgateTabs();
     loadTickets();

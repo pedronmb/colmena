@@ -84,7 +84,7 @@ final class InvgateTicketCommentRepository
             'SELECT id, author_id, message, created_at, msg_num, is_solution
              FROM invgate_ticket_comments
              WHERE incident_id = :ticket_id
-             ORDER BY created_at ASC, msg_num ASC'
+             ORDER BY created_at DESC, msg_num DESC'
         );
         $stmt->execute(['ticket_id' => $ticketId]);
 

@@ -55,9 +55,6 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                 <button type="button" class="invgate-tab" role="tab" aria-selected="false" aria-controls="invgatePanelStats" id="invgateTabStats" data-panel="stats">
                     Estadísticas
                 </button>
-                <button type="button" class="invgate-tab" role="tab" aria-selected="false" aria-controls="invgatePanelRecommendations" id="invgateTabRecommendations" data-panel="recommendations">
-                    Recomendaciones IA
-                </button>
             </div>
 
             <div id="invgatePanelTickets" class="invgate-panel" role="tabpanel" aria-labelledby="invgateTabTickets">
@@ -100,23 +97,18 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                 <div id="invgateStatsRoot" hidden></div>
             </div>
 
-            <div id="invgatePanelRecommendations" class="invgate-panel" role="tabpanel" aria-labelledby="invgateTabRecommendations" hidden>
-                <h2 class="panel__title">Recomendaciones IA por ticket</h2>
-                <p class="muted panel__lead">Resumen y sugerencia generados diariamente con Ollama sobre título, descripción y comentarios del ticket.</p>
-                <div class="invgate-search-toolbar">
-                    <label class="invgate-search-toolbar__field" for="invgateRecTicketSearch">
-                        Buscar ticket
-                        <input type="search" id="invgateRecTicketSearch" class="invgate-search-toolbar__input" placeholder="Número o título…" autocomplete="off" />
-                    </label>
-                </div>
-                <p class="invgate-meta muted" id="invgateRecMeta" aria-live="polite" hidden></p>
-                <div id="invgateRecListWrap" class="invgate-list-wrap">
-                    <p class="muted" id="invgateRecLoading">Seleccioná esta pestaña para cargar recomendaciones.</p>
-                    <article id="invgateRecDetail" class="invgate-detail" hidden aria-live="polite"></article>
-                    <div id="invgateRecRoot" hidden></div>
-                </div>
-            </div>
         </section>
+    </div>
+
+    <div id="invgateAiModal" class="modal invgate-ai-modal" hidden aria-modal="true" role="dialog" aria-labelledby="invgateAiModalTitle">
+        <div class="modal__backdrop" data-invgate-ai-close></div>
+        <div class="modal__card modal__card--wide invgate-ai-modal__card">
+            <header class="modal__head invgate-ai-modal__head">
+                <h2 id="invgateAiModalTitle">Análisis IA</h2>
+                <button type="button" class="icon-btn" data-invgate-ai-close aria-label="Cerrar"><?php require __DIR__ . '/includes/icon-close.php'; ?></button>
+            </header>
+            <div id="invgateAiModalBody" class="invgate-ai-modal__body" aria-live="polite"></div>
+        </div>
     </div>
 
     <script src="assets/js/theme.js" defer></script>
