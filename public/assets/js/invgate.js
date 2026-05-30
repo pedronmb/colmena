@@ -66,6 +66,12 @@
                     t.category_name != null && t.category_name !== ""
                         ? formatCell(t.category_name)
                         : formatCell(t.category_id);
+                const incidentLabel =
+                    t.invgate_incident_id != null && t.invgate_incident_id !== ""
+                        ? String(t.invgate_incident_id)
+                        : id > 0
+                          ? String(id)
+                          : "";
                 return `<tr class="invgate-table__row${active ? " invgate-table__row--active" : ""}" data-ticket-id="${id > 0 ? id : ""}" tabindex="0" role="button" aria-label="Ver detalle del ticket">
             <td>${formatCell(t.invgate_incident_id)}</td>
             <td><strong>${formatCell(t.title)}</strong></td>
@@ -76,7 +82,7 @@
             <td class="invgate-table__date">${formatTimestamp(t.created_at)}</td>
             <td class="invgate-table__date">${formatTimestamp(t.last_update)}</td>
             <td class="invgate-table__actions">
-                <button type="button" class="btn btn--small invgate-ai-btn" data-ticket-id="${id > 0 ? id : ""}">Análisis IA</button>
+                <button type="button" class="btn btn--small invgate-ai-btn" data-ticket-id="${id > 0 ? id : ""}" aria-label="Análisis IA del ticket #${escapeHtml(incidentLabel)}">Análisis IA</button>
             </td>
         </tr>`;
             })
@@ -273,7 +279,7 @@
         }
         rootEl.dataset.invgateRowBound = "1";
         rootEl.addEventListener("click", (e) => {
-            if (e.target.closest(".invgate-ai-btn")) {
+            if (e.target.closest(".invgate-table__actions")) {
                 return;
             }
             const row = e.target.closest(".invgate-table__row");
@@ -290,7 +296,7 @@
             if (e.key !== "Enter" && e.key !== " ") {
                 return;
             }
-            if (e.target.closest(".invgate-ai-btn")) {
+            if (e.target.closest(".invgate-table__actions")) {
                 return;
             }
             const row = e.target.closest(".invgate-table__row");

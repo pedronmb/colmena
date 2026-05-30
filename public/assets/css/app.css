@@ -738,8 +738,16 @@ body {
     background: var(--surface-hover);
 }
 
+.invgate-table__row:hover .invgate-table__actions {
+    background: transparent;
+}
+
 .invgate-table__row--active td {
     background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+
+.invgate-table__row--active .invgate-table__actions {
+    background: transparent;
 }
 
 .invgate-table__row:focus-visible {
@@ -891,16 +899,38 @@ body {
 .invgate-table__actions,
 .invgate-table__actions-head {
     width: 1%;
-    min-width: 6.75rem;
+    min-width: 9.5rem;
     white-space: nowrap;
     text-align: center;
     vertical-align: middle;
+    padding-inline: 0.35rem;
 }
 
-.invgate-table__actions .btn {
-    display: inline-block;
-    padding-inline: 0.5rem;
-    font-size: 0.78rem;
+.invgate-table__actions {
+    cursor: default;
+}
+
+.invgate-table__actions .invgate-ai-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 3rem;
+    min-width: unset;
+    padding: 0.5rem 0.45rem;
+    line-height: 1.25;
+    white-space: normal;
+    cursor: pointer;
+    border-color: var(--accent);
+    color: var(--text);
+    background: var(--surface);
+}
+
+.invgate-table__actions .invgate-ai-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
 }
 
 .invgate-tabs {
