@@ -150,17 +150,29 @@ final class InvgateTicketRepository
     /**
      * Tickets abiertos para generar recomendaciones IA.
      *
-     * @return list<array{id: int, invgate_incident_id: int, title: string, description: ?string}>
+     * @return list<array{
+     *   id: int,
+     *   invgate_incident_id: int,
+     *   title: string,
+     *   description: ?string,
+     *   last_update: string,
+     *   generated_at: ?string,
+     *   existing_summary: ?string,
+     *   existing_recommendation: ?string
+     * }>
      */
     public function listForRecommendationSync(): array
     {
         $finalStatusIds = InvgateFinalStatuses::ids();
         $placeholders = InvgateFinalStatuses::sqlNotInPlaceholders();
         $stmt = $this->pdo->prepare(
-            'SELECT id, invgate_incident_id, title, description
-             FROM invgate_tickets
-             WHERE status_id IS NULL OR status_id NOT IN (' . $placeholders . ')
-             ORDER BY last_update DESC'
+            'SELECT it.id, it.invgate_incident_id, it.title, it.description, it.last_update,
+                    rec.generated_at, rec.summary AS existing_summary,
+                    rec.recommendation AS existing_recommendation
+             FROM invgate_tickets it
+             LEFT JOIN invgate_ticket_recommendations rec ON rec.ticket_id = it.id
+             WHERE it.status_id IS NULL OR it.status_id NOT IN (' . $placeholders . ')
+             ORDER BY it.last_update DESC'
         );
         $stmt->execute($finalStatusIds);
 
@@ -174,11 +186,20 @@ final class InvgateTicketRepository
             }
 
             $description = isset($row['description']) ? trim((string) $row['description']) : '';
+            $generatedAt = isset($row['generated_at']) ? trim((string) $row['generated_at']) : '';
+            $existingSummary = isset($row['existing_summary']) ? trim((string) $row['existing_summary']) : '';
+            $existingRecommendation = isset($row['existing_recommendation'])
+                ? trim((string) $row['existing_recommendation'])
+                : '';
             $tickets[] = [
                 'id' => $id,
                 'invgate_incident_id' => $incidentId,
                 'title' => $title,
                 'description' => $description !== '' ? $description : null,
+                'last_update' => (string) ($row['last_update'] ?? '0'),
+                'generated_at' => $generatedAt !== '' ? $generatedAt : null,
+                'existing_summary' => $existingSummary !== '' ? $existingSummary : null,
+                'existing_recommendation' => $existingRecommendation !== '' ? $existingRecommendation : null,
             ];
         }
 

@@ -7,6 +7,7 @@ namespace App\Services;
 use App\Repositories\InvgateTicketCommentRepository;
 use App\Repositories\InvgateTicketRecommendationRepository;
 use App\Repositories\InvgateTicketRepository;
+use App\Support\InvgateTimestamp;
 
 final class InvgateRecommendationService
 {
@@ -81,6 +82,8 @@ final class InvgateRecommendationService
     /**
      * @return array{
      *   ok: bool,
+     *   tickets_open: int,
+     *   tickets_skipped: int,
      *   tickets_total: int,
      *   tickets_ok: int,
      *   tickets_failed: int,
@@ -92,13 +95,21 @@ final class InvgateRecommendationService
         $tickets = $this->ticketsRepo->listForRecommendationSync();
         $result = [
             'ok' => true,
-            'tickets_total' => count($tickets),
+            'tickets_open' => count($tickets),
+            'tickets_skipped' => 0,
+            'tickets_total' => 0,
             'tickets_ok' => 0,
             'tickets_failed' => 0,
             'errors' => [],
         ];
 
         foreach ($tickets as $ticket) {
+            if (!$this->shouldRegenerateRecommendation($ticket)) {
+                $result['tickets_skipped']++;
+                continue;
+            }
+
+            $result['tickets_total']++;
             $ticketId = (int) $ticket['id'];
             $requestId = (int) $ticket['invgate_incident_id'];
 
@@ -129,6 +140,36 @@ final class InvgateRecommendationService
         }
 
         return $result;
+    }
+
+    /**
+     * @param array{
+     *   last_update: string,
+     *   generated_at: ?string,
+     *   existing_summary: ?string,
+     *   existing_recommendation: ?string
+     * } $ticket
+     */
+    private function shouldRegenerateRecommendation(array $ticket): bool
+    {
+        $summary = trim((string) ($ticket['existing_summary'] ?? ''));
+        $recommendation = trim((string) ($ticket['existing_recommendation'] ?? ''));
+        if ($summary === '' || $recommendation === '') {
+            return true;
+        }
+
+        $generatedAt = trim((string) ($ticket['generated_at'] ?? ''));
+        if ($generatedAt === '') {
+            return true;
+        }
+
+        $lastUpdateTs = InvgateTimestamp::epochSeconds($ticket['last_update'] ?? null);
+        $generatedTs = InvgateTimestamp::epochSeconds($generatedAt);
+        if ($lastUpdateTs === null || $generatedTs === null) {
+            return true;
+        }
+
+        return $lastUpdateTs >= $generatedTs;
     }
 
     /**

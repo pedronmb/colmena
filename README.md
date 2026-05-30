@@ -112,6 +112,8 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
 
   Se utiliza para generar resumen y recomendación de próximos pasos por ticket abierto.
 
+  El cron de recomendaciones solo regenera tickets cuya `last_update` es igual o posterior a la última generación exitosa (`generated_at`). Los demás conservan el análisis existente hasta que InvGate actualice el ticket. Los tickets sin recomendación previa (o con error en la última generación) se procesan en cada ejecución.
+
   En cada ficha de persona (**Editar fichas**) podés cargar el **ID InvGate** (`team_people.invgate_id`).
 
   #### Scripts de sincronización (CLI)

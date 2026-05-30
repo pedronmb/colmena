@@ -45,7 +45,9 @@ try {
 }
 
 echo "InvGate recommendations\n";
-echo '  Tickets abiertos:     ' . $result['tickets_total'] . "\n";
+echo '  Tickets abiertos:     ' . $result['tickets_open'] . "\n";
+echo '  Omitidos (sin cambios): ' . $result['tickets_skipped'] . "\n";
+echo '  Procesados:           ' . $result['tickets_total'] . "\n";
 echo '  Recomendaciones OK:   ' . $result['tickets_ok'] . "\n";
 echo '  Recomendaciones error:' . $result['tickets_failed'] . "\n";
 
@@ -57,7 +59,7 @@ if ($result['errors'] !== []) {
     }
 }
 
-if ($result['tickets_total'] === 0) {
+if ($result['tickets_open'] === 0) {
     echo "  (no hay tickets abiertos para procesar)\n";
 }
 
