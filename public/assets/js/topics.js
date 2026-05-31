@@ -46,6 +46,9 @@
     /** @type {Record<number, string>} */
     let personNames = {};
 
+    /** @type {Record<number, object>} */
+    let personById = {};
+
     /** @type {object[]} */
     let lastTopics = [];
 
@@ -185,8 +188,10 @@
             }
             modalPeople = data.people;
             personNames = {};
+            personById = {};
             data.people.forEach((p) => {
                 personNames[p.id] = personOptionLabel(p);
+                personById[p.id] = p;
             });
 
             if (personSearchInput && personIdHidden) {
@@ -405,6 +410,18 @@
         if (pid == null || pid === "") return "Sin tarjeta";
         const id = Number(pid);
         return personNames[id] || "Tarjeta #" + id;
+    }
+
+    function personLabelHtml(topic) {
+        const pid = topic.person_id;
+        if (pid == null || pid === "") {
+            return "Sin tarjeta";
+        }
+        const person = personById[Number(pid)];
+        if (person && window.ColmenaPersonTeam?.personNameSpanHtml) {
+            return window.ColmenaPersonTeam.personNameSpanHtml(person);
+        }
+        return escapeHtml(personLabel(topic));
     }
 
     function formatTopicDt(iso) {
@@ -651,7 +668,7 @@
                 <strong class="${isDone ? "feed__title feed__title--done" : "feed__title"}">${escapeHtml(topic.title)}</strong>
                 <div class="meta">#${topic.id} · Urg.: ${escapeHtml(pri)} · Imp.: ${escapeHtml(imp)} · ${escapeHtml(
             topic.status
-        )} · ${escapeHtml(personLabel(topic))}</div>
+        )} · ${personLabelHtml(topic)}</div>
                 <div class="meta meta--dates">Creado: ${escapeHtml(formatTopicDt(topic.created_at))}${
             topic.completed_at
                 ? ` · Realizado: ${escapeHtml(formatTopicDt(topic.completed_at))}`

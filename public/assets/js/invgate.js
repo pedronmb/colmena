@@ -459,7 +459,9 @@
     }
 
     function renderGroup(person, tickets, options) {
-        const name = escapeHtml(person.display_name || "Sin nombre");
+        const name =
+            window.ColmenaPersonTeam?.personNameSpanHtml?.(person) ||
+            escapeHtml(person.display_name || "Sin nombre");
         const count = tickets.length;
         const countLabel = count === 1 ? "1 ticket" : `${count} tickets`;
         const titleHtml = `${name}${personSubtitle(person)} <span class="invgate-group__count muted">— ${countLabel}</span>`;

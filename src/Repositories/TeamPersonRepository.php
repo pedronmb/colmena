@@ -30,16 +30,17 @@ final class TeamPersonRepository
         ?int $axisBusinessCommunication = null,
         ?int $axisTechnicalCompetence = null,
         bool $isDirectTeam = false,
-        ?int $invgateId = null
+        ?int $invgateId = null,
+        ?int $reportsToId = null
     ): int {
         $stmt = $this->pdo->prepare(
             'INSERT INTO team_people (
                 team_id, display_name, email, role, invgate_id, birthday, extra_info,
                 axis_autonomy_problem_solving, axis_impact_scope, axis_influence_mentorship,
-                axis_business_communication, axis_technical_competence, is_direct_team
+                axis_business_communication, axis_technical_competence, is_direct_team, reports_to_id
              ) VALUES (
                 :tid, :name, :email, :role, :invgate_id, :birthday, :extra,
-                :axis_ap, :axis_is, :axis_im, :axis_bc, :axis_tc, :direct
+                :axis_ap, :axis_is, :axis_im, :axis_bc, :axis_tc, :direct, :reports_to
              )'
         );
         $stmt->execute([
@@ -56,6 +57,7 @@ final class TeamPersonRepository
             'axis_bc' => $axisBusinessCommunication,
             'axis_tc' => $axisTechnicalCompetence,
             'direct' => $isDirectTeam ? 1 : 0,
+            'reports_to' => $reportsToId,
         ]);
 
         return (int) $this->pdo->lastInsertId();
@@ -74,7 +76,8 @@ final class TeamPersonRepository
         ?int $axisBusinessCommunication,
         ?int $axisTechnicalCompetence,
         bool $isDirectTeam = false,
-        ?int $invgateId = null
+        ?int $invgateId = null,
+        ?int $reportsToId = null
     ): void {
         $stmt = $this->pdo->prepare(
             'UPDATE team_people SET
@@ -89,7 +92,8 @@ final class TeamPersonRepository
                 axis_influence_mentorship = :axis_im,
                 axis_business_communication = :axis_bc,
                 axis_technical_competence = :axis_tc,
-                is_direct_team = :direct
+                is_direct_team = :direct,
+                reports_to_id = :reports_to
              WHERE id = :id'
         );
         $stmt->execute([
@@ -106,6 +110,7 @@ final class TeamPersonRepository
             'axis_bc' => $axisBusinessCommunication,
             'axis_tc' => $axisTechnicalCompetence,
             'direct' => $isDirectTeam ? 1 : 0,
+            'reports_to' => $reportsToId,
         ]);
     }
 
@@ -133,6 +138,7 @@ final class TeamPersonRepository
             'axis_business_communication' => $this->mapAxisColumn($row['axis_business_communication'] ?? null),
             'axis_technical_competence' => $this->mapAxisColumn($row['axis_technical_competence'] ?? null),
             'is_direct_team' => $this->mapDirectTeamColumn($row['is_direct_team'] ?? null),
+            'reports_to_id' => $this->mapOptionalIntColumn($row['reports_to_id'] ?? null),
             'created_at' => (string) $row['created_at'],
         ];
     }
@@ -183,6 +189,7 @@ final class TeamPersonRepository
      *   axis_business_communication:?int,
      *   axis_technical_competence:?int,
      *   is_direct_team:bool,
+     *   reports_to_id:?int,
      *   created_at:string
      * }|null
      */
@@ -191,7 +198,8 @@ final class TeamPersonRepository
         $stmt = $this->pdo->prepare(
             'SELECT id, team_id, display_name, email, role, invgate_id, birthday, extra_info,
                     axis_autonomy_problem_solving, axis_impact_scope, axis_influence_mentorship,
-                    axis_business_communication, axis_technical_competence, is_direct_team, created_at
+                    axis_business_communication, axis_technical_competence, is_direct_team,
+                    reports_to_id, created_at
              FROM team_people WHERE id = :id LIMIT 1'
         );
         $stmt->execute(['id' => $id]);
@@ -211,7 +219,8 @@ final class TeamPersonRepository
         $stmt = $this->pdo->prepare(
             'SELECT id, team_id, display_name, email, role, invgate_id, birthday, extra_info,
                     axis_autonomy_problem_solving, axis_impact_scope, axis_influence_mentorship,
-                    axis_business_communication, axis_technical_competence, is_direct_team, created_at
+                    axis_business_communication, axis_technical_competence, is_direct_team,
+                    reports_to_id, created_at
              FROM team_people
              WHERE team_id = :tid
              ORDER BY display_name COLLATE NOCASE ASC'
@@ -287,5 +296,65 @@ final class TeamPersonRepository
         $personId = (int) $id;
 
         return $personId > 0 ? $personId : null;
+    }
+
+    /**
+     * Valida reports_to_id para crear o actualizar una persona.
+     * Devuelve mensaje de error o null si es válido.
+     */
+    public function validateReportsTo(int $teamId, int $personId, ?int $reportsToId): ?string
+    {
+        if ($reportsToId === null) {
+            return null;
+        }
+
+        if ($personId > 0 && $reportsToId === $personId) {
+            return 'Una persona no puede reportar a sí misma.';
+        }
+
+        if (!$this->belongsToTeam($reportsToId, $teamId)) {
+            return 'El superior debe pertenecer al mismo equipo.';
+        }
+
+        if ($personId > 0 && $this->wouldCreateCycle($personId, $reportsToId)) {
+            return 'La dependencia crearía un ciclo en el organigrama.';
+        }
+
+        return null;
+    }
+
+    private function wouldCreateCycle(int $personId, int $reportsToId): bool
+    {
+        $current = $reportsToId;
+        $visited = [];
+
+        while ($current !== null) {
+            if ($current === $personId) {
+                return true;
+            }
+            if (isset($visited[$current])) {
+                return true;
+            }
+            $visited[$current] = true;
+            $current = $this->findReportsToId($current);
+        }
+
+        return false;
+    }
+
+    private function findReportsToId(int $personId): ?int
+    {
+        $stmt = $this->pdo->prepare(
+            'SELECT reports_to_id FROM team_people WHERE id = :id LIMIT 1'
+        );
+        $stmt->execute(['id' => $personId]);
+        $raw = $stmt->fetchColumn();
+        if ($raw === false || $raw === null || $raw === '') {
+            return null;
+        }
+
+        $id = (int) $raw;
+
+        return $id > 0 ? $id : null;
     }
 }

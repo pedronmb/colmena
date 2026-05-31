@@ -218,9 +218,15 @@
         personCardModalTitle.textContent = isUnassigned
             ? "Sin tarjeta"
             : person.display_name || "Tarjeta";
-        personCardModalTitle.classList.remove("person-name--direct-team");
-        if (!isUnassigned && person && window.ColmenaPersonTeam?.isDirectTeam?.(person)) {
-            personCardModalTitle.classList.add("person-name--direct-team");
+        personCardModalTitle.classList.remove(
+            "person-name--direct-team",
+            "person-name--current-user"
+        );
+        if (!isUnassigned && person) {
+            const cls = window.ColmenaPersonTeam?.personNameClass?.(person);
+            if (cls) {
+                personCardModalTitle.classList.add(cls);
+            }
         }
 
         if (isUnassigned) {
@@ -456,7 +462,11 @@
 
         people.forEach(({ person, topics }) => {
             const card = document.createElement("article");
-            card.className = "person-card person-card--interactive";
+            const cardModifier =
+                window.ColmenaPersonTeam?.personCardModifierClass?.(person) || "";
+            card.className = cardModifier
+                ? `person-card person-card--interactive ${cardModifier}`
+                : "person-card person-card--interactive";
             card.setAttribute("data-person-id", String(person.id));
             card.setAttribute("tabindex", "0");
             card.setAttribute("role", "button");
@@ -755,6 +765,7 @@
         const roleRaw = String(fd.get("role") || "").trim();
         const invgateRaw = String(fd.get("invgate_id") || "").trim();
         const directEl = form.querySelector('[name="is_direct_team"]');
+        const reportsRaw = String(fd.get("reports_to_id") || "").trim();
         const payload = {
             team_id: Number(fd.get("team_id")),
             display_name: String(fd.get("display_name") || "").trim(),
@@ -764,6 +775,7 @@
             birthday: birthdayRaw === "" ? null : birthdayRaw,
             extra_info: extraRaw === "" ? null : extraRaw,
             is_direct_team: directEl instanceof HTMLInputElement && directEl.checked,
+            reports_to_id: reportsRaw === "" ? null : Number(reportsRaw),
         };
         const pentagonKeys = [
             "axis_autonomy_problem_solving",

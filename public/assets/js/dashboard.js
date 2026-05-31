@@ -1,5 +1,5 @@
 /**
- * Dashboards: matriz Eisenhower (urgencia × importancia), lista, foco, calendario de alertas y pestaña Perfiles (pentágono).
+ * Dashboards: matriz Eisenhower (urgencia × importancia), lista, foco, calendario de alertas, perfiles (pentágono) y organigrama.
  */
 (function () {
     const apiUrl = "api/topics.php";
@@ -16,6 +16,7 @@
     const panelFocus = document.getElementById("dashboardPanelFocus");
     const panelCalendar = document.getElementById("dashboardPanelCalendar");
     const panelPentagon = document.getElementById("dashboardPanelPentagon");
+    const panelOrgChart = document.getElementById("dashboardPanelOrgChart");
     const calendarRoot = document.getElementById("dashboardCalendarRoot");
     const dashboardCalYearLabel = document.getElementById("dashboardCalYearLabel");
     const dashboardCalPrev = document.getElementById("dashboardCalPrev");
@@ -42,7 +43,7 @@
         return /\/dashboard\.php$/i.test(pathname);
     }
 
-    const VALID_PANELS = new Set(["matrix", "list", "focus", "calendar", "pentagon"]);
+    const VALID_PANELS = new Set(["matrix", "list", "focus", "calendar", "pentagon", "orgchart"]);
 
     /** Panel de pestaña activo; usado en enlaces de edición para permanecer en el dashboard */
     let activePanelKey = "matrix";
@@ -84,6 +85,9 @@
 
     /** @type {Record<number, string>} */
     let personNames = {};
+
+    /** @type {Record<number, object>} */
+    let personById = {};
 
     /** @type {Map<number, object>} */
     let matrixTopicById = new Map();
@@ -165,7 +169,14 @@
         const urgDd = el.querySelector('[data-field="urgency"]');
         const impDd = el.querySelector('[data-field="importance"]');
         if (personDd) {
-            personDd.textContent = personLabel(topic);
+            const pid = topic.person_id;
+            const person =
+                pid != null && pid !== "" ? personById[Number(pid)] : null;
+            if (person && window.ColmenaPersonTeam?.personNameSpanHtml) {
+                personDd.innerHTML = window.ColmenaPersonTeam.personNameSpanHtml(person);
+            } else {
+                personDd.textContent = personLabel(topic);
+            }
         }
         if (urgDd) {
             urgDd.textContent = pr;
@@ -426,11 +437,14 @@
                 return;
             }
             personNames = {};
+            personById = {};
             data.people.forEach((p) => {
                 personNames[p.id] = p.display_name;
+                personById[p.id] = p;
             });
         } catch (e) {
             personNames = {};
+            personById = {};
         }
     }
 
@@ -787,8 +801,14 @@
         if (panelPentagon) {
             panelPentagon.hidden = p !== "pentagon";
         }
+        if (panelOrgChart) {
+            panelOrgChart.hidden = p !== "orgchart";
+        }
         if (p === "pentagon") {
             window.ColmenaPentagonDashboard?.load();
+        }
+        if (p === "orgchart") {
+            window.ColmenaOrgChart?.load();
         }
         if (p !== "calendar") {
             hideCalendarDayPopup();

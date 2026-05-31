@@ -15,6 +15,7 @@ use App\Support\BirthdayNormalizer;
 use App\Support\DirectTeamNormalizer;
 use App\Support\InvgateIdNormalizer;
 use App\Support\PentagonAxisNormalizer;
+use App\Support\ReportsToNormalizer;
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 
@@ -156,6 +157,22 @@ try {
         exit;
     }
 
+    $reportsToId = array_key_exists('reports_to_id', $data)
+        ? ReportsToNormalizer::optional($data['reports_to_id'])
+        : $current['reports_to_id'];
+    if ($reportsToId === false) {
+        http_response_code(422);
+        echo json_encode(['ok' => false, 'error' => 'Superior inválido (debe ser un ID de persona del equipo)']);
+        exit;
+    }
+
+    $reportsError = $peopleRepo->validateReportsTo($teamId, $id, $reportsToId);
+    if ($reportsError !== null) {
+        http_response_code(422);
+        echo json_encode(['ok' => false, 'error' => $reportsError], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
     $peopleRepo->update(
         $id,
         $displayName,
@@ -169,7 +186,8 @@ try {
         $axisBc,
         $axisTc,
         $isDirectTeam,
-        $invgateId
+        $invgateId,
+        $reportsToId
     );
     $updated = $peopleRepo->findById($id);
 

@@ -516,6 +516,7 @@ final class InvgateStatsService
             $ranking[] = [
                 'person_id' => $row['person']['id'],
                 'display_name' => $row['person']['display_name'],
+                'email' => $row['person']['email'] ?? null,
                 'weighted_load' => (int) ($current['weighted_load'] ?? 0),
                 'open_count' => (int) ($current['open_count'] ?? 0),
             ];
@@ -649,6 +650,7 @@ final class InvgateStatsService
                 $underloaded[] = [
                     'person_id' => $row['person']['id'],
                     'display_name' => $row['person']['display_name'],
+                    'email' => $row['person']['email'] ?? null,
                     'weighted_load' => $load,
                     'open_count' => $open,
                     'stale_count' => $stale,

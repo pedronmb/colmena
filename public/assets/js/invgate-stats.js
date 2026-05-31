@@ -362,7 +362,9 @@
         const lb = loadBalance && typeof loadBalance === "object" ? loadBalance : {};
         const underloaded = Array.isArray(lb.underloaded) ? lb.underloaded : [];
         const underHtml = renderRankingList(underloaded, (p) => {
-            const name = C.escapeHtml(String(p.display_name || "—"));
+            const name =
+                window.ColmenaPersonTeam?.personNameSpanHtml?.(p) ||
+                C.escapeHtml(String(p.display_name || "—"));
             return `<strong>${name}</strong> — carga ${C.formatNumber(p.weighted_load)}, ${C.formatNumber(p.open_count)} abiertos, ${C.formatNumber(p.stale_count)} stale`;
         });
 
@@ -408,7 +410,9 @@
         }
         const top = Array.isArray(summary.top_by_load) ? summary.top_by_load : [];
         const topHtml = renderRankingList(top, (p) => {
-            const name = C.escapeHtml(String(p.display_name || "—"));
+            const name =
+                window.ColmenaPersonTeam?.personNameSpanHtml?.(p) ||
+                C.escapeHtml(String(p.display_name || "—"));
             return `<strong>${name}</strong> — carga ${C.formatNumber(p.weighted_load)}, ${C.formatNumber(p.open_count)} abiertos`;
         });
 
@@ -543,7 +547,9 @@
 
     function renderPersonGroup(personRow, staleDays) {
         const person = personRow.person || {};
-        const name = C.escapeHtml(person.display_name || "Sin nombre");
+        const name =
+            window.ColmenaPersonTeam?.personNameSpanHtml?.(person) ||
+            C.escapeHtml(person.display_name || "Sin nombre");
         const openCount = personRow.current?.open_count ?? 0;
         const bodyId = nextGroupDomId("invgate-stats-body");
         const detailHtml = renderPersonDetail(personRow, staleDays);

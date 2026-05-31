@@ -112,6 +112,7 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
     </div>
 
     <script src="assets/js/theme.js" defer></script>
+    <script src="assets/js/person-direct-team.js" defer></script>
     <script src="assets/js/invgate-common.js" defer></script>
     <script src="assets/js/invgate.js" defer></script>
     <script src="assets/js/invgate-stats.js" defer></script>

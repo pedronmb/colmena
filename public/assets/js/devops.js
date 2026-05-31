@@ -30,6 +30,16 @@
             .replace(/</g, '&lt;');
     }
 
+    function assigneeHighlightClass(uniqueName, assignName) {
+        if (window.ColmenaPersonTeam?.isCurrentUserByEmail?.(uniqueName)) {
+            return ' person-name--current-user';
+        }
+        if (window.ColmenaPersonTeam?.isCurrentUserByEmail?.(assignName)) {
+            return ' person-name--current-user';
+        }
+        return '';
+    }
+
     function renderLoading() {
         root.innerHTML = '<p class="muted devops-board__empty">Cargando work items…</p>';
         meta.textContent = '';
@@ -207,7 +217,11 @@
                 '" data-upn="' +
                 escapeAttr(ch.upn) +
                 '">';
-            html += '<span class="devops-suggestions__name">' + escapeHtml(ch.display) + '</span>';
+            html += '<span class="devops-suggestions__name' +
+                (window.ColmenaPersonTeam?.isCurrentUserByEmail?.(ch.upn)
+                    ? ' person-name--current-user'
+                    : '') +
+                '">' + escapeHtml(ch.display) + '</span>';
             if (ch.display !== ch.upn) {
                 html +=
                     '<span class="devops-suggestions__upn">' + escapeHtml(ch.upn) + '</span>';
@@ -323,7 +337,9 @@
                     html += '<span class="devops-card__type">' + escapeHtml(type) + '</span>';
                 }
                 if (assignee) {
-                    html += '<span class="devops-card__assignee">' + escapeHtml(assignee) + '</span>';
+                    html += '<span class="devops-card__assignee' +
+                        assigneeHighlightClass(uniqueName, assignee) +
+                        '">' + escapeHtml(assignee) + '</span>';
                 }
                 if (uniqueName && uniqueName !== assignee) {
                     html +=

@@ -30,4 +30,7 @@ $usersHeaderActive = basename($_SERVER['SCRIPT_NAME'] ?? '') === 'users.php';
 <?php if (!empty($personalTeamId) && (int) $personalTeamId > 0) { ?>
     <input type="hidden" id="appPersonalTeamId" value="<?= (int) $personalTeamId ?>">
 <?php } ?>
+<?php if (!empty($user['email'])) { ?>
+    <input type="hidden" id="appCurrentUserEmail" value="<?= htmlspecialchars((string) $user['email'], ENT_QUOTES, 'UTF-8') ?>">
+<?php } ?>
 <?php require __DIR__ . '/alerts-flash.php'; ?>

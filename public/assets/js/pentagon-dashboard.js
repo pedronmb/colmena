@@ -89,6 +89,11 @@
         }
         const hasData = personHasScores(person);
         titleEl.textContent = person.display_name || `Tarjeta #${person.id}`;
+        titleEl.classList.remove("person-name--direct-team", "person-name--current-user");
+        const titleCls = window.ColmenaPersonTeam?.personNameClass?.(person);
+        if (titleCls) {
+            titleEl.classList.add(titleCls);
+        }
         chartEl.innerHTML = "";
         window.ColmenaPentagonRadar.render(chartEl, {
             labels: AXIS_LABELS,
@@ -127,7 +132,7 @@
         card.setAttribute("aria-label", `Ampliar perfil: ${displayName}`);
 
         const title = document.createElement("h2");
-        const extraClass = window.ColmenaPersonTeam?.directTeamNameClass?.(person) || "";
+        const extraClass = window.ColmenaPersonTeam?.personNameClass?.(person) || "";
         title.className = extraClass
             ? `pentagon-dashboard-card__title ${extraClass}`
             : "pentagon-dashboard-card__title";

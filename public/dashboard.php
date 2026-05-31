@@ -71,6 +71,9 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                 <button type="button" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="dashboardPanelPentagon" id="tabPentagon" data-panel="pentagon">
                     Perfiles (pentágono)
                 </button>
+                <button type="button" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="dashboardPanelOrgChart" id="tabOrgChart" data-panel="orgchart">
+                    Organigrama
+                </button>
             </div>
 
             <div id="dashboardPanelMatrix" class="dashboard-panel" role="tabpanel" aria-labelledby="tabMatrix">
@@ -147,6 +150,20 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                     <div class="pentagon-dashboard__grid" id="pentagonDashboardGrid"></div>
                 </div>
             </div>
+
+            <div id="dashboardPanelOrgChart" class="dashboard-panel" role="tabpanel" aria-labelledby="tabOrgChart" hidden>
+                <div
+                    id="orgChartDashboardRoot"
+                    class="org-chart-dashboard-embed"
+                    data-team-id="<?= (int) $personalTeamId ?>"
+                >
+                    <p class="muted org-chart-dashboard__lead">
+                        Árbol jerárquico según el campo <strong>Reporta a</strong> de cada ficha. Editá dependencias en <a href="people-edit.php">Editar fichas</a>.
+                    </p>
+                    <p class="muted" id="orgChartDashboardLoading" aria-live="polite" hidden></p>
+                    <div id="orgChartDashboardChart" class="org-chart-dashboard__chart" aria-live="polite"></div>
+                </div>
+            </div>
         </section>
     </div>
 
@@ -175,6 +192,7 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
     <script src="assets/js/pentagon-seniority-help.js" defer></script>
     <script src="assets/js/person-direct-team.js" defer></script>
     <script src="assets/js/pentagon-dashboard.js" defer></script>
+    <script src="assets/js/org-chart.js" defer></script>
     <script src="assets/js/dashboard.js" defer></script>
     <script src="assets/js/topics.js" defer></script>
     <script src="assets/js/app-shell.js" defer></script>

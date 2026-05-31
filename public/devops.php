@@ -78,6 +78,7 @@ if (!$dbExists || $user === null) {
     </div>
 
     <script src="assets/js/theme.js" defer></script>
+    <script src="assets/js/person-direct-team.js" defer></script>
     <script src="assets/js/devops.js" defer></script>
     <script src="assets/js/app-shell.js" defer></script>
 </body>

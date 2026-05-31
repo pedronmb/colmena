@@ -1,6 +1,6 @@
 # Colmena
 
-Aplicación web en **PHP** con **SQLite** para gestionar equipos, personas (tarjetas sin cuenta de acceso), temas con **urgencia e importancia en escala numérica 1–10**, dashboards tipo matriz Eisenhower con **perfiles en pentágono** (cinco ejes 0–10 y gráfico radar en la pestaña del mismo nombre), alertas con fecha de cumplimiento, vista **DevOps** (integración con Azure DevOps), **InvGate** (tickets sincronizados por persona con catálogos de categorías, tipos y estados), **bloc personal** (notas y archivos por usuario) y administración de usuarios.
+Aplicación web en **PHP** con **SQLite** para gestionar equipos, personas (tarjetas sin cuenta de acceso: rol, cumpleaños, equipo directo vs colaborador), temas con **urgencia e importancia en escala numérica 1–10**, dashboards tipo matriz Eisenhower con **perfiles en pentágono** (cinco ejes técnicos 0–10, radar SVG y ayuda de seniority en [`SENORITY.md`](SENORITY.md)), alertas con fecha de cumplimiento, vista **DevOps** (integración con Azure DevOps), **InvGate** (tickets sincronizados por persona con catálogos de categorías, tipos y estados), **bloc personal** (notas y archivos por usuario) y administración de usuarios.
 
 Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
 
@@ -63,7 +63,7 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
    | Email | `demo@local.test` |
    | Contraseña | `demo123` |
 
-6. **Permisos (Linux/macOS):** el usuario del servidor web debe poder **leer y escribir** `database/app.sqlite` (y la carpeta `database/` si hace falta crear el archivo).
+6. **Permisos (Linux/macOS):** el usuario del servidor web debe poder **leer y escribir** `database/app.sqlite` (y la carpeta `database/` si hace falta crear el archivo) y **escribir** en `storage/user_uploads/` (archivos del bloc personal).
 
 ---
 
@@ -219,6 +219,7 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
 ```
 colmena/
 ├── bootstrap_web.php      # Bootstrap web: autoload, sesión, config
+├── SENORITY.md            # Matriz Junior / Semi-Senior / Senior por eje del pentágono
 ├── config/
 │   ├── config.php         # Configuración local (no versionada)
 │   └── config.php.default # Plantilla de configuración
@@ -243,15 +244,19 @@ colmena/
 │   ├── users.php          # Usuarios (admin)
 │   ├── login.php
 │   ├── api/               # Endpoints JSON
-│   ├── includes/          # Parciales PHP (nav, pentagon-profile-fields, etc.)
+│   ├── includes/          # Parciales PHP (nav, pentagon-profile-fields, pentagon-seniority-help-modal, …)
 │   └── assets/            # CSS, JS, favicon
+├── scripts/
+│   └── git-init-and-push.ps1  # Script opcional para remoto Git en Windows
+├── storage/
+│   └── user_uploads/      # Archivos subidos en el bloc personal (writable por PHP)
 └── src/
     ├── Bootstrap.php
     ├── Database/
     ├── Models/
     ├── Repositories/      # Incl. InvgateTicketRepository, InvgateCatalogRepository, …
     ├── Services/          # Incl. InvgateClient, Invgate*SyncService, AzureDevOpsClient, …
-    └── Support/           # Incl. BirthdayNormalizer, PentagonAxisNormalizer, …
+    └── Support/           # Incl. BirthdayNormalizer, PentagonAxisNormalizer, SeniorityMarkdownRenderer, …
 ```
 
 ---
@@ -260,13 +265,13 @@ colmena/
 
 - **Sesión:** login por email/contraseña; sesión PHP.
 - **Temas:** título, descripción, **urgencia** y **importancia** cada una en escala **entera 1–10** (por defecto 5), asignación a una tarjeta de persona, estados y fechas. La matriz Eisenhower usa la mitad del rango (entre 5 y 6) como frontera entre cuadrantes.
-- **Personas:** tarjetas de equipo (no son usuarios de login); tablero en **Personas** y edición detallada en **Editar fichas**.
-- **Perfil (pentágono):** cinco ejes opcionales en `team_people` (escala **0–10**): visión estratégica, ejecución técnica, comunicación, análisis de datos/riesgos, innovación/creatividad. Se editan en **Editar fichas**; el radar por persona está en **Dashboards → pestaña Perfiles (pentágono)** (`dashboard.php?panel=pentagon`), con SVG nativo (sin npm).
+- **Personas:** tarjetas de equipo (no son usuarios de login); incluyen rol, cumpleaños (solo mes y día, formato `MM-DD`), flag **equipo directo** (`is_direct_team`) vs colaborador, ID InvGate y notas. Tablero en **Personas** (muestra cumpleaños y temas por persona) y edición detallada en **Editar fichas**.
+- **Perfil (pentágono):** cinco ejes opcionales en `team_people` (escala **0–10**, columnas `axis_*` v2): autonomía y resolución de problemas, impacto y alcance, influencia/mentoría y liderazgo técnico, negocio y comunicación, competencia técnica. Se editan en **Editar fichas**; el radar por persona está en **Dashboards → pestaña Perfiles (pentágono)** (`dashboard.php?panel=pentagon`), con SVG nativo (sin npm). Un botón de ayuda abre un modal con la matriz Junior / Semi-Senior / Senior por eje (contenido de [`SENORITY.md`](SENORITY.md)).
 - **Dashboards:** matriz urgencia × importancia, lista, «Hacer hoy», calendario de alertas y la pestaña anterior.
 - **Alertas:** fecha de cumplimiento; aviso tras iniciar sesión si la fecha está vencida o en los próximos 7 días.
 - **DevOps:** interfaz para enlazar trabajo con **Azure DevOps** (work items vía `azure-devops-workitems.php`; configuración en `config.php`).
 - **InvGate:** solapa con pestañas **Tickets**, **Estadísticas** y **Recomendaciones IA**. Muestra estado, tipo y categoría por **nombre** (tablas lookup), detalle con descripción/comentarios y recomendaciones generadas por Ollama para tickets abiertos.
-- **Bloc personal:** notas y archivos privados del usuario conectado.
+- **Bloc personal:** notas y archivos privados del usuario conectado (los archivos se guardan en `storage/user_uploads/`).
 - **Usuarios:** alta y gestión de cuentas (rol administrativo).
 - **Tema claro/oscuro:** preferencia en el cliente (`theme.js`).
 
@@ -276,7 +281,7 @@ Los endpoints viven en `public/api/*.php` (mismo origen que la app, `credentials
 
 - `login.php`, `logout.php`, `me.php`
 - `topics.php`, `topic.php` (**priority** e **importance** como enteros **1–10** en JSON), `people-board.php`
-- `team-people.php`, `team-person.php` (personas; **PUT/POST** aceptan las claves `axis_*` del pentágono)
+- `team-people.php`, `team-person.php` (personas; **PUT/POST** aceptan `axis_*`, `is_direct_team`, `birthday` — formato `MM-DD` —, `role`, `invgate_id`, etc.)
 - `alerts.php`, `users.php`, `teams.php`
 - `azure-devops-workitems.php` (GET: work items de Azure DevOps)
 - `invgate-tickets.php` (GET: tickets agrupados por persona), `invgate-ticket.php` (GET: detalle + comentarios de un ticket), `invgate-stats.php` (GET: estadísticas por persona del equipo), `invgate-recommendations.php` (GET: lista plana + estado de recomendación), `invgate-recommendation.php` (GET: detalle de recomendación por ticket)
@@ -350,6 +355,8 @@ Luego configurá `config.php` y ejecutá los sync CLI en el orden indicado arrib
 - **InvGate — sin tickets:** verificar que las personas tengan `invgate_id` en **Editar fichas** y ejecutar `database/sync_invgate_tickets.php`.
 - **InvGate — sin comentarios en el detalle:** ejecutar `database/sync_invgate_comments.php` (requiere tickets ya sincronizados).
 - **InvGate — error de autenticación o red:** revisar `server_url` (con `https://`, sin barra final), usuario/contraseña API y que PHP tenga la extensión `curl` habilitada.
+- **Bloc personal — error al subir archivos:** comprobar permisos de escritura en `storage/user_uploads/`.
+- **Modal de ayuda del pentágono vacío:** verificar que exista `SENORITY.md` en la raíz del proyecto.
 
 ---
 
@@ -366,7 +373,7 @@ Luego configurá `config.php` y ejecutá los sync CLI en el orden indicado arrib
 
    La primera vez Git puede pedir autenticación: en GitHub suele usarse un **personal access token** en lugar de la contraseña.
 
-El archivo `.gitignore` evita subir `database/*.sqlite`.
+El archivo `.gitignore` evita subir `database/*.sqlite` y `config/config.php`.
 
 ---
 
@@ -382,8 +389,11 @@ Este proyecto se publica bajo **GNU General Public License v3.0** — ver el arc
 - API en `public/api/*.php`: JSON, `Content-Type: application/json; charset=utf-8`.
 - Sin framework obligatorio; autoload PSR-4 simple para `App\*` bajo `src/`.
 - Gráficos del pentágono: `public/assets/js/pentagon-radar-svg.js`; la carga de tarjetas usa `pentagon-dashboard.js`, invocada desde la pestaña en `dashboard.js`.
+- Pentágono (ayuda de seniority): [`SENORITY.md`](SENORITY.md) → `src/Support/SeniorityMarkdownRenderer.php` → modal en `public/includes/pentagon-seniority-help-modal.php`, activado con `pentagon-seniority-help.js` (en **Dashboards** y **Editar fichas**).
+- Personas (UI): `birthday-fields.js` (mes/día → campo `birthday`), `person-direct-team.js` (`is_direct_team` en tarjetas); normalización en `BirthdayNormalizer` y `DirectTeamNormalizer`.
+- Bloc personal: subida/descarga vía `user-files.php` y `user-file-download.php`; almacenamiento en `storage/user_uploads/` (requiere permisos de escritura para PHP).
 - InvGate (UI): `public/assets/js/invgate-common.js`, `invgate.js`, `invgate-stats.js`, `invgate-recommendations.js`; consume `api/invgate-tickets.php`, `api/invgate-ticket.php`, `api/invgate-stats.php`, `api/invgate-recommendations.php` y `api/invgate-recommendation.php`.
 - InvGate (stats): `src/Services/InvgateStatsService.php`, `src/Repositories/InvgateStatsRepository.php`.
-- Sync InvGate (CLI): `src/Services/InvgateClient.php`, `InvgateCatalogSyncService`, `InvgateTicketSyncService`, `InvgateCommentSyncService`.
+- Sync InvGate (CLI): `src/Services/InvgateClient.php`, `InvgateCatalogSyncService`, `InvgateTicketSyncService`, `InvgateCommentSyncService`; recomendaciones IA: `InvgateRecommendationService`, `OllamaClient`.
 
-Para cambios en el esquema, actualiza `database/schema.sql` y, si aplica, añade o ajusta un `migrate_*.php` para quien ya tenga datos en producción.
+Para cambios en el esquema, actualiza `database/schema.sql` y, si aplica, añade o ajusta un `migrate_*.php` para quien ya tenga datos en producción. Si editás las definiciones de ejes del pentágono, actualizá también [`SENORITY.md`](SENORITY.md) (el modal de ayuda lo renderiza en runtime).

@@ -11,6 +11,9 @@
     const listUrl = "api/team-people.php";
     const oneUrl = "api/team-person.php";
 
+    /** @type {object[]} */
+    let cachedPeople = [];
+
     const PENTAGON_AXIS_KEYS = [
         "axis_autonomy_problem_solving",
         "axis_impact_scope",
@@ -75,6 +78,63 @@
         return escapeHtml(t.slice(0, max)) + "…";
     }
 
+    function personLabel(p) {
+        const role =
+            p.role && String(p.role).trim() !== ""
+                ? ` (${String(p.role).trim()})`
+                : "";
+        return `${p.display_name || ""}${role}`;
+    }
+
+    function reportsToDisplayName(people, reportsToId) {
+        if (reportsToId == null || reportsToId === "") {
+            return "—";
+        }
+        const id = Number(reportsToId);
+        if (!Number.isFinite(id)) {
+            return "—";
+        }
+        const boss = people.find((p) => p.id === id);
+        return boss ? escapeHtml(boss.display_name) : "—";
+    }
+
+    function populateReportsToSelect(selectEl, people, excludeId, selectedId) {
+        if (!(selectEl instanceof HTMLSelectElement)) {
+            return;
+        }
+        const sorted = window.ColmenaPersonTeam?.sortWithDirectTeamFirst
+            ? window.ColmenaPersonTeam.sortWithDirectTeamFirst(people)
+            : [...people].sort((a, b) =>
+                  String(a.display_name || "").localeCompare(String(b.display_name || ""), "es")
+              );
+        const current =
+            selectedId != null && selectedId !== "" ? Number(selectedId) : null;
+        selectEl.innerHTML =
+            '<option value="">Sin superior (raíz del organigrama)</option>' +
+            sorted
+                .filter((p) => excludeId == null || p.id !== excludeId)
+                .map((p) => {
+                    const sel = current === p.id ? " selected" : "";
+                    return `<option value="${p.id}"${sel}>${escapeHtml(personLabel(p))}</option>`;
+                })
+                .join("");
+    }
+
+    function refreshReportsToSelects(excludeId, selectedNew, selectedEdit) {
+        populateReportsToSelect(
+            document.getElementById("newPersonReportsTo"),
+            cachedPeople,
+            null,
+            selectedNew
+        );
+        populateReportsToSelect(
+            document.getElementById("editReportsTo"),
+            cachedPeople,
+            excludeId ?? null,
+            selectedEdit
+        );
+    }
+
     function openModal() {
         modal.hidden = false;
         document.body.style.overflow = "hidden";
@@ -114,6 +174,7 @@
             directEl.checked =
                 p.is_direct_team === true || p.is_direct_team === 1;
         }
+        refreshReportsToSelects(p.id, null, p.reports_to_id ?? null);
         if (window.ColmenaBirthday && form) {
             window.ColmenaBirthday.fillBirthdayFields(form, p.birthday);
         }
@@ -179,6 +240,8 @@
             if (!res.ok || !data.ok || !Array.isArray(data.people)) {
                 throw new Error(data.error || "Error al cargar");
             }
+            cachedPeople = data.people;
+            refreshReportsToSelects(null, null, null);
             loadingEl.hidden = true;
             if (data.people.length === 0) {
                 loadingEl.textContent = "No hay personas. Usa «Nueva persona» arriba.";
@@ -191,11 +254,12 @@
             people.forEach((p) => {
                 const tr = document.createElement("tr");
                 const nameClass =
-                    window.ColmenaPersonTeam?.directTeamNameClass?.(p) || "";
+                    window.ColmenaPersonTeam?.personNameClass?.(p) || "";
                 const nameTdAttr = nameClass ? ` class="${nameClass}"` : "";
                 tr.innerHTML = `
                     <td${nameTdAttr}>${escapeHtml(p.display_name)}</td>
                     <td>${p.role ? escapeHtml(p.role) : "—"}</td>
+                    <td>${reportsToDisplayName(cachedPeople, p.reports_to_id)}</td>
                     <td>${p.invgate_id != null && p.invgate_id !== "" ? escapeHtml(String(p.invgate_id)) : "—"}</td>
                     <td>${p.email ? escapeHtml(p.email) : "—"}</td>
                     <td>${formatBirthdayDisplay(p.birthday)}</td>
@@ -234,6 +298,7 @@
         const roleRaw = String(fd.get("role") || "").trim();
         const invgateRaw = String(fd.get("invgate_id") || "").trim();
         const directEl = form.querySelector('[name="is_direct_team"]');
+        const reportsRaw = String(fd.get("reports_to_id") || "").trim();
         const payload = {
             id: Number(fd.get("id")),
             team_id: Number(fd.get("team_id")),
@@ -245,6 +310,7 @@
             extra_info: String(fd.get("extra_info") || "").trim() || null,
             is_direct_team:
                 directEl instanceof HTMLInputElement && directEl.checked,
+            reports_to_id: reportsRaw === "" ? null : Number(reportsRaw),
         };
         PENTAGON_AXIS_KEYS.forEach((k) => {
             const el = form.querySelector(`[name="${editModalAxisFieldName(k)}"]`);

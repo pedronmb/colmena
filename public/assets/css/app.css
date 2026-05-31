@@ -2099,6 +2099,15 @@ select.topic-toolbar__search-input {
     color: var(--accent);
 }
 
+.person-name--current-user {
+    color: var(--accent-success);
+}
+
+.person-card--current-user {
+    border-color: var(--accent-success);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-success) 35%, transparent);
+}
+
 .form__checkbox {
     display: flex;
     align-items: center;
@@ -3484,3 +3493,178 @@ a.devops-card__link:focus-visible {
 :root[data-theme="dark"] .pentagon-radar-svg__data--empty {
     fill-opacity: 0.2;
 }
+
+/* —— Organigrama (dashboard) —— */
+
+.org-chart-dashboard__lead {
+    margin: 0 0 1rem;
+}
+
+.org-chart-dashboard__chart {
+    overflow-x: auto;
+    padding: 1rem 1.25rem 2rem;
+    -webkit-overflow-scrolling: touch;
+}
+
+.org-chart {
+    --org-v: 1.75rem;
+    --org-h: 1.5rem;
+    display: inline-block;
+    min-width: 100%;
+    text-align: center;
+}
+
+.org-chart ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    flex-wrap: nowrap;
+}
+
+/* Fila de hijos: zona superior reservada para conectores */
+.org-chart ul.org-chart__children {
+    padding-top: var(--org-v);
+}
+
+/* Línea vertical desde el padre hacia la barra horizontal de hijos */
+.org-chart ul.org-chart__children::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: var(--org-v);
+    border-left: 2px solid var(--border);
+}
+
+.org-chart li.org-chart__branch {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex-shrink: 0;
+    padding: var(--org-v) var(--org-h) 0;
+}
+
+/* Conectores horizontales entre hermanos + bajada vertical a cada nodo */
+.org-chart li.org-chart__branch::before,
+.org-chart li.org-chart__branch::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    width: 50%;
+    height: var(--org-v);
+    border-top: 2px solid var(--border);
+}
+
+.org-chart li.org-chart__branch::before {
+    right: 50%;
+}
+
+.org-chart li.org-chart__branch::after {
+    left: 50%;
+    border-left: 2px solid var(--border);
+}
+
+/* Hijo único: sin barra horizontal, solo la vertical del ul padre */
+.org-chart li.org-chart__branch:only-child::before,
+.org-chart li.org-chart__branch:only-child::after {
+    display: none;
+}
+
+.org-chart li.org-chart__branch:only-child {
+    padding-top: 0;
+}
+
+/* Extremos de la fila: recortar tramo horizontal sobrante, conservar bajada vertical */
+.org-chart li.org-chart__branch:first-child::before {
+    border: none;
+}
+
+.org-chart li.org-chart__branch:last-child::after {
+    border-top: none;
+    border-right: none;
+    border-bottom: none;
+    border-left: 2px solid var(--border);
+}
+
+/* Raíz: sin conectores superiores */
+.org-chart > ul.org-chart__roots > li.org-chart__branch {
+    padding-top: 0;
+}
+
+.org-chart > ul.org-chart__roots > li.org-chart__branch::before,
+.org-chart > ul.org-chart__roots > li.org-chart__branch::after {
+    display: none;
+}
+
+/* Bajada vertical desde el nodo padre hacia la barra de hijos */
+.org-chart__down {
+    flex-shrink: 0;
+    width: 0;
+    height: 0.875rem;
+    border-left: 2px solid var(--border);
+}
+
+.org-chart__node {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.25rem;
+    min-width: 9rem;
+    max-width: 15rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 0.5rem;
+    background: var(--surface);
+    box-shadow: 0 1px 0 rgba(0, 0, 0, 0.04);
+    text-align: center;
+    box-sizing: border-box;
+}
+
+.org-chart__node--direct {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.org-chart__name {
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--text);
+}
+
+.org-chart__node--direct .org-chart__name {
+    color: var(--accent);
+}
+
+.org-chart__node--current {
+    border-color: var(--accent-success);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent-success) 35%, transparent);
+}
+
+.org-chart__node--current .org-chart__name {
+    color: var(--accent-success);
+}
+
+.devops-card__assignee.person-name--current-user,
+.devops-suggestions__name.person-name--current-user {
+    color: var(--accent-success);
+    font-weight: 600;
+}
+
+.org-chart__role {
+    font-size: 0.8125rem;
+    line-height: 1.35;
+    color: var(--muted);
+}
+
+.org-chart__empty {
+    margin: 0;
+}
+
