@@ -303,6 +303,38 @@ final class TeamPersonRepository
     }
 
     /**
+     * Coincidencia de email/UPN limitada a un equipo (para listados DevOps).
+     */
+    public function findPersonIdByEmailInTeam(int $teamId, string $email): ?int
+    {
+        if ($teamId <= 0) {
+            return null;
+        }
+        $email = trim($email);
+        if ($email === '') {
+            return null;
+        }
+
+        $stmt = $this->pdo->prepare(
+            'SELECT id
+             FROM team_people
+             WHERE team_id = :team_id
+               AND email IS NOT NULL
+               AND LOWER(TRIM(email)) = LOWER(TRIM(:email))
+             ORDER BY id ASC
+             LIMIT 1'
+        );
+        $stmt->execute(['team_id' => $teamId, 'email' => $email]);
+        $id = $stmt->fetchColumn();
+        if ($id === false) {
+            return null;
+        }
+        $personId = (int) $id;
+
+        return $personId > 0 ? $personId : null;
+    }
+
+    /**
      * Devuelve el ID de persona local dado un ID de agente InvGate.
      */
     public function findPersonIdByInvgateId(int $invgateId): ?int

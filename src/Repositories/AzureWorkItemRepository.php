@@ -332,38 +332,6 @@ final class AzureWorkItemRepository
             ];
         }
 
-        $activeSql = 'wi.removed_at IS NULL AND LOWER(wi.state) NOT IN (' . $placeholders . ')';
-
-        $itemsStmt = $this->pdo->prepare(
-            'SELECT wi.azure_id, wi.title, wi.work_item_type, wi.state, wi.assigned_to,
-                    wi.assigned_unique_name, wi.url, wi.created_at, wi.changed_at, wi.person_id,
-                    tp.id AS tp_id, tp.display_name, tp.email, tp.role
-             FROM azure_work_items wi
-             INNER JOIN team_people tp ON tp.id = wi.person_id AND tp.team_id = :team_id
-             WHERE ' . $activeSql . '
-             ORDER BY tp.display_name ASC, wi.changed_at DESC'
-        );
-        $itemsStmt->execute(array_merge(['team_id' => $teamId], $lowerNames));
-
-        /** @var array<int, list<array<string, mixed>>> */
-        $itemsByPersonId = [];
-        $workItemTotal = 0;
-
-        while ($row = $itemsStmt->fetch(PDO::FETCH_ASSOC)) {
-            if (!is_array($row)) {
-                continue;
-            }
-            $personId = isset($row['tp_id']) ? (int) $row['tp_id'] : 0;
-            if ($personId < 1) {
-                continue;
-            }
-            if (!isset($itemsByPersonId[$personId])) {
-                $itemsByPersonId[$personId] = [];
-            }
-            $itemsByPersonId[$personId][] = $this->mapWorkItemRow($row);
-            $workItemTotal++;
-        }
-
         $peopleStmt = $this->pdo->prepare(
             'SELECT id, display_name, email, role
              FROM team_people
@@ -372,41 +340,67 @@ final class AzureWorkItemRepository
         );
         $peopleStmt->execute(['team_id' => $teamId]);
 
-        $groups = [];
-        $peopleCount = 0;
+        /** @var array<string, int> */
+        $emailIndex = [];
+        /** @var array<int, true> */
+        $teamPersonIds = [];
+        $peopleRows = [];
         while ($row = $peopleStmt->fetch(PDO::FETCH_ASSOC)) {
             if (!is_array($row)) {
                 continue;
             }
-            $peopleCount++;
             $personId = isset($row['id']) ? (int) $row['id'] : 0;
             if ($personId < 1) {
                 continue;
             }
+            $peopleRows[] = $row;
+            $teamPersonIds[$personId] = true;
+            $email = isset($row['email']) && $row['email'] !== null ? trim((string) $row['email']) : '';
+            if ($email !== '') {
+                $emailIndex[strtolower($email)] = $personId;
+            }
+        }
+
+        $itemsStmt = $this->pdo->prepare(
+            'SELECT azure_id, title, work_item_type, state, assigned_to,
+                    assigned_unique_name, url, created_at, changed_at, person_id
+             FROM azure_work_items
+             WHERE removed_at IS NULL
+               AND LOWER(state) NOT IN (' . $placeholders . ')
+             ORDER BY changed_at DESC'
+        );
+        $itemsStmt->execute($lowerNames);
+
+        /** @var array<int, list<array<string, mixed>>> */
+        $itemsByPersonId = [];
+        /** @var list<array<string, mixed>> */
+        $othersWorkItems = [];
+        $workItemTotal = 0;
+
+        while ($row = $itemsStmt->fetch(PDO::FETCH_ASSOC)) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $workItemTotal++;
+            $mapped = $this->mapWorkItemRow($row);
+            $personId = $this->resolvePersonIdForTeamRow($row, $teamPersonIds, $emailIndex);
+            if ($personId !== null) {
+                if (!isset($itemsByPersonId[$personId])) {
+                    $itemsByPersonId[$personId] = [];
+                }
+                $itemsByPersonId[$personId][] = $mapped;
+            } else {
+                $othersWorkItems[] = $mapped;
+            }
+        }
+
+        $groups = [];
+        foreach ($peopleRows as $row) {
+            $personId = (int) $row['id'];
             $groups[] = [
                 'person' => $this->mapPersonRow($row),
                 'work_items' => $itemsByPersonId[$personId] ?? [],
             ];
-        }
-
-        $othersStmt = $this->pdo->prepare(
-            'SELECT wi.azure_id, wi.title, wi.work_item_type, wi.state, wi.assigned_to,
-                    wi.assigned_unique_name, wi.url, wi.created_at, wi.changed_at, wi.person_id
-             FROM azure_work_items wi
-             LEFT JOIN team_people tp ON tp.id = wi.person_id AND tp.team_id = :team_id
-             WHERE ' . $activeSql . '
-               AND (wi.person_id IS NULL OR tp.id IS NULL)
-             ORDER BY wi.changed_at DESC'
-        );
-        $othersStmt->execute(array_merge(['team_id' => $teamId], $lowerNames));
-
-        $othersWorkItems = [];
-        while ($row = $othersStmt->fetch(PDO::FETCH_ASSOC)) {
-            if (!is_array($row)) {
-                continue;
-            }
-            $othersWorkItems[] = $this->mapWorkItemRow($row);
-            $workItemTotal++;
         }
 
         return [
@@ -414,9 +408,100 @@ final class AzureWorkItemRepository
             'others_work_items' => $othersWorkItems,
             'meta' => [
                 'work_item_total' => $workItemTotal,
-                'people_count' => $peopleCount,
+                'people_count' => count($peopleRows),
             ],
         ];
+    }
+
+    /**
+     * Actualiza person_id en filas existentes según UPN/email del asignado.
+     */
+    public function backfillPersonIds(TeamPersonRepository $peopleRepo): int
+    {
+        $stmt = $this->pdo->query(
+            'SELECT azure_id, assigned_unique_name, assigned_to, person_id
+             FROM azure_work_items
+             WHERE removed_at IS NULL'
+        );
+        $update = $this->pdo->prepare(
+            'UPDATE azure_work_items SET person_id = :person_id WHERE azure_id = :azure_id'
+        );
+        $updated = 0;
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $azureId = isset($row['azure_id']) ? (int) $row['azure_id'] : 0;
+            if ($azureId <= 0) {
+                continue;
+            }
+            $current = isset($row['person_id']) && $row['person_id'] !== null && $row['person_id'] !== ''
+                ? (int) $row['person_id']
+                : null;
+            $resolved = $this->resolvePersonIdFromAssignee($row, $peopleRepo);
+            if ($resolved === $current) {
+                continue;
+            }
+            $update->execute([
+                'person_id' => $resolved,
+                'azure_id' => $azureId,
+            ]);
+            $updated++;
+        }
+
+        return $updated;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @param array<int, true> $teamPersonIds
+     * @param array<string, int> $emailIndex
+     */
+    private function resolvePersonIdForTeamRow(array $row, array $teamPersonIds, array $emailIndex): ?int
+    {
+        $storedId = isset($row['person_id']) && $row['person_id'] !== null && $row['person_id'] !== ''
+            ? (int) $row['person_id']
+            : 0;
+        if ($storedId > 0 && isset($teamPersonIds[$storedId])) {
+            return $storedId;
+        }
+
+        $emailKey = $this->assigneeEmailKey($row);
+        if ($emailKey !== null && isset($emailIndex[$emailKey])) {
+            return $emailIndex[$emailKey];
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private function resolvePersonIdFromAssignee(array $row, TeamPersonRepository $peopleRepo): ?int
+    {
+        $emailKey = $this->assigneeEmailKey($row);
+        if ($emailKey === null) {
+            return null;
+        }
+
+        return $peopleRepo->findPersonIdByEmail($emailKey);
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     */
+    private function assigneeEmailKey(array $row): ?string
+    {
+        $upn = trim((string) ($row['assigned_unique_name'] ?? ''));
+        if ($upn !== '') {
+            return strtolower($upn);
+        }
+        $name = trim((string) ($row['assigned_to'] ?? ''));
+        if ($name !== '' && str_contains($name, '@')) {
+            return strtolower($name);
+        }
+
+        return null;
     }
 
     /**

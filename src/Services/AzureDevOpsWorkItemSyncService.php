@@ -134,6 +134,7 @@ final class AzureDevOpsWorkItemSyncService
      *   items_skipped_already_final: int,
      *   items_reconciled: int,
      *   items_removed: int,
+     *   person_ids_backfilled: int,
      *   errors: list<array{azure_id: int, error: string}>
      * }
      */
@@ -147,6 +148,7 @@ final class AzureDevOpsWorkItemSyncService
             'items_skipped_already_final' => 0,
             'items_reconciled' => 0,
             'items_removed' => 0,
+            'person_ids_backfilled' => 0,
             'errors' => [],
         ];
 
@@ -209,6 +211,8 @@ final class AzureDevOpsWorkItemSyncService
             }
         }
 
+        $result['person_ids_backfilled'] = $this->workItemsRepo->backfillPersonIds($this->peopleRepo);
+
         if ($result['errors'] !== [] && $result['items_upserted'] === 0 && $result['items_reconciled'] === 0) {
             $result['ok'] = false;
         }
@@ -226,10 +230,7 @@ final class AzureDevOpsWorkItemSyncService
     {
         $upn = trim((string) ($item['assigned_unique_name'] ?? ''));
         if ($upn !== '') {
-            $id = $this->peopleRepo->findPersonIdByEmail($upn);
-            if ($id !== null) {
-                return $id;
-            }
+            return $this->peopleRepo->findPersonIdByEmail($upn);
         }
 
         $name = trim((string) ($item['assigned_to'] ?? ''));

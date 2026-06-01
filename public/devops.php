@@ -94,7 +94,7 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
 
             <div id="devopsPanelList" class="devops-panel" role="tabpanel" aria-labelledby="devopsTabList" hidden>
                 <h2 class="panel__title">Lista por persona</h2>
-                <p class="muted panel__lead">Work items activos agrupados por fichas del equipo. En <strong>Otros</strong> aparecen asignados que no coinciden con ninguna persona de Colmena (o sin ficha vinculada por email/UPN).</p>
+                <p class="muted panel__lead">Work items activos agrupados por fichas del equipo. La asignación usa el <strong>email</strong> de cada ficha (debe coincidir con el UPN de Azure DevOps). En <strong>Otros</strong> aparecen asignados sin coincidencia en el equipo.</p>
                 <p class="muted devops-list-meta" id="devopsListMeta" aria-live="polite" hidden></p>
                 <div id="devopsListRoot" class="devops-list-wrap" aria-live="polite">
                     <p class="muted" id="devopsListLoading">Cargando…</p>

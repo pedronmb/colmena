@@ -57,6 +57,7 @@ echo '  Omitidos (final, sin fila local): ' . $result['items_skipped_final_new']
 echo '  Omitidos (ya final local):        ' . $result['items_skipped_already_final'] . "\n";
 echo '  Reconciliados:                    ' . $result['items_reconciled'] . "\n";
 echo '  Marcados eliminados (404):        ' . $result['items_removed'] . "\n";
+echo '  person_id actualizados (backfill): ' . $result['person_ids_backfilled'] . "\n";
 
 if ($result['errors'] !== []) {
     echo "  Errores:\n";
