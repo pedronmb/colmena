@@ -136,6 +136,27 @@ CREATE TABLE invgate_tickets (
 CREATE INDEX idx_invgate_tickets_person ON invgate_tickets(person_id);
 CREATE INDEX idx_invgate_tickets_last_update ON invgate_tickets(last_update DESC);
 
+-- Work items sincronizados desde Azure DevOps
+CREATE TABLE azure_work_items (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    azure_id INTEGER NOT NULL UNIQUE,
+    person_id INTEGER REFERENCES team_people(id) ON DELETE SET NULL,
+    title TEXT NOT NULL,
+    work_item_type TEXT,
+    state TEXT NOT NULL,
+    assigned_to TEXT,
+    assigned_unique_name TEXT,
+    url TEXT,
+    created_at TEXT,
+    changed_at TEXT NOT NULL DEFAULT '0',
+    synced_at TEXT NOT NULL DEFAULT (datetime('now')),
+    removed_at TEXT
+);
+
+CREATE INDEX idx_azure_work_items_person ON azure_work_items(person_id);
+CREATE INDEX idx_azure_work_items_state ON azure_work_items(state);
+CREATE INDEX idx_azure_work_items_changed ON azure_work_items(changed_at DESC);
+
 -- Catálogos lookup para mostrar nombres (InvGate)
 CREATE TABLE invgate_categories (
     invgate_id INTEGER PRIMARY KEY,

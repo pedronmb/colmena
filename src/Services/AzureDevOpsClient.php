@@ -11,6 +11,11 @@ final class AzureDevOpsClient
 {
     private const API_VERSION = '7.1';
 
+    private const BATCH_FIELDS = 'System.Id,System.Title,System.State,System.WorkItemType,System.AssignedTo,System.CreatedDate,System.ChangedDate';
+
+    /** WIQL por defecto para sync: solo ítems no finales. */
+    public const DEFAULT_SYNC_WIQL = "SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project AND [System.State] NOT IN ('Complete','Done','Removed','Closed','Completed') ORDER BY [System.ChangedDate] DESC";
+
     /** @var string */
     private $organization;
 
@@ -31,21 +36,82 @@ final class AzureDevOpsClient
         $this->maxItems = max(1, min(500, $maxItems));
     }
 
+    public function getOrganization(): string
+    {
+        return $this->organization;
+    }
+
+    public function getProject(): string
+    {
+        return $this->project;
+    }
+
     /**
      * @return array{ok: true, columns: list<array{state: string, items: list<array<string, mixed>>}>}
      * @throws \RuntimeException en error de API o red
      */
     public function fetchGroupedByState(?string $wiqlOverride = null): array
     {
-        $orgEnc = rawurlencode($this->organization);
-        $projEnc = rawurlencode($this->project);
-        $base = "https://dev.azure.com/{$orgEnc}/{$projEnc}";
+        $items = $this->fetchWorkItems($wiqlOverride);
+        $byState = [];
+        foreach ($items as $item) {
+            $state = (string) ($item['state'] ?? '(sin estado)');
+            if (!isset($byState[$state])) {
+                $byState[$state] = [];
+            }
+            $byState[$state][] = $item;
+        }
 
+        $columns = [];
+        $states = array_keys($byState);
+        usort($states, [self::class, 'compareStates']);
+        foreach ($states as $state) {
+            $columns[] = [
+                'state' => $state,
+                'items' => $byState[$state],
+            ];
+        }
+
+        return ['ok' => true, 'columns' => $columns];
+    }
+
+    /**
+     * Lista plana de work items normalizados desde WIQL + batch GET.
+     *
+     * @return list<array{
+     *   id: int,
+     *   title: string,
+     *   type: string,
+     *   state: string,
+     *   assigned_to: string,
+     *   assigned_unique_name: string,
+     *   url: string,
+     *   created_at: string,
+     *   changed_at: string
+     * }>
+     * @throws \RuntimeException
+     */
+    public function fetchWorkItems(?string $wiqlOverride = null): array
+    {
+        $ids = $this->fetchWorkItemIds($wiqlOverride);
+        if ($ids === []) {
+            return [];
+        }
+
+        return $this->fetchWorkItemsByIds($ids);
+    }
+
+    /**
+     * @return list<int>
+     * @throws \RuntimeException
+     */
+    public function fetchWorkItemIds(?string $wiqlOverride = null): array
+    {
         $wiql = $wiqlOverride !== null && $wiqlOverride !== ''
             ? $wiqlOverride
             : 'SELECT [System.Id] FROM WorkItems WHERE [System.TeamProject] = @project ORDER BY [System.ChangedDate] DESC';
 
-        $wiqlUrl = "{$base}/_apis/wit/wiql?\$top={$this->maxItems}&api-version=" . self::API_VERSION;
+        $wiqlUrl = $this->apiBase() . '/_apis/wit/wiql?$top=' . $this->maxItems . '&api-version=' . self::API_VERSION;
         $wiqlBody = json_encode(['query' => $wiql], JSON_UNESCAPED_UNICODE);
         if ($wiqlBody === false) {
             throw new \RuntimeException('No se pudo preparar la consulta WIQL.');
@@ -63,7 +129,7 @@ final class AzureDevOpsClient
 
         $workItems = $wiqlData['workItems'] ?? [];
         if (!is_array($workItems) || $workItems === []) {
-            return ['ok' => true, 'columns' => []];
+            return [];
         }
 
         $ids = [];
@@ -72,18 +138,41 @@ final class AzureDevOpsClient
                 $ids[] = (int) $row['id'];
             }
         }
+
+        return array_values(array_unique(array_filter($ids, static fn (int $id): bool => $id > 0)));
+    }
+
+    /**
+     * @param list<int> $ids
+     * @return list<array{
+     *   id: int,
+     *   title: string,
+     *   type: string,
+     *   state: string,
+     *   assigned_to: string,
+     *   assigned_unique_name: string,
+     *   url: string,
+     *   created_at: string,
+     *   changed_at: string
+     * }>
+     * @throws \RuntimeException
+     */
+    public function fetchWorkItemsByIds(array $ids): array
+    {
         $ids = array_values(array_unique(array_filter($ids, static fn (int $id): bool => $id > 0)));
         if ($ids === []) {
-            return ['ok' => true, 'columns' => []];
+            return [];
         }
 
-        // System.Url no es válido en el parámetro `fields` de este API (TF51535).
-        $fields = 'System.Id,System.Title,System.State,System.WorkItemType,System.AssignedTo';
-        $byState = [];
+        $orgEnc = rawurlencode($this->organization);
+        $projEnc = rawurlencode($this->project);
+        $base = "https://dev.azure.com/{$orgEnc}/{$projEnc}";
+        $out = [];
 
         foreach ($this->chunkIds($ids, 200) as $chunk) {
             $idsParam = implode(',', $chunk);
-            $detailUrl = "{$base}/_apis/wit/workitems?ids={$idsParam}&fields={$fields}&api-version=" . self::API_VERSION;
+            $detailUrl = "{$base}/_apis/wit/workitems?ids={$idsParam}&fields=" . self::BATCH_FIELDS
+                . '&api-version=' . self::API_VERSION;
             $detailRaw = $this->request('GET', $detailUrl, null);
             $detailData = json_decode($detailRaw, true);
             if (!is_array($detailData)) {
@@ -100,45 +189,133 @@ final class AzureDevOpsClient
                 if (!is_array($item)) {
                     continue;
                 }
-                $f = $item['fields'] ?? [];
-                if (!is_array($f)) {
-                    continue;
+                $normalized = self::normalizeWorkItemRow($item, $orgEnc, $projEnc);
+                if ($normalized !== null) {
+                    $out[] = $normalized;
                 }
-                $id = isset($f['System.Id']) ? (int) $f['System.Id'] : 0;
-                $title = isset($f['System.Title']) ? (string) $f['System.Title'] : '';
-                $state = isset($f['System.State']) ? (string) $f['System.State'] : '(sin estado)';
-                $type = isset($f['System.WorkItemType']) ? (string) $f['System.WorkItemType'] : '';
-                $assign = self::parseAssignedTo($f['System.AssignedTo'] ?? null);
-                $url = $id > 0
-                    ? "https://dev.azure.com/{$orgEnc}/{$projEnc}/_workitems/edit/{$id}"
-                    : '';
-
-                if (!isset($byState[$state])) {
-                    $byState[$state] = [];
-                }
-                $byState[$state][] = [
-                    'id' => $id,
-                    'title' => $title,
-                    'type' => $type,
-                    'state' => $state,
-                    'assigned_to' => $assign['name'],
-                    'assigned_unique_name' => $assign['unique_name'],
-                    'url' => $url,
-                ];
             }
         }
 
-        $columns = [];
-        $states = array_keys($byState);
-        usort($states, [self::class, 'compareStates']);
-        foreach ($states as $state) {
-            $columns[] = [
-                'state' => $state,
-                'items' => $byState[$state],
-            ];
+        return $out;
+    }
+
+    /**
+     * @return array{
+     *   id: int,
+     *   title: string,
+     *   type: string,
+     *   state: string,
+     *   assigned_to: string,
+     *   assigned_unique_name: string,
+     *   url: string,
+     *   created_at: string,
+     *   changed_at: string
+     * }|null null si 404
+     * @throws \RuntimeException en otros errores
+     */
+    public function fetchWorkItemById(int $id): ?array
+    {
+        if ($id <= 0) {
+            return null;
         }
 
-        return ['ok' => true, 'columns' => $columns];
+        $orgEnc = rawurlencode($this->organization);
+        $projEnc = rawurlencode($this->project);
+        $url = "https://dev.azure.com/{$orgEnc}/{$projEnc}/_apis/wit/workitems/{$id}?fields="
+            . self::BATCH_FIELDS . '&api-version=' . self::API_VERSION;
+
+        try {
+            $raw = $this->request('GET', $url, null);
+        } catch (\RuntimeException $e) {
+            if (str_contains($e->getMessage(), 'HTTP 404') || str_contains($e->getMessage(), 'no encontrado')) {
+                return null;
+            }
+            throw $e;
+        }
+
+        $data = json_decode($raw, true);
+        if (!is_array($data)) {
+            throw new \RuntimeException('Respuesta de work item inválida.');
+        }
+
+        return self::normalizeWorkItemRow($data, $orgEnc, $projEnc);
+    }
+
+    private function apiBase(): string
+    {
+        $orgEnc = rawurlencode($this->organization);
+        $projEnc = rawurlencode($this->project);
+
+        return "https://dev.azure.com/{$orgEnc}/{$projEnc}";
+    }
+
+    /**
+     * @param array<string, mixed> $item
+     * @return array{
+     *   id: int,
+     *   title: string,
+     *   type: string,
+     *   state: string,
+     *   assigned_to: string,
+     *   assigned_unique_name: string,
+     *   url: string,
+     *   created_at: string,
+     *   changed_at: string
+     * }|null
+     */
+    private static function normalizeWorkItemRow(array $item, string $orgEnc, string $projEnc): ?array
+    {
+        $f = $item['fields'] ?? [];
+        if (!is_array($f)) {
+            return null;
+        }
+        $id = isset($f['System.Id']) ? (int) $f['System.Id'] : 0;
+        if ($id <= 0 && isset($item['id'])) {
+            $id = (int) $item['id'];
+        }
+        if ($id <= 0) {
+            return null;
+        }
+
+        $title = isset($f['System.Title']) ? trim((string) $f['System.Title']) : '';
+        if ($title === '') {
+            return null;
+        }
+
+        $state = isset($f['System.State']) ? (string) $f['System.State'] : '(sin estado)';
+        $type = isset($f['System.WorkItemType']) ? (string) $f['System.WorkItemType'] : '';
+        $assign = self::parseAssignedTo($f['System.AssignedTo'] ?? null);
+        $createdAt = self::formatAzureDate($f['System.CreatedDate'] ?? null);
+        $changedAt = self::formatAzureDate($f['System.ChangedDate'] ?? null);
+        $url = "https://dev.azure.com/{$orgEnc}/{$projEnc}/_workitems/edit/{$id}";
+
+        return [
+            'id' => $id,
+            'title' => $title,
+            'type' => $type,
+            'state' => $state,
+            'assigned_to' => $assign['name'],
+            'assigned_unique_name' => $assign['unique_name'],
+            'url' => $url,
+            'created_at' => $createdAt,
+            'changed_at' => $changedAt,
+        ];
+    }
+
+    /**
+     * @param mixed $value
+     */
+    private static function formatAzureDate($value): string
+    {
+        if ($value === null) {
+            return '0';
+        }
+        $s = trim((string) $value);
+        if ($s === '') {
+            return '0';
+        }
+
+        return $s;
     }
 
     /**
@@ -166,9 +343,8 @@ final class AzureDevOpsClient
         return $out;
     }
 
-    private static function compareStates(string $a, string $b): int
+    public static function compareStates(string $a, string $b): int
     {
-        // Orden del tablero (Kanban). Cualquier otro estado va al final, ordenado alfabéticamente.
         $order = [
             'Backlog' => 0,
             'To Do' => 1,
@@ -195,7 +371,7 @@ final class AzureDevOpsClient
      * @param mixed $value System.AssignedTo desde la API
      * @return array{name: string, unique_name: string}
      */
-    private static function parseAssignedTo($value): array
+    public static function parseAssignedTo($value): array
     {
         $name = '';
         $unique = '';
@@ -267,7 +443,7 @@ final class AzureDevOpsClient
             throw new \RuntimeException('Azure DevOps rechazó la autenticación (PAT u organización/proyecto).');
         }
         if ($code === 404) {
-            throw new \RuntimeException('Organización o proyecto no encontrado en Azure DevOps.');
+            throw new \RuntimeException('Azure DevOps respondió con código HTTP 404');
         }
         if ($code < 200 || $code >= 300) {
             $decoded = json_decode((string) $raw, true);

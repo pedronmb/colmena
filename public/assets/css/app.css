@@ -2914,7 +2914,77 @@ select.topic-toolbar__search-input {
     }
 }
 
-/* --- Azure DevOps / Kanban --- */
+/* --- Azure DevOps --- */
+.devops-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0.35rem;
+}
+
+.devops-tab {
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.95rem;
+    padding: 0.45rem 0.85rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+
+.devops-tab:hover {
+    color: var(--text);
+    background: var(--surface-2);
+}
+
+.devops-tab--active {
+    color: var(--text);
+    font-weight: 600;
+    background: var(--surface-2);
+}
+
+.devops-tab:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+}
+
+.devops-page__actions {
+    margin-bottom: 0.75rem;
+}
+
+.devops-panel[hidden] {
+    display: none !important;
+}
+
+.devops-list-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.devops-list-meta {
+    margin: 0 0 0.75rem;
+    font-size: 0.88rem;
+}
+
+.devops-list-table__date {
+    white-space: nowrap;
+    font-size: 0.88rem;
+    color: var(--muted);
+}
+
+.devops-list-table__upn {
+    font-size: 0.82rem;
+}
+
+.devops-list-group--others .invgate-group__title-btn {
+    font-weight: 600;
+}
+
 .devops-toolbar {
     display: flex;
     flex-wrap: wrap;

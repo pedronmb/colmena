@@ -73,7 +73,7 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
 
 - **Equipo en contexto:** la aplicación usa el **espacio de trabajo personal** del usuario (`PersonalTeamBootstrap`) para `team_id` en formularios y API cuando corresponde.
 
-- **Azure DevOps (vista DevOps):** en `config/config.php`, bloque `azure_devops`:
+- **Azure DevOps (sync + vista DevOps):** en `config/config.php`, bloque `azure_devops`:
 
   ```php
   'azure_devops' => [
@@ -81,11 +81,34 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
       'project' => 'mi-proyecto',
       'pat' => '', // Personal Access Token (Work items: Read)
       'max_items' => 200,
-      'wiql' => null, // opcional: consulta WIQL personalizada
+      'wiql' => null, // null en sync: solo ítems no finales (ver DEFAULT_SYNC_WIQL en código)
+      'final_states' => null, // null = Complete, Done, Removed, Closed, Completed
+      'reconcile_limit' => 50,
   ],
   ```
 
   No subas `config.php` al repositorio si incluye el PAT.
+
+  #### Scripts de sincronización Azure DevOps (CLI)
+
+  1. **Migración** (una vez): `php database/migrate_azure_work_items.php` → tabla `azure_work_items`.
+  2. **Sync:** `php database/sync_azure_work_items.php` → descarga WIQL + upsert + reconciliación.
+
+  | Script | Destino |
+  |--------|---------|
+  | `database/migrate_azure_work_items.php` | Tabla `azure_work_items` |
+  | `database/sync_azure_work_items.php` | Upsert desde Azure DevOps |
+
+  **Reglas de persistencia:**
+
+  - Ítems **no finales**: insert o update completo.
+  - Ítems **finales** (`final_states`): solo **update** si ya existían en BD con estado no final; si nunca estuvieron en BD, se omiten (no se insertan cerrados “de golpe”).
+  - **Reconciliación:** work items abiertos locales que ya no aparecen en el WIQL se consultan por ID; si pasaron a final se actualizan; si Azure responde 404 se marca `removed_at`.
+  - Asignación a persona: `assigned_unique_name` o email del asignado ↔ `team_people.email`.
+
+  **Tarea programada (Windows):** igual que InvGate, con `php.exe` y argumento `database\sync_azure_work_items.php`.
+
+  La solapa **DevOps** lee la base local: pestaña **Tablero** (`GET api/azure-devops-workitems.php`) y pestaña **Lista** por persona del equipo (`GET api/azure-devops-workitems-list.php?team_id=`). El grupo **Otros** agrupa ítems sin ficha en Colmena o asignados a personas fuera del equipo. No llama a Azure en cada refresco.
 
 - **InvGate (sincronización de tickets):** en `config/config.php`, bloque `invgate`:
 
@@ -269,7 +292,7 @@ colmena/
 - **Perfil (pentágono):** cinco ejes opcionales en `team_people` (escala **0–10**, columnas `axis_*` v2): autonomía y resolución de problemas, impacto y alcance, influencia/mentoría y liderazgo técnico, negocio y comunicación, competencia técnica. Se editan en **Editar fichas**; el radar por persona está en **Dashboards → pestaña Perfiles (pentágono)** (`dashboard.php?panel=pentagon`), con SVG nativo (sin npm). Un botón de ayuda abre un modal con la matriz Junior / Semi-Senior / Senior por eje (contenido de [`SENORITY.md`](SENORITY.md)).
 - **Dashboards:** matriz urgencia × importancia, lista, «Hacer hoy», calendario de alertas y la pestaña anterior.
 - **Alertas:** fecha de cumplimiento; aviso tras iniciar sesión si la fecha está vencida o en los próximos 7 días.
-- **DevOps:** interfaz para enlazar trabajo con **Azure DevOps** (work items vía `azure-devops-workitems.php`; configuración en `config.php`).
+- **DevOps:** tablero Kanban de work items **sincronizados** desde Azure DevOps (`sync_azure_work_items.php` + `azure-devops-workitems.php` desde SQLite).
 - **InvGate:** solapa con pestañas **Tickets**, **Estadísticas** y **Recomendaciones IA**. Muestra estado, tipo y categoría por **nombre** (tablas lookup), detalle con descripción/comentarios y recomendaciones generadas por Ollama para tickets abiertos.
 - **Bloc personal:** notas y archivos privados del usuario conectado (los archivos se guardan en `storage/user_uploads/`).
 - **Usuarios:** alta y gestión de cuentas (rol administrativo).
@@ -283,7 +306,8 @@ Los endpoints viven en `public/api/*.php` (mismo origen que la app, `credentials
 - `topics.php`, `topic.php` (**priority** e **importance** como enteros **1–10** en JSON), `people-board.php`
 - `team-people.php`, `team-person.php` (personas; **PUT/POST** aceptan `axis_*`, `is_direct_team`, `birthday` — formato `MM-DD` —, `role`, `invgate_id`, etc.)
 - `alerts.php`, `users.php`, `teams.php`
-- `azure-devops-workitems.php` (GET: work items de Azure DevOps)
+- `azure-devops-workitems.php` (GET: tablero Kanban desde `azure_work_items` + `sync_meta`)
+- `azure-devops-workitems-list.php` (GET: `team_id` — lista agrupada por persona + grupo Otros)
 - `invgate-tickets.php` (GET: tickets agrupados por persona), `invgate-ticket.php` (GET: detalle + comentarios de un ticket), `invgate-stats.php` (GET: estadísticas por persona del equipo), `invgate-recommendations.php` (GET: lista plana + estado de recomendación), `invgate-recommendation.php` (GET: detalle de recomendación por ticket)
 - `user-scratchpad.php`, `user-files.php`, `user-file-download.php`
 
@@ -308,6 +332,7 @@ Si ya tienes un `app.sqlite` antiguo y **no** quieres borrarlo con `init.php`, e
 | `database/migrate_personal_workspace.php` | Espacio de trabajo personal por usuario |
 | `database/migrate_user_scratchpad_files.php` | Tablas/recursos de bloc y archivos personales |
 | `database/migrate_team_people_invgate_id.php` | Campo `invgate_id` en personas |
+| `database/migrate_azure_work_items.php` | Tabla `azure_work_items` (sync Azure DevOps) |
 | `database/migrate_invgate_tickets.php` | Tablas `invgate_tickets` e `invgate_ticket_comments` |
 | `database/migrate_invgate_tickets_source_status_type.php` | Campos `source_id`, `status_id` y `type_id` en tickets InvGate |
 | `database/migrate_invgate_catalog.php` | Tablas lookup: categorías, tipos y estados de InvGate |

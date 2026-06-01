@@ -17,7 +17,9 @@ return [
         'project' => '',
         'pat' => '', // Personal Access Token (Work items: Read)
         'max_items' => 200,
-        'wiql' => null,
+        'wiql' => null, // null en sync usa WIQL de ítems activos (sin estados finales)
+        'final_states' => null, // null = Complete, Done, Removed, Closed, Completed
+        'reconcile_limit' => 50,
     ],
     // InvGate Service Desk (sync de tickets). No subas config.php si incluye la contraseña.
     'invgate' => [

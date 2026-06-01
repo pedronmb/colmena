@@ -274,6 +274,35 @@ final class TeamPersonRepository
     }
 
     /**
+     * Devuelve el ID de persona local cuyo email coincide (sin distinguir mayúsculas).
+     * Si hay varias coincidencias, devuelve la primera por id ascendente.
+     */
+    public function findPersonIdByEmail(string $email): ?int
+    {
+        $email = trim($email);
+        if ($email === '') {
+            return null;
+        }
+
+        $stmt = $this->pdo->prepare(
+            'SELECT id
+             FROM team_people
+             WHERE email IS NOT NULL
+               AND LOWER(TRIM(email)) = LOWER(TRIM(:email))
+             ORDER BY id ASC
+             LIMIT 1'
+        );
+        $stmt->execute(['email' => $email]);
+        $id = $stmt->fetchColumn();
+        if ($id === false) {
+            return null;
+        }
+        $personId = (int) $id;
+
+        return $personId > 0 ? $personId : null;
+    }
+
+    /**
      * Devuelve el ID de persona local dado un ID de agente InvGate.
      */
     public function findPersonIdByInvgateId(int $invgateId): ?int

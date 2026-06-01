@@ -63,6 +63,34 @@
         meta.textContent = '';
     }
 
+    function formatSyncMeta(data) {
+        var parts = [];
+        if (data.organization && data.project) {
+            parts.push(data.organization + ' / ' + data.project);
+        }
+        var sm = data.sync_meta;
+        if (sm && sm.last_synced_at) {
+            parts.push('Última sync: ' + sm.last_synced_at);
+        }
+        if (sm && typeof sm.item_count === 'number') {
+            parts.push(sm.item_count + ' ítem(s) en base local');
+        }
+        if (data.source === 'database') {
+            parts.push('origen: base local');
+        }
+        return parts.join(' · ');
+    }
+
+    function renderEmptySyncHint(data) {
+        var hint = data.hint || 'Ejecutá php database/sync_azure_work_items.php para sincronizar.';
+        root.innerHTML =
+            '<div class="devops-setup-banner">' +
+            '<p class="devops-setup-banner__title">Sin work items en la base local</p>' +
+            '<p class="muted devops-setup-banner__text">' + escapeHtml(hint) + '</p>' +
+            '</div>';
+        meta.textContent = formatSyncMeta(data);
+    }
+
     /** UPN normalizado (minúsculas) o cadena vacía si no hay asignado reconocible. */
     function itemUpnNormalized(it) {
         var u = (it.assigned_unique_name && String(it.assigned_unique_name).trim()) || '';
@@ -274,10 +302,13 @@
         var columns = data.columns || [];
         var queryNorm = getFilterQueryNormalized();
         if (columns.length === 0) {
-            root.innerHTML = '<p class="muted devops-board__empty">No hay work items en el rango configurado (o la consulta no devolvió resultados).</p>';
-            meta.textContent = data.organization && data.project
-                ? data.organization + ' / ' + data.project
-                : '';
+            if (data.empty && data.hint) {
+                renderEmptySyncHint(data);
+                return;
+            }
+            root.innerHTML =
+                '<p class="muted devops-board__empty">No hay work items activos en la base local (o ninguno coincide con el filtro de estados finales).</p>';
+            meta.textContent = formatSyncMeta(data);
             return;
         }
 
@@ -299,9 +330,7 @@
         if (queryNorm && totalFiltered === 0) {
             root.innerHTML =
                 '<p class="muted devops-board__empty">Ningún work item coincide con ese filtro en el UPN del asignado.</p>';
-            meta.textContent = data.organization && data.project
-                ? data.organization + ' / ' + data.project
-                : '';
+            meta.textContent = formatSyncMeta(data);
             return;
         }
 
@@ -356,9 +385,7 @@
         }
         html += '</div>';
         root.innerHTML = html;
-        meta.textContent = data.organization && data.project
-            ? data.organization + ' / ' + data.project
-            : '';
+        meta.textContent = formatSyncMeta(data);
     }
 
     function load() {
@@ -408,8 +435,16 @@
         updateSuggestionsUI();
     }
 
+    function refreshActivePanel() {
+        if (window.DevopsList && window.DevopsList.isActive && window.DevopsList.isActive()) {
+            window.DevopsList.load();
+        } else {
+            load();
+        }
+    }
+
     if (refreshBtn) {
-        refreshBtn.addEventListener('click', load);
+        refreshBtn.addEventListener('click', refreshActivePanel);
     }
     if (personFilter) {
         personFilter.addEventListener('input', onFilterInput);
