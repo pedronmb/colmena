@@ -166,7 +166,7 @@
             countLabel +
             '</span>';
         var body = renderWorkItemTable(workItems, false);
-        return renderGroupShell(titleHtml, body, { collapsed: count === 0 });
+        return renderGroupShell(titleHtml, body, { collapsed: true });
     }
 
     function renderOthersGroup(workItems) {
@@ -183,7 +183,7 @@
         var body = renderWorkItemTable(workItems, true);
         return renderGroupShell(titleHtml, body, {
             extraClass: 'invgate-group--orphan devops-list-group--others',
-            collapsed: false,
+            collapsed: true,
         });
     }
 
@@ -215,17 +215,16 @@
         });
     }
 
-    function renderListMeta(meta, syncMeta) {
+    function renderListMeta(meta, syncMeta, peopleWithItems) {
         if (!listMeta) {
             return;
         }
         var total =
             meta && typeof meta.work_item_total === 'number' ? meta.work_item_total : 0;
-        var people =
-            meta && typeof meta.people_count === 'number' ? meta.people_count : 0;
+        var people = typeof peopleWithItems === 'number' ? peopleWithItems : 0;
         var parts = [
             total + ' work item' + (total === 1 ? '' : 's') + ' activos',
-            people + ' persona' + (people === 1 ? '' : 's') + ' en el equipo',
+            people + ' persona' + (people === 1 ? '' : 's') + ' con work items',
         ];
         if (syncMeta && syncMeta.last_synced_at) {
             parts.push('última sync: ' + syncMeta.last_synced_at);
@@ -260,10 +259,15 @@
 
         groupIdSeq = 0;
         var html = '';
+        var peopleWithItems = 0;
         for (var g = 0; g < groups.length; g++) {
             var group = groups[g];
             var person = group.person || {};
             var items = group.work_items || [];
+            if (items.length === 0) {
+                continue;
+            }
+            peopleWithItems++;
             html += renderPersonGroup(person, items);
         }
         html += renderOthersGroup(others);
@@ -275,7 +279,7 @@
             listRoot.innerHTML = html;
             bindGroupToggles();
         }
-        renderListMeta(body.meta, body.sync_meta);
+        renderListMeta(body.meta, body.sync_meta, peopleWithItems);
     }
 
     function renderListError(msg) {
