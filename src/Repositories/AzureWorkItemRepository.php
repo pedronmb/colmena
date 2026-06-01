@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Repositories;
 
+use App\Support\AzureDevOpsBoards;
 use App\Support\AzureDevOpsFinalStates;
 use PDO;
 
@@ -223,48 +224,13 @@ final class AzureWorkItemRepository
      */
     public function listGroupedByState(AzureDevOpsFinalStates $finalStates): array
     {
-        $placeholders = $finalStates->sqlNotInPlaceholders();
-        $lowerNames = $finalStates->namesLower();
-        if ($lowerNames === []) {
-            return [
-                'columns' => [],
-                'sync_meta' => $this->getSyncMeta(),
-            ];
-        }
-
-        $stmt = $this->pdo->prepare(
-            'SELECT azure_id, title, work_item_type, state, assigned_to, assigned_unique_name, url
-             FROM azure_work_items
-             WHERE removed_at IS NULL
-               AND LOWER(state) NOT IN (' . $placeholders . ')
-             ORDER BY changed_at DESC'
-        );
-        $stmt->execute($lowerNames);
-
         $byState = [];
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            if (!is_array($row)) {
-                continue;
-            }
-            $state = isset($row['state']) ? (string) $row['state'] : '(sin estado)';
+        foreach ($this->fetchActiveWorkItems($finalStates) as $item) {
+            $state = $item['state'] !== '' ? $item['state'] : '(sin estado)';
             if (!isset($byState[$state])) {
                 $byState[$state] = [];
             }
-            $byState[$state][] = [
-                'id' => isset($row['azure_id']) ? (int) $row['azure_id'] : 0,
-                'title' => isset($row['title']) ? (string) $row['title'] : '',
-                'type' => isset($row['work_item_type']) && $row['work_item_type'] !== null
-                    ? (string) $row['work_item_type']
-                    : '',
-                'state' => $state,
-                'assigned_to' => isset($row['assigned_to']) && $row['assigned_to'] !== null
-                    ? (string) $row['assigned_to']
-                    : '',
-                'assigned_unique_name' => isset($row['assigned_unique_name']) && $row['assigned_unique_name'] !== null
-                    ? (string) $row['assigned_unique_name']
-                    : '',
-                'url' => isset($row['url']) && $row['url'] !== null ? (string) $row['url'] : '',
-            ];
+            $byState[$state][] = $item;
         }
 
         $columns = [];
@@ -281,6 +247,103 @@ final class AzureWorkItemRepository
             'columns' => $columns,
             'sync_meta' => $this->getSyncMeta(),
         ];
+    }
+
+    /**
+     * Work items activos agrupados en columnas fijas de un tablero DevOps.
+     *
+     * @return array{
+     *   columns: list<array{state: string, items: list<array<string, mixed>>}>,
+     *   sync_meta: array{last_synced_at: ?string, item_count: int},
+     *   board: array{id: string, label: string}
+     * }
+     */
+    public function listGroupedByBoard(string $boardId, AzureDevOpsFinalStates $finalStates, AzureDevOpsBoards $boards): array
+    {
+        $resolvedBoardId = $boards->resolveBoardId($boardId);
+        $columnStates = $boards->columns($resolvedBoardId);
+        $stateToColumn = $boards->stateToColumnMap($resolvedBoardId);
+
+        $byColumn = [];
+        foreach ($columnStates as $columnLabel) {
+            $byColumn[$columnLabel] = [];
+        }
+        $others = [];
+        foreach ($this->fetchActiveWorkItems($finalStates) as $item) {
+            $state = $item['state'];
+            if ($state === '' || !isset($stateToColumn[$state])) {
+                $others[] = $item;
+                continue;
+            }
+            $columnLabel = $stateToColumn[$state];
+            $byColumn[$columnLabel][] = $item;
+        }
+
+        $columns = [];
+        foreach ($columnStates as $state) {
+            $columns[] = [
+                'state' => $state,
+                'items' => $byColumn[$state] ?? [],
+            ];
+        }
+        if ($others !== []) {
+            $columns[] = [
+                'state' => 'Otros',
+                'items' => $others,
+            ];
+        }
+
+        return [
+            'columns' => $columns,
+            'sync_meta' => $this->getSyncMeta(),
+            'board' => $boards->boardMeta($resolvedBoardId),
+        ];
+    }
+
+    /**
+     * @return list<array<string, mixed>>
+     */
+    private function fetchActiveWorkItems(AzureDevOpsFinalStates $finalStates): array
+    {
+        $lowerNames = $finalStates->namesLower();
+        if ($lowerNames === []) {
+            return [];
+        }
+
+        $placeholders = $finalStates->sqlNotInPlaceholders();
+        $stmt = $this->pdo->prepare(
+            'SELECT azure_id, title, work_item_type, state, assigned_to, assigned_unique_name, url
+             FROM azure_work_items
+             WHERE removed_at IS NULL
+               AND LOWER(state) NOT IN (' . $placeholders . ')
+             ORDER BY changed_at DESC'
+        );
+        $stmt->execute($lowerNames);
+
+        $items = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $state = isset($row['state']) ? (string) $row['state'] : '';
+            $items[] = [
+                'id' => isset($row['azure_id']) ? (int) $row['azure_id'] : 0,
+                'title' => isset($row['title']) ? (string) $row['title'] : '',
+                'type' => isset($row['work_item_type']) && $row['work_item_type'] !== null
+                    ? (string) $row['work_item_type']
+                    : '',
+                'state' => $state,
+                'assigned_to' => isset($row['assigned_to']) && $row['assigned_to'] !== null
+                    ? (string) $row['assigned_to']
+                    : '',
+                'assigned_unique_name' => isset($row['assigned_unique_name']) && $row['assigned_unique_name'] !== null
+                    ? (string) $row['assigned_unique_name']
+                    : '',
+                'url' => isset($row['url']) && $row['url'] !== null ? (string) $row['url'] : '',
+            ];
+        }
+
+        return $items;
     }
 
     /**

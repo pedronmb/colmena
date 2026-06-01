@@ -38,7 +38,7 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
     <div class="shell shell--wide">
         <?php
         $pageTitle = 'DevOps';
-        $pageLead = 'Work items sincronizados desde Azure DevOps: tablero por estado o lista por persona del equipo.';
+        $pageLead = 'Work items sincronizados desde Azure DevOps: tableros Develop y Testing por estado, o lista por persona del equipo.';
         $personalTeamId = $personalTeamId;
         require __DIR__ . '/includes/header-app.php';
         ?>
@@ -62,6 +62,7 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
             </div>
 
             <div id="devopsPanelBoard" class="devops-panel" role="tabpanel" aria-labelledby="devopsTabBoard">
+                <div class="devops-subtabs" id="devopsBoardSubtabs" role="tablist" aria-label="Tableros DevOps" hidden></div>
                 <div class="devops-toolbar">
                     <div class="devops-toolbar__filter-wrap">
                         <span class="devops-toolbar__filter-label" id="devopsPersonFilterLabel">Persona</span>

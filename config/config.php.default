@@ -20,6 +20,36 @@ return [
         'wiql' => null, // null en sync usa WIQL de ítems activos (sin estados finales)
         'final_states' => null, // null = Complete, Done, Removed, Closed, Completed
         'reconcile_limit' => 50,
+        'default_board' => 'develop',
+        // Agrupa estados reales de Azure bajo el nombre de columna del tablero.
+        'state_aliases' => [
+            'Backlog / new' => ['Backlog', 'New'],
+            'UAT' => ['En Prueba UAT'],
+        ],
+        'boards' => [
+            'develop' => [
+                'label' => 'Board Develop',
+                'columns' => [
+                    'Backlog / new',
+                    'To Do',
+                    'Blocked',
+                    'In Progress',
+                    'To Be Tested',
+                    'Resolved',
+                ],
+            ],
+            'testing' => [
+                'label' => 'Board Testing',
+                'columns' => [
+                    'Backlog / new',
+                    'To Be Tested',
+                    'In Testing',
+                    'Blocked',
+                    'Resolved',
+                    'UAT',
+                ],
+            ],
+        ],
     ],
     // InvGate Service Desk (sync de tickets). No subas config.php si incluye la contraseña.
     'invgate' => [

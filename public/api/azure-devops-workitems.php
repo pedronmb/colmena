@@ -10,6 +10,7 @@ use App\Database\Connection;
 use App\Repositories\AzureWorkItemRepository;
 use App\Repositories\UserRepository;
 use App\Services\AuthService;
+use App\Support\AzureDevOpsBoards;
 use App\Support\AzureDevOpsFinalStates;
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
@@ -49,6 +50,9 @@ try {
 
     $finalStatesConfig = isset($az['final_states']) && is_array($az['final_states']) ? $az['final_states'] : null;
     $finalStates = new AzureDevOpsFinalStates($finalStatesConfig);
+    $boards = AzureDevOpsBoards::resolve($az);
+    $boardParam = isset($_GET['board']) && is_string($_GET['board']) ? trim($_GET['board']) : '';
+    $boardId = $boards->resolveBoardId($boardParam !== '' ? $boardParam : null);
 
     $tableExists = (bool) $pdo->query(
         "SELECT 1 FROM sqlite_master WHERE type='table' AND name='azure_work_items'"
@@ -61,6 +65,8 @@ try {
             'organization' => $org,
             'project' => $project,
             'columns' => [],
+            'boards' => $boards->boardSummaries(),
+            'board' => $boards->boardMeta($boardId),
             'empty' => true,
             'hint' => 'Ejecutá la migración: php database/migrate_azure_work_items.php y luego php database/sync_azure_work_items.php',
             'sync_meta' => ['last_synced_at' => null, 'item_count' => 0],
@@ -69,7 +75,7 @@ try {
     }
 
     $repo = new AzureWorkItemRepository($pdo);
-    $board = $repo->listGroupedByState($finalStates);
+    $board = $repo->listGroupedByBoard($boardId, $finalStates, $boards);
     $syncMeta = $board['sync_meta'];
     $empty = !$repo->hasAnyRows();
 
@@ -79,6 +85,8 @@ try {
         'source' => 'database',
         'organization' => $org,
         'project' => $project,
+        'board' => $board['board'],
+        'boards' => $boards->boardSummaries(),
         'columns' => $board['columns'],
         'sync_meta' => $syncMeta,
     ];

@@ -346,17 +346,21 @@ final class AzureDevOpsClient
     public static function compareStates(string $a, string $b): int
     {
         $order = [
+            'Backlog / new' => 0,
             'Backlog' => 0,
             'To Do' => 1,
             'In Progress' => 2,
             'In Progess' => 2,
+            'To Be Tested' => 3,
             'To Be Test' => 3,
+            'In Testing' => 4,
             'Testing In Progress' => 4,
             'Tsting In Progress' => 4,
             'Blocked' => 5,
-            'Completed' => 6,
-            'UAT' => 7,
-            'Closed' => 8,
+            'Resolved' => 6,
+            'Completed' => 7,
+            'UAT' => 8,
+            'Closed' => 9,
         ];
         $ia = $order[$a] ?? 100;
         $ib = $order[$b] ?? 100;

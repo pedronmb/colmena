@@ -6,6 +6,10 @@
     var refreshBtn = document.getElementById('devopsRefresh');
     var personFilter = document.getElementById('devopsPersonFilter');
     var suggestionsEl = document.getElementById('devopsPersonSuggestions');
+    var boardSubtabsEl = document.getElementById('devopsBoardSubtabs');
+    var BOARD_STORAGE_KEY = 'colmena.devops.activeBoard';
+    /** @type {string} */
+    var activeBoardId = 'develop';
     /** @type {object|null} última respuesta ok del API */
     var lastBoardData = null;
     /** @type {Array<{upn: string, display: string, upnNorm: string, haystack: string}>} */
@@ -15,6 +19,74 @@
 
     if (!root || !meta) {
         return;
+    }
+
+    try {
+        var storedBoard = sessionStorage.getItem(BOARD_STORAGE_KEY);
+        if (storedBoard) {
+            activeBoardId = storedBoard;
+        }
+    } catch (e) {
+        /* sessionStorage no disponible */
+    }
+
+    function persistActiveBoardId(boardId) {
+        activeBoardId = boardId;
+        try {
+            sessionStorage.setItem(BOARD_STORAGE_KEY, boardId);
+        } catch (e) {
+            /* sessionStorage no disponible */
+        }
+    }
+
+    function renderBoardSubtabs(data) {
+        if (!boardSubtabsEl) {
+            return;
+        }
+        var boards = (data && data.boards) || [];
+        var current = (data && data.board && data.board.id) || activeBoardId;
+        if (boards.length === 0) {
+            boardSubtabsEl.hidden = true;
+            boardSubtabsEl.innerHTML = '';
+            return;
+        }
+        var html = '';
+        for (var b = 0; b < boards.length; b++) {
+            var board = boards[b];
+            var id = board.id || '';
+            var label = board.label || id;
+            var isActive = id === current;
+            html +=
+                '<button type="button" class="devops-subtab' +
+                (isActive ? ' devops-subtab--active' : '') +
+                '" role="tab" aria-selected="' +
+                (isActive ? 'true' : 'false') +
+                '" data-board-id="' +
+                escapeAttr(id) +
+                '">' +
+                escapeHtml(label) +
+                '</button>';
+        }
+        boardSubtabsEl.innerHTML = html;
+        boardSubtabsEl.hidden = false;
+    }
+
+    function bindBoardSubtabClicks() {
+        if (!boardSubtabsEl) {
+            return;
+        }
+        boardSubtabsEl.addEventListener('click', function (ev) {
+            var btn = ev.target.closest('[data-board-id]');
+            if (!btn || !boardSubtabsEl.contains(btn)) {
+                return;
+            }
+            var boardId = btn.getAttribute('data-board-id');
+            if (!boardId || boardId === activeBoardId) {
+                return;
+            }
+            persistActiveBoardId(boardId);
+            load();
+        });
     }
 
     function escapeHtml(s) {
@@ -299,13 +371,15 @@
     }
 
     function renderBoard(data) {
+        renderBoardSubtabs(data);
+        if (data.empty && data.hint) {
+            renderEmptySyncHint(data);
+            return;
+        }
+
         var columns = data.columns || [];
         var queryNorm = getFilterQueryNormalized();
         if (columns.length === 0) {
-            if (data.empty && data.hint) {
-                renderEmptySyncHint(data);
-                return;
-            }
             root.innerHTML =
                 '<p class="muted devops-board__empty">No hay work items activos en la base local (o ninguno coincide con el filtro de estados finales).</p>';
             meta.textContent = formatSyncMeta(data);
@@ -390,7 +464,9 @@
 
     function load() {
         renderLoading();
-        fetch('api/azure-devops-workitems.php', { credentials: 'same-origin' })
+        fetch('api/azure-devops-workitems.php?board=' + encodeURIComponent(activeBoardId), {
+            credentials: 'same-origin',
+        })
             .then(function (r) {
                 return r.json().then(function (body) {
                     return { ok: r.ok, body: body };
@@ -407,6 +483,10 @@
                 if (body.configured === false) {
                     lastBoardData = null;
                     personIndex = [];
+                    if (boardSubtabsEl) {
+                        boardSubtabsEl.hidden = true;
+                        boardSubtabsEl.innerHTML = '';
+                    }
                     renderNotConfigured(body.hint);
                     return;
                 }
@@ -417,6 +497,9 @@
                     return;
                 }
                 lastBoardData = body;
+                if (body.board && body.board.id) {
+                    persistActiveBoardId(body.board.id);
+                }
                 rebuildPersonIndex(body);
                 renderBoard(body);
                 updateSuggestionsUI();
@@ -498,5 +581,6 @@
         });
     }
 
+    bindBoardSubtabClicks();
     load();
 })();

@@ -2952,6 +2952,42 @@ select.topic-toolbar__search-input {
     outline-offset: 2px;
 }
 
+.devops-subtabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-bottom: 0.85rem;
+}
+
+.devops-subtab {
+    appearance: none;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.875rem;
+    padding: 0.35rem 0.75rem;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+
+.devops-subtab:hover {
+    color: var(--text);
+    background: var(--surface-2);
+}
+
+.devops-subtab--active {
+    color: var(--text);
+    font-weight: 600;
+    background: var(--surface-2);
+    border-color: var(--border-strong, var(--border));
+}
+
+.devops-subtab:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+}
+
 .devops-page__actions {
     margin-bottom: 0.75rem;
 }
