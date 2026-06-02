@@ -133,9 +133,35 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
   ],
   ```
 
-  Se utiliza para generar resumen y recomendación de próximos pasos por ticket abierto.
+  Se utiliza para generar resumen y recomendación de próximos pasos por ticket abierto, y para el **Copiloto de Management** (resumen semanal por equipo y lectura por persona).
 
-  El cron de recomendaciones solo regenera tickets cuya `last_update` es igual o posterior a la última generación exitosa (`generated_at`). Los demás conservan el análisis existente hasta que InvGate actualice el ticket. Los tickets sin recomendación previa (o con error en la última generación) se procesan en cada ejecución.
+  El cron de recomendaciones InvGate solo regenera tickets cuya `last_update` es igual o posterior a la última generación exitosa (`generated_at`). Los demás conservan el análisis existente hasta que InvGate actualice el ticket. Los tickets sin recomendación previa (o con error en la última generación) se procesan en cada ejecución.
+
+  #### Copiloto de Management (CLI + UI)
+
+  Genera una agenda de gestión auditable (cada ítem incluye **por qué**, con métricas del snapshot: carga, tickets stale, temas críticos, alertas, pentágono).
+
+  | Script | Destino |
+  |--------|---------|
+  | `database/migrate_management_recommendations.php` | Crea `management_recommendations` y `person_management_recommendations` |
+  | `database/generate_management_recommendations.php` | Ollama → tablas anteriores |
+
+  **Período:** semana calendario **lunes–domingo** (fecha local del servidor PHP). `period_start` / `period_end` en formato `YYYY-MM-DD`. La UI permite ver la semana **actual** o **anterior**.
+
+  **Regeneración:** si ya existe una fila `ok` para el mismo `team_id` + `period_start` y el hash del contexto (`context_hash`) no cambió, el script omite ese equipo/persona.
+
+  **Orden cron sugerido** (después de sync InvGate/DevOps):
+
+  ```bash
+  php database/generate_management_recommendations.php
+  php database/generate_management_recommendations.php --team-id=1
+  ```
+
+  **Interfaz:**
+
+  - **Dashboards → Copiloto** (`dashboard.php?panel=copiloto`) — resumen ejecutivo, riesgos, acciones, personas/temas a revisar, 1:1 y delegaciones; **tarjetas por persona** con lectura IA al hacer clic (`GET api/management-copilot.php`, `api/person-management-copilot-list.php`, `api/person-management-copilot.php`).
+
+  **Limitaciones v1:** no hay histórico de evolución del pentágono ni throughput; el prompt lo indica. Los temas no tienen `due_date` (las acciones de fecha usan alertas del equipo). La generación es **offline** (no on-demand en la web).
 
   En cada ficha de persona (**Editar fichas**) podés cargar el **ID InvGate** (`team_people.invgate_id`).
 
@@ -253,10 +279,12 @@ colmena/
 │   ├── sync_invgate_catalog.php   # Sync CLI catálogo InvGate
 │   ├── sync_invgate_tickets.php   # Sync CLI tickets → invgate_tickets
 │   ├── sync_invgate_comments.php  # Sync CLI comentarios → invgate_ticket_comments
-│   └── generate_invgate_recommendations.php # Recomendaciones IA con Ollama
+│   ├── generate_invgate_recommendations.php # Recomendaciones IA con Ollama
+│   ├── migrate_management_recommendations.php
+│   └── generate_management_recommendations.php # Copiloto de Management (Ollama)
 ├── public/                # Document root recomendado
 │   ├── index.php          # Temas
-│   ├── dashboard.php      # Matriz, lista, foco, calendario y pestaña Perfiles (pentágono)
+│   ├── dashboard.php      # Matriz, lista, foco, calendario, perfiles, salud y Copiloto
 │   ├── pentagon-dashboard.php  # Redirección a dashboard.php?panel=pentagon (compatibilidad)
 │   ├── devops.php         # DevOps (Azure DevOps)
 │   ├── invgate.php        # InvGate (tickets agrupados por persona)
@@ -290,7 +318,7 @@ colmena/
 - **Temas:** título, descripción, **urgencia** y **importancia** cada una en escala **entera 1–10** (por defecto 5), asignación a una tarjeta de persona, estados y fechas. La matriz Eisenhower usa la mitad del rango (entre 5 y 6) como frontera entre cuadrantes.
 - **Personas:** tarjetas de equipo (no son usuarios de login); incluyen rol, cumpleaños (solo mes y día, formato `MM-DD`), flag **equipo directo** (`is_direct_team`) vs colaborador, ID InvGate y notas. Tablero en **Personas** (muestra cumpleaños y temas por persona) y edición detallada en **Editar fichas**.
 - **Perfil (pentágono):** cinco ejes opcionales en `team_people` (escala **0–10**, columnas `axis_*` v2): autonomía y resolución de problemas, impacto y alcance, influencia/mentoría y liderazgo técnico, negocio y comunicación, competencia técnica. Se editan en **Editar fichas**; el radar por persona está en **Dashboards → pestaña Perfiles (pentágono)** (`dashboard.php?panel=pentagon`), con SVG nativo (sin npm). Un botón de ayuda abre un modal con la matriz Junior / Semi-Senior / Senior por eje (contenido de [`SENORITY.md`](SENORITY.md)).
-- **Dashboards:** matriz urgencia × importancia, lista, «Hacer hoy», calendario de alertas y la pestaña anterior.
+- **Dashboards:** matriz urgencia × importancia, lista, «Hacer hoy», calendario de alertas, perfiles (pentágono), organigrama, **Salud y capacidad** y **Copiloto** (recomendaciones IA de management precalculadas).
 - **Alertas:** fecha de cumplimiento; aviso tras iniciar sesión si la fecha está vencida o en los próximos 7 días.
 - **DevOps:** tablero Kanban de work items **sincronizados** desde Azure DevOps (`sync_azure_work_items.php` + `azure-devops-workitems.php` desde SQLite).
 - **InvGate:** solapa con pestañas **Tickets**, **Estadísticas** y **Recomendaciones IA**. Muestra estado, tipo y categoría por **nombre** (tablas lookup), detalle con descripción/comentarios y recomendaciones generadas por Ollama para tickets abiertos.
@@ -309,6 +337,10 @@ Los endpoints viven en `public/api/*.php` (mismo origen que la app, `credentials
 - `azure-devops-workitems.php` (GET: tablero Kanban desde `azure_work_items` + `sync_meta`)
 - `azure-devops-workitems-list.php` (GET: `team_id` — lista agrupada por persona + grupo Otros)
 - `invgate-tickets.php` (GET: tickets agrupados por persona), `invgate-ticket.php` (GET: detalle + comentarios de un ticket), `invgate-stats.php` (GET: estadísticas por persona del equipo), `invgate-recommendations.php` (GET: lista plana + estado de recomendación), `invgate-recommendation.php` (GET: detalle de recomendación por ticket)
+- `team-health.php` (GET: carga y salud por persona)
+- `management-copilot.php` (GET: copiloto del equipo, `period=current|previous`)
+- `person-management-copilot-list.php` (GET: tarjetas resumen por persona)
+- `person-management-copilot.php` (GET: lectura IA completa por persona)
 - `user-scratchpad.php`, `user-files.php`, `user-file-download.php`
 
 ---
@@ -337,6 +369,7 @@ Si ya tienes un `app.sqlite` antiguo y **no** quieres borrarlo con `init.php`, e
 | `database/migrate_invgate_tickets_source_status_type.php` | Campos `source_id`, `status_id` y `type_id` en tickets InvGate |
 | `database/migrate_invgate_catalog.php` | Tablas lookup: categorías, tipos y estados de InvGate |
 | `database/migrate_invgate_recommendations.php` | Tabla `invgate_ticket_recommendations` para recomendaciones IA |
+| `database/migrate_management_recommendations.php` | Tablas del Copiloto de Management |
 
 Ejemplo (desde la raíz del proyecto):
 

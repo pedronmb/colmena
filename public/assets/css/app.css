@@ -4168,3 +4168,331 @@ a.devops-card__link:focus-visible {
     margin-bottom: 0.25rem;
 }
 
+/* Copiloto de Management (dashboard panel) */
+.copiloto-dashboard__lead {
+    margin: 0 0 1rem;
+    max-width: 52rem;
+    font-size: 0.88rem;
+}
+
+.copiloto-filters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    gap: 0.75rem 1rem;
+    margin-bottom: 1rem;
+}
+
+.copiloto-filters__field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.copiloto-filters__label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+}
+
+.copiloto-filters__control {
+    min-width: 10rem;
+    padding: 0.4rem 0.55rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 0.88rem;
+}
+
+.copiloto-dashboard__content {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.copiloto-dashboard__header {
+    margin: 0;
+}
+
+.copiloto-dashboard__period {
+    margin: 0 0 0.25rem;
+    font-weight: 600;
+}
+
+.copiloto-dashboard__meta {
+    margin: 0;
+    font-size: 0.82rem;
+}
+
+.copiloto-empty {
+    padding: 1rem;
+    border: 1px dashed var(--border);
+    border-radius: 10px;
+    max-width: 40rem;
+}
+
+.copiloto-section {
+    margin: 0;
+}
+
+.copiloto-section--highlight {
+    padding: 1rem 1.1rem;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+    background: color-mix(in srgb, var(--accent-soft) 55%, var(--surface));
+}
+
+.copiloto-section__title {
+    margin: 0 0 0.65rem;
+    font-size: 1rem;
+    font-weight: 600;
+}
+
+.copiloto-section__cards {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.copiloto-bullets {
+    margin: 0;
+    padding-left: 1.25rem;
+    font-size: 0.92rem;
+    line-height: 1.45;
+}
+
+.copiloto-bullets li {
+    margin-bottom: 0.35rem;
+}
+
+.copiloto-card {
+    padding: 0.75rem 0.9rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+}
+
+.copiloto-card__title {
+    margin: 0 0 0.35rem;
+    font-size: 0.92rem;
+    font-weight: 600;
+}
+
+.copiloto-card__rationale {
+    margin: 0.35rem 0 0;
+    font-size: 0.86rem;
+    line-height: 1.4;
+    color: var(--text);
+}
+
+.copiloto-card__signals {
+    margin: 0.35rem 0 0;
+    padding-left: 1.1rem;
+    font-size: 0.82rem;
+    color: var(--muted);
+}
+
+.copiloto-card__link {
+    display: inline-block;
+    margin-top: 0.4rem;
+    font-size: 0.82rem;
+}
+
+/* Lectura IA por persona (Copiloto) */
+.person-copilot {
+    margin: 0 0 1rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--accent-soft) 40%, var(--surface));
+}
+
+.person-copilot--modal {
+    margin: 0;
+    padding: 0 0 0.5rem;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+}
+
+.person-copilot[hidden] {
+    display: none !important;
+}
+
+.person-copilot__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.person-copilot__title {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 600;
+}
+
+.person-copilot__risk {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.person-copilot__risk--high {
+    color: var(--danger, #c0392b);
+}
+
+.person-copilot__risk--medium {
+    color: #b8860b;
+}
+
+.person-copilot__risk--low {
+    color: var(--muted);
+}
+
+.person-copilot__summary {
+    margin: 0 0 0.65rem;
+    font-size: 0.9rem;
+    line-height: 1.45;
+}
+
+.person-copilot__block {
+    margin-top: 0.65rem;
+}
+
+.person-copilot__block h4 {
+    margin: 0 0 0.35rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--muted);
+}
+
+.person-copilot__list {
+    margin: 0;
+    padding-left: 1.15rem;
+    font-size: 0.88rem;
+}
+
+.person-copilot__list li {
+    margin-bottom: 0.25rem;
+}
+
+.person-copilot__rationale {
+    margin: 0.15rem 0 0;
+    font-size: 0.82rem;
+    color: var(--muted);
+}
+
+.person-copilot__empty {
+    margin: 0;
+    font-size: 0.88rem;
+}
+
+.person-copilot__meta {
+    margin: 0.5rem 0 0;
+    font-size: 0.78rem;
+}
+
+.copiloto-section--people {
+    margin-top: 0.5rem;
+}
+
+.copiloto-section__hint {
+    margin: -0.35rem 0 0.85rem;
+    font-size: 0.86rem;
+}
+
+.copiloto-person-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
+    gap: 0.65rem;
+}
+
+.copiloto-person-card {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.35rem;
+    margin: 0;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.copiloto-person-card:hover,
+.copiloto-person-card:focus-visible {
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--text) 8%, transparent);
+    outline: none;
+}
+
+.copiloto-person-card--has-rec {
+    border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+}
+
+.copiloto-person-card--empty {
+    opacity: 0.88;
+}
+
+.copiloto-person-card__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem;
+}
+
+.copiloto-person-card__name {
+    font-weight: 600;
+    font-size: 0.92rem;
+}
+
+.copiloto-person-card__role {
+    font-size: 0.78rem;
+}
+
+.copiloto-person-card__preview {
+    margin: 0;
+    font-size: 0.82rem;
+    line-height: 1.4;
+}
+
+.copiloto-person-card__risk {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.12rem 0.4rem;
+    border-radius: 999px;
+    background: var(--surface-hover);
+}
+
+.copiloto-person-card__risk--high {
+    color: var(--danger, #c0392b);
+}
+
+.copiloto-person-card__risk--medium {
+    color: #b8860b;
+}
+
+.copiloto-person-card__risk--low {
+    color: var(--muted);
+}
+
+.copiloto-card__open-person {
+    margin-top: 0.45rem;
+}
+

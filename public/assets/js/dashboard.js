@@ -18,6 +18,7 @@
     const panelPentagon = document.getElementById("dashboardPanelPentagon");
     const panelOrgChart = document.getElementById("dashboardPanelOrgChart");
     const panelHealth = document.getElementById("dashboardPanelHealth");
+    const panelCopiloto = document.getElementById("dashboardPanelCopiloto");
     const calendarRoot = document.getElementById("dashboardCalendarRoot");
     const dashboardCalYearLabel = document.getElementById("dashboardCalYearLabel");
     const dashboardCalPrev = document.getElementById("dashboardCalPrev");
@@ -44,7 +45,7 @@
         return /\/dashboard\.php$/i.test(pathname);
     }
 
-    const VALID_PANELS = new Set(["matrix", "list", "focus", "calendar", "pentagon", "orgchart", "health"]);
+    const VALID_PANELS = new Set(["matrix", "list", "focus", "calendar", "pentagon", "orgchart", "health", "copiloto"]);
 
     /** Panel de pestaña activo; usado en enlaces de edición para permanecer en el dashboard */
     let activePanelKey = "matrix";
@@ -808,6 +809,9 @@
         if (panelHealth) {
             panelHealth.hidden = p !== "health";
         }
+        if (panelCopiloto) {
+            panelCopiloto.hidden = p !== "copiloto";
+        }
         if (p === "pentagon") {
             window.ColmenaPentagonDashboard?.load();
         }
@@ -816,6 +820,9 @@
         }
         if (p === "health") {
             window.ColmenaHealthDashboard?.load();
+        }
+        if (p === "copiloto") {
+            window.ColmenaCopilotoDashboard?.load();
         }
         if (p !== "calendar") {
             hideCalendarDayPopup();
@@ -856,6 +863,9 @@
         loadDashboard();
         if (activePanelKey === "health") {
             window.ColmenaHealthDashboard?.load();
+        }
+        if (activePanelKey === "copiloto") {
+            window.ColmenaCopilotoDashboard?.load();
         }
     });
 

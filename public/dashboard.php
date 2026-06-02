@@ -77,6 +77,9 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                 <button type="button" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="dashboardPanelHealth" id="tabHealth" data-panel="health">
                     Salud y capacidad
                 </button>
+                <button type="button" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="dashboardPanelCopiloto" id="tabCopiloto" data-panel="copiloto">
+                    Copiloto
+                </button>
             </div>
 
             <div id="dashboardPanelMatrix" class="dashboard-panel" role="tabpanel" aria-labelledby="tabMatrix">
@@ -221,6 +224,32 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                     <div id="healthDashboardTable" class="health-dashboard__table-wrap" aria-live="polite"></div>
                 </div>
             </div>
+
+            <div id="dashboardPanelCopiloto" class="dashboard-panel" role="tabpanel" aria-labelledby="tabCopiloto" hidden>
+                <div
+                    id="copilotoDashboardRoot"
+                    class="copiloto-dashboard-embed"
+                    data-team-id="<?= (int) $personalTeamId ?>"
+                >
+                    <p class="muted copiloto-dashboard__lead">
+                        Agenda de gestión generada por IA a partir de temas, alertas, carga InvGate/DevOps y perfiles pentagonales.
+                        Cada recomendación incluye el <strong>por qué</strong> (datos auditable). Se actualiza con el cron semanal.
+                    </p>
+                    <div class="copiloto-filters" role="toolbar" aria-label="Filtros del copiloto">
+                        <label class="copiloto-filters__field" for="copilotoPeriod">
+                            <span class="copiloto-filters__label">Semana</span>
+                            <select id="copilotoPeriod" class="copiloto-filters__control">
+                                <option value="current" selected>Actual</option>
+                                <option value="previous">Anterior</option>
+                            </select>
+                        </label>
+                        <button type="button" class="btn btn--small primary" id="copilotoRefresh">Actualizar</button>
+                    </div>
+                    <p class="muted" id="copilotoDashboardLoading" aria-live="polite" hidden></p>
+                    <p class="form-error" id="copilotoDashboardError" hidden></p>
+                    <div id="copilotoDashboardContent" class="copiloto-dashboard__content" aria-live="polite"></div>
+                </div>
+            </div>
         </section>
     </div>
 
@@ -244,6 +273,17 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
         </div>
     </div>
 
+    <div id="copilotoPersonModal" class="modal" hidden aria-modal="true" role="dialog" aria-labelledby="copilotoPersonModalTitle">
+        <div class="modal__backdrop" data-copilot-person-close></div>
+        <div class="modal__card modal__card--wide">
+            <header class="modal__head">
+                <h2 id="copilotoPersonModalTitle">Lectura IA de management</h2>
+                <button type="button" class="icon-btn" data-copilot-person-close aria-label="Cerrar"><?php require __DIR__ . '/includes/icon-close.php'; ?></button>
+            </header>
+            <div id="copilotoPersonModalBody" class="person-copilot person-copilot--modal" aria-live="polite"></div>
+        </div>
+    </div>
+
     <script src="assets/js/theme.js" defer></script>
     <script src="assets/js/pentagon-radar-svg.js" defer></script>
     <script src="assets/js/pentagon-seniority-help.js" defer></script>
@@ -251,6 +291,7 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
     <script src="assets/js/pentagon-dashboard.js" defer></script>
     <script src="assets/js/org-chart.js" defer></script>
     <script src="assets/js/health-dashboard.js" defer></script>
+    <script src="assets/js/copiloto-dashboard.js" defer></script>
     <script src="assets/js/dashboard.js" defer></script>
     <script src="assets/js/topics.js" defer></script>
     <script src="assets/js/app-shell.js" defer></script>
