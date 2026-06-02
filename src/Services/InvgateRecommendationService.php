@@ -116,7 +116,11 @@ final class InvgateRecommendationService
 
             try {
                 $prompt = $this->buildPrompt($ticketId, $ticket);
-                $raw = $this->client->generate($prompt, true);
+                $raw = $this->client->generate(
+                    $prompt,
+                    true,
+                    'invgate-ticket-' . $ticketId
+                );
                 $parsed = $this->parseGeneratedText($raw);
                 $this->recommendationsRepo->upsert(
                     $ticketId,

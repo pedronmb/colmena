@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Support\OllamaJsonParser;
+use App\Support\OllamaResponseLogger;
+
 final class OllamaClient
 {
     /** @var string */
@@ -38,11 +41,15 @@ final class OllamaClient
         return $this->model;
     }
 
-    public function generate(string $prompt, bool $jsonFormat = false): string
+    public function generate(string $prompt, bool $jsonFormat = false, ?string $logLabel = null): string
     {
         if (!function_exists('curl_init')) {
             throw new \RuntimeException('PHP necesita la extensión cURL para Ollama.');
         }
+
+        $label = $logLabel !== null && trim($logLabel) !== ''
+            ? trim($logLabel)
+            : 'ollama-' . substr(md5($this->model . '|' . substr($prompt, 0, 200)), 0, 10);
 
         $body = [
             'model' => $this->model,
@@ -75,9 +82,35 @@ final class OllamaClient
         foreach ($endpoints as $endpointUrl) {
             foreach ($payloads as $payloadIndex => $payload) {
                 $request = $this->request($endpointUrl, $payload);
+                $rawBody = (string) ($request['raw'] ?? '');
+                $meta = [
+                    'model' => $this->model,
+                    'endpoint' => $endpointUrl,
+                    'json_format' => $jsonFormat && $payloadIndex === 0,
+                    'http_code' => $request['http_code'],
+                    'payload_attempt' => $payloadIndex + 1,
+                ];
+
                 if ($request['ok']) {
-                    return $this->parseResponse((string) $request['raw']);
+                    try {
+                        $extracted = $this->parseResponse($rawBody);
+                        OllamaResponseLogger::log($label, $rawBody, $extracted, $meta);
+
+                        return $extracted;
+                    } catch (\Throwable $e) {
+                        OllamaResponseLogger::log($label, $rawBody, null, array_merge($meta, [
+                            'parse_error' => $e->getMessage(),
+                        ]));
+                        throw $e;
+                    }
                 }
+
+                if ($rawBody !== '') {
+                    OllamaResponseLogger::log($label, $rawBody, null, array_merge($meta, [
+                        'request_error' => $request['error'],
+                    ]));
+                }
+
                 if ($request['http_code'] === 404) {
                     break;
                 }
@@ -159,7 +192,7 @@ final class OllamaClient
         if ($code < 200 || $code >= 300) {
             return [
                 'ok' => false,
-                'raw' => '',
+                'raw' => (string) $raw,
                 'http_code' => $code,
                 'error' => 'Ollama respondió con código HTTP ' . $code . ' (' . $endpointUrl . ')',
             ];
@@ -177,12 +210,18 @@ final class OllamaClient
     {
         $decoded = json_decode($raw, true);
         if (!is_array($decoded)) {
-            throw new \RuntimeException('Respuesta de Ollama inválida (JSON).');
+            throw new \RuntimeException(
+                'Respuesta de Ollama inválida (JSON).'
+                . OllamaJsonParser::responsePreview($raw)
+            );
         }
 
         $response = isset($decoded['response']) ? trim((string) $decoded['response']) : '';
         if ($response === '') {
-            throw new \RuntimeException('Ollama no devolvió contenido en "response".');
+            throw new \RuntimeException(
+                'Ollama no devolvió contenido en "response".'
+                . OllamaJsonParser::responsePreview($raw)
+            );
         }
 
         return $response;
