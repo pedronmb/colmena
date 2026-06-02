@@ -38,33 +38,57 @@ final class OllamaClient
         return $this->model;
     }
 
-    public function generate(string $prompt): string
+    public function generate(string $prompt, bool $jsonFormat = false): string
     {
         if (!function_exists('curl_init')) {
             throw new \RuntimeException('PHP necesita la extensión cURL para Ollama.');
         }
 
-        $payload = json_encode([
+        $body = [
             'model' => $this->model,
             'prompt' => $prompt,
             'stream' => false,
-        ], JSON_UNESCAPED_UNICODE);
-        if ($payload === false) {
+        ];
+        if ($jsonFormat) {
+            $body['format'] = 'json';
+        }
+
+        /** @var list<string> */
+        $payloads = [];
+        $encoded = json_encode($body, JSON_UNESCAPED_UNICODE);
+        if ($encoded === false) {
             throw new \RuntimeException('No se pudo serializar el payload para Ollama.');
+        }
+        $payloads[] = $encoded;
+
+        if ($jsonFormat) {
+            unset($body['format']);
+            $fallback = json_encode($body, JSON_UNESCAPED_UNICODE);
+            if ($fallback !== false) {
+                $payloads[] = $fallback;
+            }
         }
 
         $endpoints = $this->endpointCandidates();
         $lastError = '';
 
         foreach ($endpoints as $endpointUrl) {
-            $request = $this->request($endpointUrl, $payload);
-            if ($request['ok']) {
-                return $this->parseResponse((string) $request['raw']);
+            foreach ($payloads as $payloadIndex => $payload) {
+                $request = $this->request($endpointUrl, $payload);
+                if ($request['ok']) {
+                    return $this->parseResponse((string) $request['raw']);
+                }
+                if ($request['http_code'] === 404) {
+                    break;
+                }
+                if ($request['http_code'] === 400 && $payloadIndex + 1 < count($payloads)) {
+                    continue;
+                }
+                if ($request['http_code'] !== 404) {
+                    throw new \RuntimeException($request['error']);
+                }
             }
-            if ($request['http_code'] !== 404) {
-                throw new \RuntimeException($request['error']);
-            }
-            $lastError = $request['error'];
+            $lastError = $request['error'] ?? $lastError;
         }
 
         if ($lastError === '') {

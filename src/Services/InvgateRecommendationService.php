@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Support\OllamaJsonParser;
 use App\Repositories\InvgateTicketCommentRepository;
 use App\Repositories\InvgateTicketRecommendationRepository;
 use App\Repositories\InvgateTicketRepository;
@@ -115,7 +116,7 @@ final class InvgateRecommendationService
 
             try {
                 $prompt = $this->buildPrompt($ticketId, $ticket);
-                $raw = $this->client->generate($prompt);
+                $raw = $this->client->generate($prompt, true);
                 $parsed = $this->parseGeneratedText($raw);
                 $this->recommendationsRepo->upsert(
                     $ticketId,
@@ -219,19 +220,7 @@ final class InvgateRecommendationService
      */
     private function parseGeneratedText(string $raw): array
     {
-        $trimmed = trim($raw);
-        $trimmed = preg_replace('/^```(?:json)?\s*|\s*```$/u', '', $trimmed) ?? $trimmed;
-
-        $decoded = json_decode($trimmed, true);
-        if (!is_array($decoded)) {
-            if (preg_match('/\{.*\}/s', $trimmed, $matches) !== 1) {
-                throw new \RuntimeException('La respuesta de Ollama no contiene JSON parseable.');
-            }
-            $decoded = json_decode($matches[0], true);
-            if (!is_array($decoded)) {
-                throw new \RuntimeException('No se pudo parsear el JSON devuelto por Ollama.');
-            }
-        }
+        $decoded = OllamaJsonParser::decodeToArray($raw);
 
         $summary = $this->pickStringByPaths($decoded, [
             ['resumen'],

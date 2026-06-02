@@ -129,11 +129,11 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
   'ollama' => [
       'base_url' => 'http://localhost:11434',
       'model' => 'llama3.1',
-      'timeout' => 120,
+      'timeout' => 180,
   ],
   ```
 
-  Se utiliza para generar resumen y recomendación de próximos pasos por ticket abierto, y para el **Copiloto de Management** (resumen semanal por equipo y lectura por persona).
+  Se utiliza para generar resumen y recomendación de próximos pasos por ticket abierto, y para el **Copiloto de Management** (resumen semanal por equipo y lectura por persona). Las peticiones piden **`format: json`** a Ollama (con reintento sin ese flag si la API responde 400). El parser acepta JSON puro, bloques `` ```json `` o texto alrededor. Si falla el parseo, el mensaje de error guardado en base incluye una **vista previa** de la respuesta (útil para depurar). Para el copiloto conviene `timeout` **180–300** segundos.
 
   El cron de recomendaciones InvGate solo regenera tickets cuya `last_update` es igual o posterior a la última generación exitosa (`generated_at`). Los demás conservan el análisis existente hasta que InvGate actualice el ticket. Los tickets sin recomendación previa (o con error en la última generación) se procesan en cada ejecución.
 
@@ -162,6 +162,8 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
   - **Dashboards → Copiloto** (`dashboard.php?panel=copiloto`) — resumen ejecutivo, riesgos, acciones, personas/temas a revisar, 1:1 y delegaciones; **tarjetas por persona** con lectura IA al hacer clic (`GET api/management-copilot.php`, `api/person-management-copilot-list.php`, `api/person-management-copilot.php`).
 
   **Limitaciones v1:** no hay histórico de evolución del pentágono ni throughput; el prompt lo indica. Los temas no tienen `due_date` (las acciones de fecha usan alertas del equipo). La generación es **offline** (no on-demand en la web).
+
+  **Error «no contiene JSON parseable»:** revisá que el modelo esté instalado (`ollama list`), subí el `timeout`, y mirá `error_message` en `management_recommendations` (incluye vista previa). Volvé a ejecutar tras corregir; si cambió el contexto del equipo, se regenera aunque ya exista fila `ok`.
 
   En cada ficha de persona (**Editar fichas**) podés cargar el **ID InvGate** (`team_people.invgate_id`).
 

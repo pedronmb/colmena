@@ -8,11 +8,12 @@ use App\Repositories\ManagementRecommendationRepository;
 use App\Repositories\PersonManagementRecommendationRepository;
 use App\Repositories\TeamRepository;
 use App\Support\ManagementPeriod;
+use App\Support\OllamaJsonParser;
 
 final class ManagementRecommendationService
 {
-    private const MAX_CONTEXT_CHARS = 28000;
-    private const MAX_PERSON_CONTEXT_CHARS = 12000;
+    private const MAX_CONTEXT_CHARS = 18000;
+    private const MAX_PERSON_CONTEXT_CHARS = 10000;
 
     /** @var OllamaClient */
     private $client;
@@ -178,7 +179,7 @@ final class ManagementRecommendationService
         array &$result
     ): void {
         $prompt = $this->buildTeamPrompt($snapshot);
-        $raw = $this->client->generate($prompt);
+        $raw = $this->client->generate($prompt, true);
         $parsed = $this->parseTeamResponse($raw);
 
         $this->teamRecRepo->upsertOk($teamId, $period['period_start'], $period['period_end'], [
@@ -232,7 +233,7 @@ final class ManagementRecommendationService
                 }
 
                 $prompt = $this->buildPersonPrompt($personSnapshot);
-                $raw = $this->client->generate($prompt);
+                $raw = $this->client->generate($prompt, true);
                 $parsed = $this->parsePersonResponse($raw);
 
                 $this->personRecRepo->upsertOk(
@@ -368,7 +369,7 @@ final class ManagementRecommendationService
      */
     private function parseTeamResponse(string $raw): array
     {
-        $decoded = $this->decodeJson($raw);
+        $decoded = OllamaJsonParser::decodeToArray($raw);
 
         $bullets = $this->pickStringList($decoded, [['executive_bullets']]);
         $summary = $this->pickString($decoded, [['summary'], ['resumen']]);
@@ -402,7 +403,7 @@ final class ManagementRecommendationService
      */
     private function parsePersonResponse(string $raw): array
     {
-        $decoded = $this->decodeJson($raw);
+        $decoded = OllamaJsonParser::decodeToArray($raw);
 
         $riskLevel = $this->pickString($decoded, [['risk_level'], ['nivel_riesgo']]);
         if (!in_array($riskLevel, ['low', 'medium', 'high'], true)) {
@@ -423,28 +424,6 @@ final class ManagementRecommendationService
             'suggested_actions' => $this->pickObjectList($decoded, [['suggested_actions'], ['acciones']]),
             'pentagon_note' => $pentagon !== '' ? $this->cutText($pentagon, 1500) : null,
         ];
-    }
-
-    /**
-     * @return array<string, mixed>
-     */
-    private function decodeJson(string $raw): array
-    {
-        $trimmed = trim($raw);
-        $trimmed = preg_replace('/^```(?:json)?\s*|\s*```$/u', '', $trimmed) ?? $trimmed;
-
-        $decoded = json_decode($trimmed, true);
-        if (!is_array($decoded)) {
-            if (preg_match('/\{.*\}/s', $trimmed, $matches) !== 1) {
-                throw new \RuntimeException('La respuesta de Ollama no contiene JSON parseable.');
-            }
-            $decoded = json_decode($matches[0], true);
-            if (!is_array($decoded)) {
-                throw new \RuntimeException('No se pudo parsear el JSON devuelto por Ollama.');
-            }
-        }
-
-        return $decoded;
     }
 
     /**
