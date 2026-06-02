@@ -64,5 +64,7 @@ return [
         'model' => 'llama3.1',
         // Copiloto de Management: prompts largos; 180–300 suele ir mejor que 120.
         'timeout' => 180,
+        // Tokens máximos de salida del modelo (evita response vacío por límite).
+        'num_predict' => 4096,
     ],
 ];

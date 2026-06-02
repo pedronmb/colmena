@@ -18,7 +18,10 @@ final class OllamaClient
     /** @var int */
     private $timeout;
 
-    public function __construct(string $baseUrl, string $model, int $timeout = 120)
+    /** @var int */
+    private $numPredict;
+
+    public function __construct(string $baseUrl, string $model, int $timeout = 120, int $numPredict = 4096)
     {
         $baseUrl = rtrim(trim($baseUrl), '/');
         if ($baseUrl === '') {
@@ -30,6 +33,7 @@ final class OllamaClient
         $this->baseUrl = $baseUrl;
         $this->model = trim($model);
         $this->timeout = max(10, $timeout);
+        $this->numPredict = max(256, $numPredict);
 
         if ($this->model === '') {
             throw new \InvalidArgumentException('Ollama model vacío.');
@@ -55,6 +59,10 @@ final class OllamaClient
             'model' => $this->model,
             'prompt' => $prompt,
             'stream' => false,
+            'options' => [
+                'num_predict' => $this->numPredict,
+                'temperature' => 0.2,
+            ],
         ];
         if ($jsonFormat) {
             $body['format'] = 'json';
@@ -78,6 +86,7 @@ final class OllamaClient
 
         $endpoints = $this->endpointCandidates();
         $lastError = '';
+        $lastParseError = null;
 
         foreach ($endpoints as $endpointUrl) {
             foreach ($payloads as $payloadIndex => $payload) {
@@ -89,6 +98,7 @@ final class OllamaClient
                     'json_format' => $jsonFormat && $payloadIndex === 0,
                     'http_code' => $request['http_code'],
                     'payload_attempt' => $payloadIndex + 1,
+                    'num_predict' => $this->numPredict,
                 ];
 
                 if ($request['ok']) {
@@ -98,9 +108,21 @@ final class OllamaClient
 
                         return $extracted;
                     } catch (\Throwable $e) {
+                        $doneReason = $this->extractDoneReason($rawBody);
                         OllamaResponseLogger::log($label, $rawBody, null, array_merge($meta, [
                             'parse_error' => $e->getMessage(),
+                            'done_reason' => $doneReason,
                         ]));
+
+                        if (
+                            $jsonFormat
+                            && $payloadIndex + 1 < count($payloads)
+                            && $this->shouldRetryWithoutJsonFormat($e, $doneReason)
+                        ) {
+                            $lastParseError = $e;
+                            continue;
+                        }
+
                         throw $e;
                     }
                 }
@@ -122,6 +144,10 @@ final class OllamaClient
                 }
             }
             $lastError = $request['error'] ?? $lastError;
+        }
+
+        if ($lastParseError instanceof \Throwable) {
+            throw $lastParseError;
         }
 
         if ($lastError === '') {
@@ -218,12 +244,40 @@ final class OllamaClient
 
         $response = isset($decoded['response']) ? trim((string) $decoded['response']) : '';
         if ($response === '') {
+            $reason = $this->extractDoneReason($raw);
+            $suffix = OllamaJsonParser::responsePreview($raw);
+            if ($reason !== null && $reason !== '') {
+                $suffix .= ' done_reason=' . $reason . '.';
+            }
+
             throw new \RuntimeException(
-                'Ollama no devolvió contenido en "response".'
-                . OllamaJsonParser::responsePreview($raw)
+                'Ollama no devolvió contenido en "response".' . $suffix
             );
         }
 
         return $response;
+    }
+
+    private function extractDoneReason(string $raw): ?string
+    {
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) {
+            return null;
+        }
+        $reason = $decoded['done_reason'] ?? null;
+        if (!is_string($reason) || trim($reason) === '') {
+            return null;
+        }
+
+        return trim($reason);
+    }
+
+    private function shouldRetryWithoutJsonFormat(\Throwable $e, ?string $doneReason): bool
+    {
+        if (str_contains($e->getMessage(), 'no devolvió contenido en "response"')) {
+            return true;
+        }
+
+        return in_array($doneReason, ['length', 'load'], true);
     }
 }

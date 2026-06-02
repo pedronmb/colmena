@@ -12,8 +12,8 @@ use App\Support\OllamaJsonParser;
 
 final class ManagementRecommendationService
 {
-    private const MAX_CONTEXT_CHARS = 18000;
-    private const MAX_PERSON_CONTEXT_CHARS = 10000;
+    private const MAX_CONTEXT_CHARS = 12000;
+    private const MAX_PERSON_CONTEXT_CHARS = 8000;
 
     /** @var OllamaClient */
     private $client;
@@ -63,7 +63,8 @@ final class ManagementRecommendationService
         $client = new OllamaClient(
             $ollama['base_url'],
             $ollama['model'],
-            $ollama['timeout']
+            $ollama['timeout'],
+            $ollama['num_predict']
         );
 
         return new self(
@@ -332,17 +333,14 @@ final class ManagementRecommendationService
      */
     private function buildTeamOverviewPrompt(array $snapshot): string
     {
-        $contextJson = $this->encodeContext($snapshot, self::MAX_CONTEXT_CHARS);
+        $contextJson = $this->encodeContext(
+            $this->snapshotForPrompt($snapshot),
+            self::MAX_CONTEXT_CHARS
+        );
 
-        return "Actuá como copiloto de management de un equipo técnico.\n"
-            . "Analizá la información JSON del equipo y respondé ÚNICAMENTE con JSON válido (sin markdown ni texto extra).\n\n"
-            . "Estructura exacta de respuesta:\n"
-            . "{\n"
-            . "  \"executive_bullets\": [\"...\"],\n"
-            . "  \"summary\": \"...\",\n"
-            . "  \"risks\": [{\"title\":\"...\",\"rationale\":\"...\",\"severity\":\"high|medium|low\"}],\n"
-            . "  \"actions\": [{\"title\":\"...\",\"rationale\":\"...\",\"suggested_person_id\":null,\"priority\":\"high|medium|low\"}]\n"
-            . "}\n\n"
+        return "Sos un copiloto de management de un equipo técnico. Te paso datos del equipo en JSON.\n"
+            . "Respondé únicamente con JSON válido (sin markdown y sin texto extra) con esta estructura exacta:\n"
+            . "{\"executive_bullets\":[\"...\"],\"summary\":\"...\",\"risks\":[{\"title\":\"...\",\"rationale\":\"...\",\"severity\":\"high|medium|low\"}],\"actions\":[{\"title\":\"...\",\"rationale\":\"...\",\"suggested_person_id\":null,\"priority\":\"high|medium|low\"}]}\n\n"
             . "Reglas:\n"
             . "- Escribir en español.\n"
             . "- executive_bullets: máximo 8 ítems.\n"
@@ -359,7 +357,10 @@ final class ManagementRecommendationService
      */
     private function buildTeamFocusPrompt(array $snapshot, array $overview): string
     {
-        $contextJson = $this->encodeContext($snapshot, self::MAX_CONTEXT_CHARS);
+        $contextJson = $this->encodeContext(
+            $this->snapshotForPrompt($snapshot),
+            self::MAX_CONTEXT_CHARS
+        );
         $prior = json_encode([
             'summary' => $overview['summary'],
             'executive_bullets' => $overview['executive_bullets'],
@@ -370,16 +371,10 @@ final class ManagementRecommendationService
             $prior = '{}';
         }
 
-        return "Actuá como copiloto de management de un equipo técnico.\n"
-            . "Completá la segunda parte del análisis. Ya existe un borrador de resumen/riesgos/acciones (JSON abajo); mantené coherencia.\n"
-            . "Respondé ÚNICAMENTE con JSON válido (sin markdown ni texto extra).\n\n"
-            . "Estructura exacta de respuesta:\n"
-            . "{\n"
-            . "  \"people_focus\": [{\"person_id\":1,\"name\":\"...\",\"rationale\":\"...\",\"signals\":[\"...\"]}],\n"
-            . "  \"topics_focus\": [{\"topic_id\":1,\"title\":\"...\",\"rationale\":\"...\"}],\n"
-            . "  \"delegations\": [{\"topic_id\":1,\"from_person_id\":1,\"to_person_id\":5,\"rationale\":\"...\"}],\n"
-            . "  \"one_on_one\": [{\"person_id\":1,\"questions\":[\"...\"]}]\n"
-            . "}\n\n"
+        return "Sos un copiloto de management de un equipo técnico. Te paso datos del equipo en JSON.\n"
+            . "Completá la segunda parte del análisis. Ya existe un borrador de resumen/riesgos/acciones; mantené coherencia.\n"
+            . "Respondé únicamente con JSON válido (sin markdown y sin texto extra) con esta estructura exacta:\n"
+            . "{\"people_focus\":[{\"person_id\":1,\"name\":\"...\",\"rationale\":\"...\",\"signals\":[\"...\"]}],\"topics_focus\":[{\"topic_id\":1,\"title\":\"...\",\"rationale\":\"...\"}],\"delegations\":[{\"topic_id\":1,\"from_person_id\":1,\"to_person_id\":5,\"rationale\":\"...\"}],\"one_on_one\":[{\"person_id\":1,\"questions\":[\"...\"]}]}\n\n"
             . "Reglas:\n"
             . "- Escribir en español.\n"
             . "- No inventar datos; si falta una fuente, indicarlo.\n"
@@ -397,30 +392,98 @@ final class ManagementRecommendationService
      */
     private function buildPersonPrompt(array $snapshot): string
     {
-        $contextJson = $this->encodeContext($snapshot, self::MAX_PERSON_CONTEXT_CHARS);
+        $contextJson = $this->encodeContext(
+            $this->personSnapshotForPrompt($snapshot),
+            self::MAX_PERSON_CONTEXT_CHARS
+        );
         $name = is_array($snapshot['person'] ?? null)
             ? (string) (($snapshot['person']['name'] ?? '') ?: 'Persona')
             : 'Persona';
 
-        return "Actuá como copiloto de management para la persona {$name}.\n"
-            . "Analizá el JSON y respondé ÚNICAMENTE con JSON válido (sin markdown).\n\n"
-            . "Estructura exacta:\n"
-            . "{\n"
-            . "  \"summary\": \"...\",\n"
-            . "  \"risk_level\": \"low|medium|high\",\n"
-            . "  \"situation\": {\"current\":\"...\",\"rationale\":\"...\"},\n"
-            . "  \"risks\": [{\"title\":\"...\",\"rationale\":\"...\"}],\n"
-            . "  \"blockers\": [{\"title\":\"...\",\"rationale\":\"...\"}],\n"
-            . "  \"one_on_one_questions\": [\"...\"],\n"
-            . "  \"suggested_actions\": [{\"title\":\"...\",\"rationale\":\"...\"}],\n"
-            . "  \"pentagon_reading\": \"...\"\n"
-            . "}\n\n"
+        return "Sos un copiloto de management para la persona {$name}. Te paso sus datos en JSON.\n"
+            . "Respondé únicamente con JSON válido (sin markdown y sin texto extra) con esta estructura exacta:\n"
+            . "{\"summary\":\"...\",\"risk_level\":\"low|medium|high\",\"situation\":{\"current\":\"...\",\"rationale\":\"...\"},\"risks\":[{\"title\":\"...\",\"rationale\":\"...\"}],\"blockers\":[{\"title\":\"...\",\"rationale\":\"...\"}],\"one_on_one_questions\":[\"...\"],\"suggested_actions\":[{\"title\":\"...\",\"rationale\":\"...\"}],\"pentagon_reading\":\"...\"}\n\n"
             . "Reglas:\n"
-            . "- Español; no inventar datos.\n"
+            . "- Escribir en español.\n"
+            . "- No inventar datos.\n"
             . "- rationale obligatorio citando métricas del JSON.\n"
             . "- pentagon_reading: basado en ejes actuales; sin histórico, indicar que no hay evolución temporal.\n\n"
-            . "Datos:\n"
+            . "Datos de la persona:\n"
             . $contextJson;
+    }
+
+    /**
+     * Contexto reducido para Ollama (mismo criterio que InvGate: payload compacto).
+     *
+     * @param array<string, mixed> $snapshot
+     * @return array<string, mixed>
+     */
+    private function snapshotForPrompt(array $snapshot): array
+    {
+        $health = is_array($snapshot['health'] ?? null) ? $snapshot['health'] : [];
+        $people = [];
+        foreach ($snapshot['people'] ?? [] as $person) {
+            if (!is_array($person)) {
+                continue;
+            }
+            $people[] = [
+                'person_id' => $person['person_id'] ?? null,
+                'name' => $person['name'] ?? '',
+                'role' => $person['role'] ?? null,
+                'is_direct_team' => $person['is_direct_team'] ?? false,
+                'load_score' => $person['load_score'] ?? null,
+                'health_score' => $person['health_score'] ?? null,
+                'status' => $person['status'] ?? null,
+                'load_share_percent' => $person['load_share_percent'] ?? null,
+                'metrics' => $person['metrics'] ?? [],
+            ];
+        }
+
+        return [
+            'team_id' => $snapshot['team_id'] ?? null,
+            'historical_note' => $snapshot['historical_note'] ?? '',
+            'team' => $health['team'] ?? [],
+            'meta' => $health['meta'] ?? [],
+            'people' => $people,
+            'people_profiles' => $snapshot['people_profiles'] ?? [],
+            'topics' => $snapshot['topics'] ?? [],
+            'stale_topics' => $snapshot['stale_topics'] ?? [],
+            'alerts' => $snapshot['alerts'] ?? [],
+            'tickets_sample' => $snapshot['tickets_sample'] ?? [],
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $snapshot
+     * @return array<string, mixed>
+     */
+    private function personSnapshotForPrompt(array $snapshot): array
+    {
+        $person = is_array($snapshot['person'] ?? null) ? $snapshot['person'] : [];
+        if ($person !== []) {
+            $person = [
+                'person_id' => $person['person_id'] ?? null,
+                'name' => $person['name'] ?? '',
+                'role' => $person['role'] ?? null,
+                'is_direct_team' => $person['is_direct_team'] ?? false,
+                'load_score' => $person['load_score'] ?? null,
+                'health_score' => $person['health_score'] ?? null,
+                'status' => $person['status'] ?? null,
+                'load_share_percent' => $person['load_share_percent'] ?? null,
+                'metrics' => $person['metrics'] ?? [],
+            ];
+        }
+
+        return [
+            'team_id' => $snapshot['team_id'] ?? null,
+            'person_id' => $snapshot['person_id'] ?? null,
+            'historical_note' => $snapshot['historical_note'] ?? '',
+            'team_summary' => $snapshot['team_summary'] ?? [],
+            'person' => $person,
+            'profile' => $snapshot['profile'] ?? null,
+            'topics' => $snapshot['topics'] ?? [],
+            'tickets' => $snapshot['tickets'] ?? [],
+        ];
     }
 
     /**
@@ -428,12 +491,12 @@ final class ManagementRecommendationService
      */
     private function encodeContext(array $snapshot, int $maxChars): string
     {
-        $json = json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+        $json = json_encode($snapshot, JSON_UNESCAPED_UNICODE);
         if ($json === false) {
             return '{}';
         }
         if (strlen($json) > $maxChars) {
-            $json = substr($json, 0, $maxChars - 20) . "\n...(truncado)";
+            $json = substr($json, 0, $maxChars - 20) . '...(truncado)';
         }
 
         return $json;

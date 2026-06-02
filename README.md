@@ -133,7 +133,7 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
   ],
   ```
 
-  Se utiliza para generar resumen y recomendación de próximos pasos por ticket abierto, y para el **Copiloto de Management** (resumen semanal por equipo y lectura por persona). Las peticiones piden **`format: json`** a Ollama (con reintento sin ese flag si la API responde 400). El parser acepta JSON puro, bloques `` ```json `` o texto alrededor. Si falla el parseo, el mensaje de error guardado en base incluye una **vista previa** de la respuesta (útil para depurar). Para el copiloto conviene `timeout` **180–300** segundos.
+  Se utiliza para generar resumen y recomendación de próximos pasos por ticket abierto, y para el **Copiloto de Management** (resumen semanal por equipo y lectura por persona). Las peticiones piden **`format: json`** a Ollama (con reintento sin ese flag si la API responde 400 o si `response` viene vacío). El parser acepta JSON puro, bloques `` ```json `` o texto alrededor. Si falla el parseo, el mensaje de error guardado en base incluye una **vista previa** de la respuesta (útil para depurar). Para el copiloto conviene `timeout` **180–300** segundos y `num_predict` **4096** (o más si el modelo corta la salida).
 
   El cron de recomendaciones InvGate solo regenera tickets cuya `last_update` es igual o posterior a la última generación exitosa (`generated_at`). Los demás conservan el análisis existente hasta que InvGate actualice el ticket. Los tickets sin recomendación previa (o con error en la última generación) se procesan en cada ejecución.
 

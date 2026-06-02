@@ -49,7 +49,8 @@ final class InvgateRecommendationService
         $client = new OllamaClient(
             $ollama['base_url'],
             $ollama['model'],
-            $ollama['timeout']
+            $ollama['timeout'],
+            $ollama['num_predict']
         );
 
         return new self($client, $ticketsRepo, $commentsRepo, $recommendationsRepo);
@@ -57,7 +58,7 @@ final class InvgateRecommendationService
 
     /**
      * @param array<string, mixed> $config
-     * @return array{base_url: string, model: string, timeout: int}
+     * @return array{base_url: string, model: string, timeout: int, num_predict: int}
      */
     public static function parseOllamaConfig(array $config): array
     {
@@ -65,6 +66,7 @@ final class InvgateRecommendationService
         $baseUrl = trim((string) ($ollama['base_url'] ?? ''));
         $model = trim((string) ($ollama['model'] ?? 'llama3.1'));
         $timeout = (int) ($ollama['timeout'] ?? 120);
+        $numPredict = (int) ($ollama['num_predict'] ?? 4096);
 
         if ($baseUrl === '') {
             throw new \RuntimeException('Ollama no está configurado en config.php (ollama.base_url).');
@@ -77,6 +79,7 @@ final class InvgateRecommendationService
             'base_url' => $baseUrl,
             'model' => $model,
             'timeout' => max(10, $timeout),
+            'num_predict' => max(256, $numPredict),
         ];
     }
 
