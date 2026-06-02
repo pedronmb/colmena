@@ -74,6 +74,9 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                 <button type="button" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="dashboardPanelOrgChart" id="tabOrgChart" data-panel="orgchart">
                     Organigrama
                 </button>
+                <button type="button" class="dashboard-tab" role="tab" aria-selected="false" aria-controls="dashboardPanelHealth" id="tabHealth" data-panel="health">
+                    Salud y capacidad
+                </button>
             </div>
 
             <div id="dashboardPanelMatrix" class="dashboard-panel" role="tabpanel" aria-labelledby="tabMatrix">
@@ -164,6 +167,60 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                     <div id="orgChartDashboardChart" class="org-chart-dashboard__chart" aria-live="polite"></div>
                 </div>
             </div>
+
+            <div id="dashboardPanelHealth" class="dashboard-panel" role="tabpanel" aria-labelledby="tabHealth" hidden>
+                <div
+                    id="healthDashboardRoot"
+                    class="health-dashboard-embed"
+                    data-team-id="<?= (int) $personalTeamId ?>"
+                >
+                    <p class="muted health-dashboard__lead">
+                        Carga y semáforo por persona según temas, InvGate y DevOps. Las alertas del equipo no se incluyen en este cálculo.
+                    </p>
+                    <div class="health-filters" role="toolbar" aria-label="Filtros de la tabla">
+                        <div class="health-filters__group">
+                            <span class="health-filters__group-title">Vista de tabla</span>
+                            <div class="health-filters__segmented" role="group" aria-label="Quién mostrar">
+                                <button type="button" class="health-filters__segment" data-health-scope="all" aria-pressed="false">Todos</button>
+                                <button type="button" class="health-filters__segment health-filters__segment--active" data-health-scope="direct" aria-pressed="true">Equipo directo</button>
+                                <button type="button" class="health-filters__segment" data-health-scope="collaborators" aria-pressed="false">Colaboradores</button>
+                            </div>
+                            <label class="health-filters__field" for="healthSort">
+                                <span class="health-filters__label">Orden</span>
+                                <select id="healthSort" class="health-filters__control">
+                                    <option value="load_desc">Mayor carga</option>
+                                    <option value="health_asc">Peor salud</option>
+                                    <option value="critical_desc">Más temas críticos</option>
+                                    <option value="stale_desc">Más tickets stale</option>
+                                    <option value="name_asc">Nombre</option>
+                                </select>
+                            </label>
+                        </div>
+                        <div class="health-filters__group">
+                            <span class="health-filters__group-title">Parámetros de cálculo</span>
+                            <label class="health-filters__field" for="healthPeriod">
+                                <span class="health-filters__label">Período</span>
+                                <select id="healthPeriod" class="health-filters__control">
+                                    <option value="7">7 días</option>
+                                    <option value="30" selected>30 días</option>
+                                    <option value="all">Todo</option>
+                                </select>
+                            </label>
+                            <label class="health-filters__field" for="healthStaleDays">
+                                <span class="health-filters__label">Stale (días)</span>
+                                <input type="number" id="healthStaleDays" class="health-filters__control health-filters__control--number" min="1" max="90" value="3" />
+                            </label>
+                        </div>
+                        <div class="health-filters__actions">
+                            <button type="button" class="btn btn--small primary" id="healthRefresh">Actualizar</button>
+                        </div>
+                    </div>
+                    <p class="muted" id="healthDashboardLoading" aria-live="polite" hidden></p>
+                    <p class="form-error" id="healthDashboardError" hidden></p>
+                    <div id="healthDashboardSummary" class="health-dashboard__summary" aria-live="polite"></div>
+                    <div id="healthDashboardTable" class="health-dashboard__table-wrap" aria-live="polite"></div>
+                </div>
+            </div>
         </section>
     </div>
 
@@ -193,6 +250,7 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
     <script src="assets/js/person-direct-team.js" defer></script>
     <script src="assets/js/pentagon-dashboard.js" defer></script>
     <script src="assets/js/org-chart.js" defer></script>
+    <script src="assets/js/health-dashboard.js" defer></script>
     <script src="assets/js/dashboard.js" defer></script>
     <script src="assets/js/topics.js" defer></script>
     <script src="assets/js/app-shell.js" defer></script>

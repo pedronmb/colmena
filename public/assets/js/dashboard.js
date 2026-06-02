@@ -17,6 +17,7 @@
     const panelCalendar = document.getElementById("dashboardPanelCalendar");
     const panelPentagon = document.getElementById("dashboardPanelPentagon");
     const panelOrgChart = document.getElementById("dashboardPanelOrgChart");
+    const panelHealth = document.getElementById("dashboardPanelHealth");
     const calendarRoot = document.getElementById("dashboardCalendarRoot");
     const dashboardCalYearLabel = document.getElementById("dashboardCalYearLabel");
     const dashboardCalPrev = document.getElementById("dashboardCalPrev");
@@ -43,7 +44,7 @@
         return /\/dashboard\.php$/i.test(pathname);
     }
 
-    const VALID_PANELS = new Set(["matrix", "list", "focus", "calendar", "pentagon", "orgchart"]);
+    const VALID_PANELS = new Set(["matrix", "list", "focus", "calendar", "pentagon", "orgchart", "health"]);
 
     /** Panel de pestaña activo; usado en enlaces de edición para permanecer en el dashboard */
     let activePanelKey = "matrix";
@@ -804,11 +805,17 @@
         if (panelOrgChart) {
             panelOrgChart.hidden = p !== "orgchart";
         }
+        if (panelHealth) {
+            panelHealth.hidden = p !== "health";
+        }
         if (p === "pentagon") {
             window.ColmenaPentagonDashboard?.load();
         }
         if (p === "orgchart") {
             window.ColmenaOrgChart?.load();
+        }
+        if (p === "health") {
+            window.ColmenaHealthDashboard?.load();
         }
         if (p !== "calendar") {
             hideCalendarDayPopup();
@@ -847,6 +854,9 @@
 
     window.addEventListener("colmena:topics-changed", () => {
         loadDashboard();
+        if (activePanelKey === "health") {
+            window.ColmenaHealthDashboard?.load();
+        }
     });
 
     window.addEventListener("colmena:dashboard-modal-closed", () => {
