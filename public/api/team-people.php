@@ -115,6 +115,7 @@ try {
     }
 
     $isDirectTeam = DirectTeamNormalizer::parseFromData($data);
+    $isEncargado = DirectTeamNormalizer::parseFromData($data, 'is_encargado');
 
     $invgateId = InvgateIdNormalizer::optional($data['invgate_id'] ?? null);
     if ($invgateId === false) {
@@ -151,7 +152,8 @@ try {
         $axisTc,
         $isDirectTeam,
         $invgateId,
-        $reportsToId
+        $reportsToId,
+        $isEncargado
     );
     $created = $peopleRepo->findById($newId);
 

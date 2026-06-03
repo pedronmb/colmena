@@ -765,6 +765,7 @@
         const roleRaw = String(fd.get("role") || "").trim();
         const invgateRaw = String(fd.get("invgate_id") || "").trim();
         const directEl = form.querySelector('[name="is_direct_team"]');
+        const encargadoEl = form.querySelector('[name="is_encargado"]');
         const reportsRaw = String(fd.get("reports_to_id") || "").trim();
         const payload = {
             team_id: Number(fd.get("team_id")),
@@ -775,6 +776,7 @@
             birthday: birthdayRaw === "" ? null : birthdayRaw,
             extra_info: extraRaw === "" ? null : extraRaw,
             is_direct_team: directEl instanceof HTMLInputElement && directEl.checked,
+            is_encargado: encargadoEl instanceof HTMLInputElement && encargadoEl.checked,
             reports_to_id: reportsRaw === "" ? null : Number(reportsRaw),
         };
         const pentagonKeys = [

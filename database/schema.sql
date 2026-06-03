@@ -43,6 +43,7 @@ CREATE TABLE team_people (
     axis_business_communication INTEGER,
     axis_technical_competence INTEGER,
     is_direct_team INTEGER NOT NULL DEFAULT 0,
+    is_encargado INTEGER NOT NULL DEFAULT 0,
     reports_to_id INTEGER REFERENCES team_people(id) ON DELETE SET NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

@@ -84,7 +84,11 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                         <input type="checkbox" name="is_direct_team" value="1">
                         Equipo directo
                     </label>
-                    <p class="muted form__hint">Los colaboradores se muestran como hasta ahora.</p>
+                    <label class="form__checkbox">
+                        <input type="checkbox" name="is_encargado" value="1">
+                        Encargado
+                    </label>
+                    <p class="muted form__hint">Encargado supervisa al equipo directo. Los colaboradores se muestran como hasta ahora.</p>
                     <?php
                     $bfIdPrefix = 'newPerson';
                     require __DIR__ . '/includes/birthday-month-day.php';
@@ -170,7 +174,11 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                     <input type="checkbox" name="is_direct_team" id="editIsDirectTeam" value="1">
                     Equipo directo
                 </label>
-                <p class="muted form__hint">Los colaboradores se muestran como hasta ahora.</p>
+                <label class="form__checkbox">
+                    <input type="checkbox" name="is_encargado" id="editIsEncargado" value="1">
+                    Encargado
+                </label>
+                <p class="muted form__hint">Encargado supervisa al equipo directo. Los colaboradores se muestran como hasta ahora.</p>
                 <?php
                 $bfIdPrefix = 'edit';
                 require __DIR__ . '/includes/birthday-month-day.php';

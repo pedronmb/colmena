@@ -31,16 +31,18 @@ final class TeamPersonRepository
         ?int $axisTechnicalCompetence = null,
         bool $isDirectTeam = false,
         ?int $invgateId = null,
-        ?int $reportsToId = null
+        ?int $reportsToId = null,
+        bool $isEncargado = false
     ): int {
         $stmt = $this->pdo->prepare(
             'INSERT INTO team_people (
                 team_id, display_name, email, role, invgate_id, birthday, extra_info,
                 axis_autonomy_problem_solving, axis_impact_scope, axis_influence_mentorship,
-                axis_business_communication, axis_technical_competence, is_direct_team, reports_to_id
+                axis_business_communication, axis_technical_competence, is_direct_team,
+                is_encargado, reports_to_id
              ) VALUES (
                 :tid, :name, :email, :role, :invgate_id, :birthday, :extra,
-                :axis_ap, :axis_is, :axis_im, :axis_bc, :axis_tc, :direct, :reports_to
+                :axis_ap, :axis_is, :axis_im, :axis_bc, :axis_tc, :direct, :encargado, :reports_to
              )'
         );
         $stmt->execute([
@@ -57,6 +59,7 @@ final class TeamPersonRepository
             'axis_bc' => $axisBusinessCommunication,
             'axis_tc' => $axisTechnicalCompetence,
             'direct' => $isDirectTeam ? 1 : 0,
+            'encargado' => $isEncargado ? 1 : 0,
             'reports_to' => $reportsToId,
         ]);
 
@@ -77,7 +80,8 @@ final class TeamPersonRepository
         ?int $axisTechnicalCompetence,
         bool $isDirectTeam = false,
         ?int $invgateId = null,
-        ?int $reportsToId = null
+        ?int $reportsToId = null,
+        bool $isEncargado = false
     ): void {
         $stmt = $this->pdo->prepare(
             'UPDATE team_people SET
@@ -93,6 +97,7 @@ final class TeamPersonRepository
                 axis_business_communication = :axis_bc,
                 axis_technical_competence = :axis_tc,
                 is_direct_team = :direct,
+                is_encargado = :encargado,
                 reports_to_id = :reports_to
              WHERE id = :id'
         );
@@ -110,6 +115,7 @@ final class TeamPersonRepository
             'axis_bc' => $axisBusinessCommunication,
             'axis_tc' => $axisTechnicalCompetence,
             'direct' => $isDirectTeam ? 1 : 0,
+            'encargado' => $isEncargado ? 1 : 0,
             'reports_to' => $reportsToId,
         ]);
     }
@@ -138,6 +144,7 @@ final class TeamPersonRepository
             'axis_business_communication' => $this->mapAxisColumn($row['axis_business_communication'] ?? null),
             'axis_technical_competence' => $this->mapAxisColumn($row['axis_technical_competence'] ?? null),
             'is_direct_team' => $this->mapDirectTeamColumn($row['is_direct_team'] ?? null),
+            'is_encargado' => $this->mapDirectTeamColumn($row['is_encargado'] ?? null),
             'reports_to_id' => $this->mapOptionalIntColumn($row['reports_to_id'] ?? null),
             'created_at' => (string) $row['created_at'],
         ];
@@ -189,6 +196,7 @@ final class TeamPersonRepository
      *   axis_business_communication:?int,
      *   axis_technical_competence:?int,
      *   is_direct_team:bool,
+     *   is_encargado:bool,
      *   reports_to_id:?int,
      *   created_at:string
      * }|null
@@ -199,7 +207,7 @@ final class TeamPersonRepository
             'SELECT id, team_id, display_name, email, role, invgate_id, birthday, extra_info,
                     axis_autonomy_problem_solving, axis_impact_scope, axis_influence_mentorship,
                     axis_business_communication, axis_technical_competence, is_direct_team,
-                    reports_to_id, created_at
+                    is_encargado, reports_to_id, created_at
              FROM team_people WHERE id = :id LIMIT 1'
         );
         $stmt->execute(['id' => $id]);
@@ -220,7 +228,7 @@ final class TeamPersonRepository
             'SELECT id, team_id, display_name, email, role, invgate_id, birthday, extra_info,
                     axis_autonomy_problem_solving, axis_impact_scope, axis_influence_mentorship,
                     axis_business_communication, axis_technical_competence, is_direct_team,
-                    reports_to_id, created_at
+                    is_encargado, reports_to_id, created_at
              FROM team_people
              WHERE team_id = :tid
              ORDER BY display_name COLLATE NOCASE ASC'

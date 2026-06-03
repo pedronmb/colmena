@@ -148,6 +148,10 @@ try {
         ? DirectTeamNormalizer::parseFromData($data)
         : (bool) $current['is_direct_team'];
 
+    $isEncargado = array_key_exists('is_encargado', $data)
+        ? DirectTeamNormalizer::parseFromData($data, 'is_encargado')
+        : (bool) $current['is_encargado'];
+
     $invgateId = array_key_exists('invgate_id', $data)
         ? InvgateIdNormalizer::optional($data['invgate_id'])
         : $current['invgate_id'];
@@ -187,7 +191,8 @@ try {
         $axisTc,
         $isDirectTeam,
         $invgateId,
-        $reportsToId
+        $reportsToId,
+        $isEncargado
     );
     $updated = $peopleRepo->findById($id);
 

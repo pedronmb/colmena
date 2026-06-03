@@ -174,6 +174,11 @@
             directEl.checked =
                 p.is_direct_team === true || p.is_direct_team === 1;
         }
+        const encargadoEl = document.getElementById("editIsEncargado");
+        if (encargadoEl instanceof HTMLInputElement) {
+            encargadoEl.checked =
+                p.is_encargado === true || p.is_encargado === 1;
+        }
         refreshReportsToSelects(p.id, null, p.reports_to_id ?? null);
         if (window.ColmenaBirthday && form) {
             window.ColmenaBirthday.fillBirthdayFields(form, p.birthday);
@@ -298,6 +303,7 @@
         const roleRaw = String(fd.get("role") || "").trim();
         const invgateRaw = String(fd.get("invgate_id") || "").trim();
         const directEl = form.querySelector('[name="is_direct_team"]');
+        const encargadoEl = form.querySelector('[name="is_encargado"]');
         const reportsRaw = String(fd.get("reports_to_id") || "").trim();
         const payload = {
             id: Number(fd.get("id")),
@@ -310,6 +316,8 @@
             extra_info: String(fd.get("extra_info") || "").trim() || null,
             is_direct_team:
                 directEl instanceof HTMLInputElement && directEl.checked,
+            is_encargado:
+                encargadoEl instanceof HTMLInputElement && encargadoEl.checked,
             reports_to_id: reportsRaw === "" ? null : Number(reportsRaw),
         };
         PENTAGON_AXIS_KEYS.forEach((k) => {
