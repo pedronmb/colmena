@@ -111,6 +111,15 @@ final class OllamaClient
 
         foreach ($endpoints as $endpointUrl) {
             foreach ($payloads as $payloadIndex => $payload) {
+                $attemptLabel = $label . ($payloadIndex > 0 ? '-retry' . ($payloadIndex + 1) : '');
+                OllamaResponseLogger::logRequest($attemptLabel, $endpointUrl, $payload, $this->timeout, [
+                    'model' => $this->model,
+                    'api' => 'generate',
+                    'json_format' => $jsonFormat && $payloadIndex === 0,
+                    'payload_attempt' => $payloadIndex + 1,
+                    'num_predict' => $this->numPredict,
+                ]);
+
                 $request = $this->request($endpointUrl, $payload);
                 $rawBody = (string) ($request['raw'] ?? '');
                 $meta = [
@@ -197,6 +206,12 @@ final class OllamaClient
 
         $lastError = '';
         foreach ($this->chatEndpointCandidates() as $endpointUrl) {
+            OllamaResponseLogger::logRequest($label . '-chat-fallback', $endpointUrl, $payload, $this->timeout, [
+                'model' => $this->model,
+                'api' => 'chat',
+                'num_predict' => $this->numPredict,
+            ]);
+
             $request = $this->request($endpointUrl, $payload);
             $rawBody = (string) ($request['raw'] ?? '');
             $meta = [
