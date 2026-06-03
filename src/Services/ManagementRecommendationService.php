@@ -12,6 +12,8 @@ use App\Support\ManagementPeriod;
 final class ManagementRecommendationService
 {
     private const MAX_CONTEXT_CHARS = 12000;
+    private const MAX_FOCUS_CONTEXT_CHARS = 8000;
+    private const MAX_PRIOR_REPORT_CHARS = 3500;
     private const MAX_PERSON_CONTEXT_CHARS = 8000;
     private const MAX_TEAM_REPORT_CHARS = 12000;
     private const MAX_PERSON_REPORT_CHARS = 8000;
@@ -362,9 +364,9 @@ final class ManagementRecommendationService
     {
         $contextJson = $this->encodeContext(
             $this->snapshotForPrompt($snapshot),
-            self::MAX_CONTEXT_CHARS
+            self::MAX_FOCUS_CONTEXT_CHARS
         );
-        $prior = trim($overview['body']);
+        $prior = $this->cutText(trim($overview['body']), self::MAX_PRIOR_REPORT_CHARS);
 
         return "Sos un copiloto de management de un equipo técnico. Te paso datos del equipo en JSON.\n"
             . "Respondé en español con markdown. Esta es la SEGUNDA parte del informe semanal.\n"

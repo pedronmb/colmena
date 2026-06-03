@@ -165,7 +165,7 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
 
   **Limitaciones v1:** no hay histórico de evolución del pentágono ni throughput; el prompt lo indica. Los temas no tienen `due_date` (las acciones de fecha usan alertas del equipo). La generación es **offline** (no on-demand en la web).
 
-  **Error de generación:** revisá que el modelo esté instalado (`ollama list`), subí el `timeout`, y mirá `error_message` en `management_recommendations`. Una respuesta vacía de Ollama también marca error. Volvé a ejecutar tras corregir; si cambió el contexto del equipo, se regenera aunque ya exista fila `ok`.
+  **Error de generación:** revisá que el modelo esté instalado (`ollama list`), subí el `timeout` y `num_predict`, y mirá `error_message` en `management_recommendations` o `storage/logs/ollama/`. Si `/api/generate` devuelve `response` vacío, el cliente reintenta automáticamente con `/api/chat`. Volvé a ejecutar tras corregir; si cambió el contexto del equipo, se regenera aunque ya exista fila `ok`.
 
   **Log crudo de Ollama:** cada llamada appendea en `storage/logs/ollama/YYYY-MM-DD.log` el cuerpo HTTP completo (`raw_http`), el texto extraído de `response` si hubo, y metadata (endpoint, modelo, etiqueta). Las etiquetas del copiloto son `management-team-{id}-overview`, `-focus`, `-person-{id}`; InvGate: `invgate-ticket-{id}`. El directorio no se versiona en git.
 

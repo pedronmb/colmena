@@ -55,6 +55,27 @@ final class OllamaClient
             ? trim($logLabel)
             : 'ollama-' . substr(md5($this->model . '|' . substr($prompt, 0, 200)), 0, 10);
 
+        try {
+            return $this->generateViaGenerateEndpoint($prompt, $jsonFormat, $label);
+        } catch (\Throwable $e) {
+            if (!$this->shouldTryChatFallback($e)) {
+                throw $e;
+            }
+
+            try {
+                return $this->generateViaChatEndpoint($prompt, $label);
+            } catch (\Throwable $chatError) {
+                throw new \RuntimeException(
+                    $e->getMessage() . ' Reintento vía /api/chat falló: ' . $chatError->getMessage(),
+                    0,
+                    $e
+                );
+            }
+        }
+    }
+
+    private function generateViaGenerateEndpoint(string $prompt, bool $jsonFormat, string $label): string
+    {
         $body = [
             'model' => $this->model,
             'prompt' => $prompt,
@@ -115,9 +136,8 @@ final class OllamaClient
                         ]));
 
                         if (
-                            $jsonFormat
-                            && $payloadIndex + 1 < count($payloads)
-                            && $this->shouldRetryWithoutJsonFormat($e, $doneReason)
+                            $payloadIndex + 1 < count($payloads)
+                            && $this->shouldRetryPayload($e, $doneReason, $jsonFormat)
                         ) {
                             $lastParseError = $e;
                             continue;
@@ -157,6 +177,73 @@ final class OllamaClient
         throw new \RuntimeException($lastError);
     }
 
+    private function generateViaChatEndpoint(string $prompt, string $label): string
+    {
+        $body = [
+            'model' => $this->model,
+            'messages' => [
+                ['role' => 'user', 'content' => $prompt],
+            ],
+            'stream' => false,
+            'options' => [
+                'num_predict' => $this->numPredict,
+                'temperature' => 0.2,
+            ],
+        ];
+        $payload = json_encode($body, JSON_UNESCAPED_UNICODE);
+        if ($payload === false) {
+            throw new \RuntimeException('No se pudo serializar el payload de chat para Ollama.');
+        }
+
+        $lastError = '';
+        foreach ($this->chatEndpointCandidates() as $endpointUrl) {
+            $request = $this->request($endpointUrl, $payload);
+            $rawBody = (string) ($request['raw'] ?? '');
+            $meta = [
+                'model' => $this->model,
+                'endpoint' => $endpointUrl,
+                'api' => 'chat',
+                'http_code' => $request['http_code'],
+                'num_predict' => $this->numPredict,
+            ];
+
+            if ($request['ok']) {
+                try {
+                    $extracted = $this->parseResponse($rawBody);
+                    OllamaResponseLogger::log($label . '-chat-fallback', $rawBody, $extracted, $meta);
+
+                    return $extracted;
+                } catch (\Throwable $e) {
+                    OllamaResponseLogger::log($label . '-chat-fallback', $rawBody, null, array_merge($meta, [
+                        'parse_error' => $e->getMessage(),
+                        'done_reason' => $this->extractDoneReason($rawBody),
+                    ]));
+                    throw $e;
+                }
+            }
+
+            if ($rawBody !== '') {
+                OllamaResponseLogger::log($label . '-chat-fallback', $rawBody, null, array_merge($meta, [
+                    'request_error' => $request['error'],
+                ]));
+            }
+
+            if ($request['http_code'] === 404) {
+                break;
+            }
+            if ($request['http_code'] !== 404) {
+                throw new \RuntimeException($request['error']);
+            }
+            $lastError = $request['error'] ?? $lastError;
+        }
+
+        if ($lastError === '') {
+            $lastError = 'No se pudo contactar un endpoint de chat de Ollama.';
+        }
+
+        throw new \RuntimeException($lastError);
+    }
+
     /**
      * @return list<string>
      */
@@ -173,6 +260,25 @@ final class OllamaClient
         return [
             $this->baseUrl . '/generate',
             $this->baseUrl . '/api/generate',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function chatEndpointCandidates(): array
+    {
+        if (str_ends_with($this->baseUrl, '/api/chat') || str_ends_with($this->baseUrl, '/chat')) {
+            return [$this->baseUrl];
+        }
+
+        if (str_ends_with($this->baseUrl, '/api')) {
+            return [$this->baseUrl . '/chat'];
+        }
+
+        return [
+            $this->baseUrl . '/api/chat',
+            $this->baseUrl . '/chat',
         ];
     }
 
@@ -242,7 +348,7 @@ final class OllamaClient
             );
         }
 
-        $response = isset($decoded['response']) ? trim((string) $decoded['response']) : '';
+        $response = $this->extractResponseText($decoded);
         if ($response === '') {
             $reason = $this->extractDoneReason($raw);
             $suffix = OllamaJsonParser::responsePreview($raw);
@@ -256,6 +362,29 @@ final class OllamaClient
         }
 
         return $response;
+    }
+
+    /**
+     * @param array<string, mixed> $decoded
+     */
+    private function extractResponseText(array $decoded): string
+    {
+        if (isset($decoded['response']) && is_string($decoded['response'])) {
+            $text = trim($decoded['response']);
+            if ($text !== '') {
+                return $text;
+            }
+        }
+
+        $message = $decoded['message'] ?? null;
+        if (is_array($message) && isset($message['content']) && is_string($message['content'])) {
+            $text = trim($message['content']);
+            if ($text !== '') {
+                return $text;
+            }
+        }
+
+        return '';
     }
 
     private function extractDoneReason(string $raw): ?string
@@ -272,12 +401,22 @@ final class OllamaClient
         return trim($reason);
     }
 
-    private function shouldRetryWithoutJsonFormat(\Throwable $e, ?string $doneReason): bool
+    private function shouldRetryPayload(\Throwable $e, ?string $doneReason, bool $jsonFormat): bool
     {
-        if (str_contains($e->getMessage(), 'no devolvió contenido en "response"')) {
-            return true;
+        if (!$jsonFormat) {
+            return false;
         }
 
-        return in_array($doneReason, ['length', 'load'], true);
+        return $this->isEmptyResponseError($e) || in_array($doneReason, ['length', 'load'], true);
+    }
+
+    private function shouldTryChatFallback(\Throwable $e): bool
+    {
+        return $this->isEmptyResponseError($e);
+    }
+
+    private function isEmptyResponseError(\Throwable $e): bool
+    {
+        return str_contains($e->getMessage(), 'no devolvió contenido en "response"');
     }
 }
