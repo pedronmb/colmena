@@ -165,7 +165,7 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
 
   **Limitaciones v1:** no hay histórico de evolución del pentágono ni throughput; el prompt lo indica. Los temas no tienen `due_date` (las acciones de fecha usan alertas del equipo). La generación es **offline** (no on-demand en la web).
 
-  **Error de generación:** revisá que el modelo esté instalado (`ollama list`), subí el `timeout` y `num_predict`, y mirá `error_message` en `management_recommendations` o `storage/logs/ollama/`. Si `/api/generate` devuelve `response` vacío, el cliente reintenta automáticamente con `/api/chat`. Volvé a ejecutar tras corregir; si cambió el contexto del equipo, se regenera aunque ya exista fila `ok`.
+  **Error de generación:** revisá que el modelo esté instalado (`ollama list`), subí el `timeout` y `num_predict`, y mirá `error_message` en `management_recommendations` o `storage/logs/ollama/`. En `config.php`, `ollama.base_url` debe ser la raíz del servidor (p. ej. `http://localhost:11434`), **no** `.../generate` (esa ruta suele dar 404). La app llama a `/api/generate`; si `response` viene vacío, reintenta con `/api/chat` (lee `message.content`). Volvé a ejecutar tras corregir; si cambió el contexto del equipo, se regenera aunque ya exista fila `ok`.
 
   **Log crudo de Ollama:** cada llamada escribe en `storage/logs/ollama/YYYY-MM-DD.log` un bloque `REQUEST` (comando `curl` reproducible en bash y PowerShell, más el JSON en `storage/logs/ollama/payloads/`) y un bloque `RESPONSE` (`raw_http`, `extracted_response`). En CLI también imprime la línea `curl` en stderr. Etiquetas del copiloto: `management-team-{id}-overview`, `-focus`, `-person-{id}`; InvGate: `invgate-ticket-{id}`. El directorio no se versiona en git.
 

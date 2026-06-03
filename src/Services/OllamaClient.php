@@ -23,12 +23,9 @@ final class OllamaClient
 
     public function __construct(string $baseUrl, string $model, int $timeout = 120, int $numPredict = 4096)
     {
-        $baseUrl = rtrim(trim($baseUrl), '/');
+        $baseUrl = self::normalizeBaseUrl($baseUrl);
         if ($baseUrl === '') {
             throw new \InvalidArgumentException('Ollama base_url vacío.');
-        }
-        if (!preg_match('#^https?://#i', $baseUrl)) {
-            $baseUrl = 'http://' . $baseUrl;
         }
         $this->baseUrl = $baseUrl;
         $this->model = trim($model);
@@ -260,22 +257,41 @@ final class OllamaClient
     }
 
     /**
+     * Raíz del servidor Ollama (sin /generate ni /api/generate).
+     * Ollama actual expone POST en /api/generate; /generate suele devolver 404.
+     */
+    private static function normalizeBaseUrl(string $baseUrl): string
+    {
+        $baseUrl = rtrim(trim($baseUrl), '/');
+        if ($baseUrl === '') {
+            return '';
+        }
+        if (!preg_match('#^https?://#i', $baseUrl)) {
+            $baseUrl = 'http://' . $baseUrl;
+        }
+
+        $suffixes = ['/api/generate', '/api/chat', '/generate', '/chat', '/api'];
+        $changed = true;
+        while ($changed) {
+            $changed = false;
+            foreach ($suffixes as $suffix) {
+                if (str_ends_with($baseUrl, $suffix)) {
+                    $baseUrl = rtrim(substr($baseUrl, 0, -strlen($suffix)), '/');
+                    $changed = true;
+                    break;
+                }
+            }
+        }
+
+        return $baseUrl;
+    }
+
+    /**
      * @return list<string>
      */
     private function endpointCandidates(): array
     {
-        if (str_ends_with($this->baseUrl, '/api/generate') || str_ends_with($this->baseUrl, '/generate')) {
-            return [$this->baseUrl];
-        }
-
-        if (str_ends_with($this->baseUrl, '/api')) {
-            return [$this->baseUrl . '/generate', preg_replace('#/api$#', '/generate', $this->baseUrl) ?: ($this->baseUrl . '/generate')];
-        }
-
-        return [
-            $this->baseUrl . '/generate',
-            $this->baseUrl . '/api/generate',
-        ];
+        return [$this->baseUrl . '/api/generate'];
     }
 
     /**
@@ -283,18 +299,7 @@ final class OllamaClient
      */
     private function chatEndpointCandidates(): array
     {
-        if (str_ends_with($this->baseUrl, '/api/chat') || str_ends_with($this->baseUrl, '/chat')) {
-            return [$this->baseUrl];
-        }
-
-        if (str_ends_with($this->baseUrl, '/api')) {
-            return [$this->baseUrl . '/chat'];
-        }
-
-        return [
-            $this->baseUrl . '/api/chat',
-            $this->baseUrl . '/chat',
-        ];
+        return [$this->baseUrl . '/api/chat'];
     }
 
     /**
@@ -392,10 +397,34 @@ final class OllamaClient
         }
 
         $message = $decoded['message'] ?? null;
-        if (is_array($message) && isset($message['content']) && is_string($message['content'])) {
-            $text = trim($message['content']);
-            if ($text !== '') {
-                return $text;
+        if (is_array($message)) {
+            foreach (['content', 'response'] as $key) {
+                if (isset($message[$key]) && is_string($message[$key])) {
+                    $text = trim($message[$key]);
+                    if ($text !== '') {
+                        return $text;
+                    }
+                }
+            }
+        }
+
+        $messages = $decoded['messages'] ?? null;
+        if (is_array($messages)) {
+            for ($i = count($messages) - 1; $i >= 0; $i--) {
+                $entry = $messages[$i];
+                if (!is_array($entry)) {
+                    continue;
+                }
+                $role = isset($entry['role']) ? (string) $entry['role'] : '';
+                if ($role !== '' && $role !== 'assistant') {
+                    continue;
+                }
+                if (isset($entry['content']) && is_string($entry['content'])) {
+                    $text = trim($entry['content']);
+                    if ($text !== '') {
+                        return $text;
+                    }
+                }
             }
         }
 

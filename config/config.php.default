@@ -60,6 +60,7 @@ return [
     ],
     // Ollama local para recomendaciones IA de tickets InvGate.
     'ollama' => [
+        // Raíz del servidor (sin /generate). La app usa /api/generate y /api/chat.
         'base_url' => 'http://localhost:11434',
         'model' => 'llama3.1',
         // Copiloto de Management: prompts largos; 180–300 suele ir mejor que 120.
