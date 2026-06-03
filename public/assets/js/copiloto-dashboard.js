@@ -156,19 +156,6 @@
             situationHtml = `<section class="copiloto-person-modal__section"><h3 class="copiloto-person-modal__section-title">Situación actual</h3><div class="copiloto-person-modal__prose"><p>${escapeHtml(String(situation))}</p>${situationRat}</div></section>`;
         }
 
-        let questionsHtml = "";
-        if (Array.isArray(rec.one_on_one_questions) && rec.one_on_one_questions.length > 0) {
-            const lis = rec.one_on_one_questions
-                .map((q) => `<li>${escapeHtml(String(q))}</li>`)
-                .join("");
-            questionsHtml = `<section class="copiloto-person-modal__section copiloto-person-modal__section--questions"><h3 class="copiloto-person-modal__section-title">Preguntas para el próximo 1:1</h3><ol class="copiloto-person-modal__questions">${lis}</ol></section>`;
-        }
-
-        let pentagonHtml = "";
-        if (rec.pentagon_note) {
-            pentagonHtml = `<section class="copiloto-person-modal__section copiloto-person-modal__section--pentagon"><h3 class="copiloto-person-modal__section-title">Perfil pentagonal</h3><div class="copiloto-person-modal__prose copiloto-person-modal__prose--accent"><p>${escapeHtml(rec.pentagon_note)}</p></div></section>`;
-        }
-
         let footer = "";
         if (meta?.generated_at) {
             footer = `<footer class="copiloto-person-modal__footer muted">Generado: ${escapeHtml(formatGeneratedAt(meta.generated_at))}`;
@@ -185,9 +172,6 @@
             ${situationHtml}
             ${renderModalItemSection("Riesgos", rec.risks, true, "copiloto-person-modal__section--risks")}
             ${renderModalItemSection("Posibles bloqueos", rec.blockers, true)}
-            ${questionsHtml}
-            ${renderModalItemSection("Acciones sugeridas", rec.suggested_actions, true, "copiloto-person-modal__section--actions")}
-            ${pentagonHtml}
             ${footer}
         </div>`;
     }
@@ -300,18 +284,6 @@
             return `<article class="copiloto-card"><h4 class="copiloto-card__title">${escapeHtml(title)}</h4>${renderRationale(item)}${link}</article>`;
         });
 
-        const oneOnOne = renderListSection("Preguntas para 1:1", rec.one_on_one, (item) => {
-            const name = item.name || (item.person_id ? `Persona #${item.person_id}` : "Persona");
-            const qs = Array.isArray(item.questions)
-                ? `<ul>${item.questions.map((q) => `<li>${escapeHtml(String(q))}</li>`).join("")}</ul>`
-                : "";
-            const openBtn =
-                item.person_id != null
-                    ? `<button type="button" class="btn btn--small copiloto-card__open-person" data-copilot-person-id="${escapeHtml(String(item.person_id))}" data-copilot-person-name="${escapeHtml(name)}">Ver lectura IA</button>`
-                    : "";
-            return `<article class="copiloto-card"><h4 class="copiloto-card__title">${escapeHtml(name)}</h4>${qs}${openBtn}</article>`;
-        });
-
         const delegations = renderListSection("Delegaciones sugeridas", rec.delegations, (item) => {
             const title = item.title || `Tema #${item.topic_id || "?"}`;
             return `<article class="copiloto-card"><h4 class="copiloto-card__title">${escapeHtml(title)}</h4>${renderRationale(item)}</article>`;
@@ -324,7 +296,6 @@
             actions +
             people +
             topics +
-            oneOnOne +
             delegations +
             `<div id="copilotoPeopleGridMount"></div>`
         );

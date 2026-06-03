@@ -306,7 +306,7 @@ final class ManagementRecommendationService
     }
 
     /**
-     * Llamada 2/2: personas, temas, delegaciones y 1:1.
+     * Llamada 2/2: personas, temas y delegaciones.
      *
      * @param array<string, mixed> $snapshot
      * @param array{summary: string, executive_bullets: list<string>, risks: list<array<string, mixed>>, actions: list<array<string, mixed>>} $overview
@@ -374,7 +374,7 @@ final class ManagementRecommendationService
         return "Sos un copiloto de management de un equipo técnico. Te paso datos del equipo en JSON.\n"
             . "Completá la segunda parte del análisis. Ya existe un borrador de resumen/riesgos/acciones; mantené coherencia.\n"
             . "Respondé únicamente con JSON válido (sin markdown y sin texto extra) con esta estructura exacta:\n"
-            . "{\"people_focus\":[{\"person_id\":1,\"name\":\"...\",\"rationale\":\"...\",\"signals\":[\"...\"]}],\"topics_focus\":[{\"topic_id\":1,\"title\":\"...\",\"rationale\":\"...\"}],\"delegations\":[{\"topic_id\":1,\"from_person_id\":1,\"to_person_id\":5,\"rationale\":\"...\"}],\"one_on_one\":[{\"person_id\":1,\"questions\":[\"...\"]}]}\n\n"
+            . "{\"people_focus\":[{\"person_id\":1,\"name\":\"...\",\"rationale\":\"...\",\"signals\":[\"...\"]}],\"topics_focus\":[{\"topic_id\":1,\"title\":\"...\",\"rationale\":\"...\"}],\"delegations\":[{\"topic_id\":1,\"from_person_id\":1,\"to_person_id\":5,\"rationale\":\"...\"}]}\n\n"
             . "Reglas:\n"
             . "- Escribir en español.\n"
             . "- No inventar datos; si falta una fuente, indicarlo.\n"
@@ -402,12 +402,11 @@ final class ManagementRecommendationService
 
         return "Sos un copiloto de management para la persona {$name}. Te paso sus datos en JSON.\n"
             . "Respondé únicamente con JSON válido (sin markdown y sin texto extra) con esta estructura exacta:\n"
-            . "{\"summary\":\"...\",\"risk_level\":\"low|medium|high\",\"situation\":{\"current\":\"...\",\"rationale\":\"...\"},\"risks\":[{\"title\":\"...\",\"rationale\":\"...\"}],\"blockers\":[{\"title\":\"...\",\"rationale\":\"...\"}],\"one_on_one_questions\":[\"...\"],\"suggested_actions\":[{\"title\":\"...\",\"rationale\":\"...\"}],\"pentagon_reading\":\"...\"}\n\n"
+            . "{\"summary\":\"...\",\"risk_level\":\"low|medium|high\",\"situation\":{\"current\":\"...\",\"rationale\":\"...\"},\"risks\":[{\"title\":\"...\",\"rationale\":\"...\"}],\"blockers\":[{\"title\":\"...\",\"rationale\":\"...\"}]}\n\n"
             . "Reglas:\n"
             . "- Escribir en español.\n"
             . "- No inventar datos.\n"
-            . "- rationale obligatorio citando métricas del JSON.\n"
-            . "- pentagon_reading: basado en ejes actuales; sin histórico, indicar que no hay evolución temporal.\n\n"
+            . "- rationale obligatorio citando métricas del JSON.\n\n"
             . "Datos de la persona:\n"
             . $contextJson;
     }
@@ -544,7 +543,7 @@ final class ManagementRecommendationService
             'people_focus' => $this->pickObjectList($decoded, [['people_focus'], ['personas']]),
             'topics_focus' => $this->pickObjectList($decoded, [['topics_focus'], ['temas']]),
             'delegations' => $this->pickObjectList($decoded, [['delegations'], ['delegaciones']]),
-            'one_on_one' => $this->pickObjectList($decoded, [['one_on_one'], ['one_on_ones']]),
+            'one_on_one' => [],
         ];
     }
 
@@ -570,8 +569,6 @@ final class ManagementRecommendationService
         }
 
         $situation = $this->pickObject($decoded, [['situation'], ['situacion']]);
-        $questions = $this->pickStringList($decoded, [['one_on_one_questions'], ['preguntas_1_1']]);
-        $pentagon = $this->pickString($decoded, [['pentagon_reading'], ['pentagon_note']]);
 
         return [
             'summary' => $this->cutText($this->pickString($decoded, [['summary'], ['resumen']]), 2500),
@@ -579,9 +576,9 @@ final class ManagementRecommendationService
             'situation' => $situation,
             'risks' => $this->pickObjectList($decoded, [['risks'], ['riesgos']]),
             'blockers' => $this->pickObjectList($decoded, [['blockers'], ['bloqueos']]),
-            'one_on_one_questions' => array_slice($questions, 0, 12),
-            'suggested_actions' => $this->pickObjectList($decoded, [['suggested_actions'], ['acciones']]),
-            'pentagon_note' => $pentagon !== '' ? $this->cutText($pentagon, 1500) : null,
+            'one_on_one_questions' => [],
+            'suggested_actions' => [],
+            'pentagon_note' => null,
         ];
     }
 

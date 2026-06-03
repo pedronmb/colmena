@@ -4665,10 +4665,6 @@ a.devops-card__link:focus-visible {
     border-left: 3px solid color-mix(in srgb, var(--danger, #c0392b) 55%, var(--border));
 }
 
-.copiloto-person-modal__section--actions .copiloto-person-modal__item {
-    border-left: 3px solid color-mix(in srgb, var(--accent) 55%, var(--border));
-}
-
 .copiloto-person-modal__item-title {
     display: block;
     font-weight: 600;
@@ -4684,23 +4680,6 @@ a.devops-card__link:focus-visible {
 .copiloto-person-modal__rationale-label {
     font-weight: 600;
     color: var(--text);
-}
-
-.copiloto-person-modal__questions {
-    margin: 0;
-    padding-left: 1.35rem;
-    font-size: 0.9rem;
-    line-height: 1.45;
-}
-
-.copiloto-person-modal__questions li {
-    margin-bottom: 0.45rem;
-    padding-left: 0.15rem;
-}
-
-.copiloto-person-modal__questions li::marker {
-    color: var(--accent);
-    font-weight: 600;
 }
 
 .copiloto-person-modal__footer {
