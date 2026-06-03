@@ -8,12 +8,13 @@ use App\Repositories\ManagementRecommendationRepository;
 use App\Repositories\PersonManagementRecommendationRepository;
 use App\Repositories\TeamRepository;
 use App\Support\ManagementPeriod;
-use App\Support\OllamaJsonParser;
 
 final class ManagementRecommendationService
 {
     private const MAX_CONTEXT_CHARS = 12000;
     private const MAX_PERSON_CONTEXT_CHARS = 8000;
+    private const MAX_TEAM_REPORT_CHARS = 12000;
+    private const MAX_PERSON_REPORT_CHARS = 8000;
 
     /** @var OllamaClient */
     private $client;
@@ -181,17 +182,24 @@ final class ManagementRecommendationService
     ): void {
         $overview = $this->generateTeamOverview($snapshot, $teamId);
         $focus = $this->generateTeamFocus($snapshot, $overview, $teamId);
-        $parsed = array_merge($overview, $focus);
+
+        $fullReport = trim($overview['body']);
+        $focusBody = trim($focus['body']);
+        if ($focusBody !== '') {
+            $fullReport = $fullReport !== ''
+                ? $fullReport . "\n\n---\n\n" . $focusBody
+                : $focusBody;
+        }
 
         $this->teamRecRepo->upsertOk($teamId, $period['period_start'], $period['period_end'], [
-            'summary' => $parsed['summary'],
-            'executive_bullets_json' => json_encode($parsed['executive_bullets'], JSON_UNESCAPED_UNICODE),
-            'risks_json' => json_encode($parsed['risks'], JSON_UNESCAPED_UNICODE),
-            'actions_json' => json_encode($parsed['actions'], JSON_UNESCAPED_UNICODE),
-            'people_focus_json' => json_encode($parsed['people_focus'], JSON_UNESCAPED_UNICODE),
-            'topics_focus_json' => json_encode($parsed['topics_focus'], JSON_UNESCAPED_UNICODE),
-            'delegations_json' => json_encode($parsed['delegations'], JSON_UNESCAPED_UNICODE),
-            'one_on_one_json' => json_encode($parsed['one_on_one'], JSON_UNESCAPED_UNICODE),
+            'summary' => $this->cutText($fullReport, self::MAX_TEAM_REPORT_CHARS),
+            'executive_bullets_json' => '[]',
+            'risks_json' => '[]',
+            'actions_json' => '[]',
+            'people_focus_json' => '[]',
+            'topics_focus_json' => '[]',
+            'delegations_json' => '[]',
+            'one_on_one_json' => '[]',
             'context_hash' => $hash,
         ], $this->model);
 
@@ -236,7 +244,7 @@ final class ManagementRecommendationService
                 $prompt = $this->buildPersonPrompt($personSnapshot);
                 $raw = $this->client->generate(
                     $prompt,
-                    true,
+                    false,
                     'management-team-' . $teamId . '-person-' . $personId
                 );
                 $parsed = $this->parsePersonResponse($raw);
@@ -247,14 +255,14 @@ final class ManagementRecommendationService
                     $period['period_start'],
                     $period['period_end'],
                     [
-                        'summary' => $parsed['summary'],
+                        'summary' => $this->cutText($parsed['body'], self::MAX_PERSON_REPORT_CHARS),
                         'risk_level' => $parsed['risk_level'],
-                        'situation_json' => json_encode($parsed['situation'], JSON_UNESCAPED_UNICODE),
-                        'risks_json' => json_encode($parsed['risks'], JSON_UNESCAPED_UNICODE),
-                        'suggested_actions_json' => json_encode($parsed['suggested_actions'], JSON_UNESCAPED_UNICODE),
-                        'one_on_one_questions_json' => json_encode($parsed['one_on_one_questions'], JSON_UNESCAPED_UNICODE),
-                        'blockers_json' => json_encode($parsed['blockers'], JSON_UNESCAPED_UNICODE),
-                        'pentagon_note' => $parsed['pentagon_note'],
+                        'situation_json' => '{}',
+                        'risks_json' => '[]',
+                        'suggested_actions_json' => '[]',
+                        'one_on_one_questions_json' => '[]',
+                        'blockers_json' => '[]',
+                        'pentagon_note' => null,
                         'context_hash' => $personHash,
                     ],
                     $this->model
@@ -284,48 +292,38 @@ final class ManagementRecommendationService
     }
 
     /**
-     * Llamada 1/2: resumen ejecutivo, riesgos y acciones.
+     * Llamada 1/2: resumen ejecutivo, riesgos y acciones (markdown).
      *
      * @param array<string, mixed> $snapshot
-     * @return array{
-     *   summary: string,
-     *   executive_bullets: list<string>,
-     *   risks: list<array<string, mixed>>,
-     *   actions: list<array<string, mixed>>
-     * }
+     * @return array{body: string}
      */
     private function generateTeamOverview(array $snapshot, int $teamId): array
     {
         $raw = $this->client->generate(
             $this->buildTeamOverviewPrompt($snapshot),
-            true,
+            false,
             'management-team-' . $teamId . '-overview'
         );
 
-        return $this->parseTeamOverviewResponse($raw);
+        return $this->parseProseResponse($raw);
     }
 
     /**
-     * Llamada 2/2: personas, temas y delegaciones.
+     * Llamada 2/2: personas, temas y delegaciones (markdown).
      *
      * @param array<string, mixed> $snapshot
-     * @param array{summary: string, executive_bullets: list<string>, risks: list<array<string, mixed>>, actions: list<array<string, mixed>>} $overview
-     * @return array{
-     *   people_focus: list<array<string, mixed>>,
-     *   topics_focus: list<array<string, mixed>>,
-     *   delegations: list<array<string, mixed>>,
-     *   one_on_one: list<array<string, mixed>>
-     * }
+     * @param array{body: string} $overview
+     * @return array{body: string}
      */
     private function generateTeamFocus(array $snapshot, array $overview, int $teamId): array
     {
         $raw = $this->client->generate(
             $this->buildTeamFocusPrompt($snapshot, $overview),
-            true,
+            false,
             'management-team-' . $teamId . '-focus'
         );
 
-        return $this->parseTeamFocusResponse($raw);
+        return $this->parseProseResponse($raw);
     }
 
     /**
@@ -339,20 +337,25 @@ final class ManagementRecommendationService
         );
 
         return "Sos un copiloto de management de un equipo técnico. Te paso datos del equipo en JSON.\n"
-            . "Respondé únicamente con JSON válido (sin markdown y sin texto extra) con esta estructura exacta:\n"
-            . "{\"executive_bullets\":[\"...\"],\"summary\":\"...\",\"risks\":[{\"title\":\"...\",\"rationale\":\"...\",\"severity\":\"high|medium|low\"}],\"actions\":[{\"title\":\"...\",\"rationale\":\"...\",\"suggested_person_id\":null,\"priority\":\"high|medium|low\"}]}\n\n"
+            . "Respondé en español con markdown. Esta es la PRIMERA parte del informe semanal.\n"
+            . "Incluí estas secciones con encabezados ## exactos:\n"
+            . "## Resumen ejecutivo\n"
+            . "(bullets o párrafo corto con lo más importante de la semana)\n"
+            . "## Riesgos detectados\n"
+            . "(cada riesgo con título en negrita y línea **Por qué:** citando métricas del JSON)\n"
+            . "## Acciones recomendadas\n"
+            . "(acciones concretas con **Por qué:** auditable)\n\n"
             . "Reglas:\n"
-            . "- Escribir en español.\n"
-            . "- executive_bullets: máximo 8 ítems.\n"
             . "- No inventar datos; si falta una fuente (invgate/devops), indicarlo.\n"
-            . "- Cada riesgo y acción DEBE incluir rationale con métricas del JSON (auditable).\n"
-            . "- Priorizá recomendaciones accionables.\n\n"
+            . "- Cada riesgo y acción DEBE incluir **Por qué:** con métricas del JSON.\n"
+            . "- Priorizá recomendaciones accionables.\n"
+            . "- No uses bloques de código ni JSON en la respuesta.\n\n"
             . "Datos del equipo:\n"
             . $contextJson;
     }
 
     /**
-     * @param array{summary: string, executive_bullets: list<string>, risks: list<array<string, mixed>>, actions: list<array<string, mixed>>} $overview
+     * @param array{body: string} $overview
      * @param array<string, mixed> $snapshot
      */
     private function buildTeamFocusPrompt(array $snapshot, array $overview): string
@@ -361,27 +364,23 @@ final class ManagementRecommendationService
             $this->snapshotForPrompt($snapshot),
             self::MAX_CONTEXT_CHARS
         );
-        $prior = json_encode([
-            'summary' => $overview['summary'],
-            'executive_bullets' => $overview['executive_bullets'],
-            'risks_count' => count($overview['risks']),
-            'actions_count' => count($overview['actions']),
-        ], JSON_UNESCAPED_UNICODE);
-        if ($prior === false) {
-            $prior = '{}';
-        }
+        $prior = trim($overview['body']);
 
         return "Sos un copiloto de management de un equipo técnico. Te paso datos del equipo en JSON.\n"
-            . "Completá la segunda parte del análisis. Ya existe un borrador de resumen/riesgos/acciones; mantené coherencia.\n"
-            . "Respondé únicamente con JSON válido (sin markdown y sin texto extra) con esta estructura exacta:\n"
-            . "{\"people_focus\":[{\"person_id\":1,\"name\":\"...\",\"rationale\":\"...\",\"signals\":[\"...\"]}],\"topics_focus\":[{\"topic_id\":1,\"title\":\"...\",\"rationale\":\"...\"}],\"delegations\":[{\"topic_id\":1,\"from_person_id\":1,\"to_person_id\":5,\"rationale\":\"...\"}]}\n\n"
+            . "Respondé en español con markdown. Esta es la SEGUNDA parte del informe semanal.\n"
+            . "NO repitas el resumen, riesgos ni acciones de la primera parte; mantené coherencia.\n"
+            . "Incluí estas secciones con encabezados ## exactos:\n"
+            . "## Personas a revisar\n"
+            . "(nombre, señales relevantes y **Por qué:** con métricas)\n"
+            . "## Temas críticos\n"
+            . "(título o id del tema si aplica, **Por qué:**)\n"
+            . "## Delegaciones sugeridas\n"
+            . "(opcional si no hay candidatos; incluir **Por qué:**)\n\n"
             . "Reglas:\n"
-            . "- Escribir en español.\n"
             . "- No inventar datos; si falta una fuente, indicarlo.\n"
-            . "- Cada ítem DEBE incluir rationale con métricas del JSON del equipo (auditable).\n"
-            . "- people_focus: personas que requieren atención del líder.\n"
-            . "- topics_focus: temas críticos o sin avance.\n\n"
-            . "Borrador previo (solo contexto, no repetir en la respuesta):\n"
+            . "- Cada ítem DEBE incluir **Por qué:** con métricas del JSON del equipo.\n"
+            . "- No uses bloques de código ni JSON en la respuesta.\n\n"
+            . "Primera parte del informe (solo contexto, no repetir):\n"
             . $prior . "\n\n"
             . "Datos del equipo:\n"
             . $contextJson;
@@ -401,12 +400,17 @@ final class ManagementRecommendationService
             : 'Persona';
 
         return "Sos un copiloto de management para la persona {$name}. Te paso sus datos en JSON.\n"
-            . "Respondé únicamente con JSON válido (sin markdown y sin texto extra) con esta estructura exacta:\n"
-            . "{\"summary\":\"...\",\"risk_level\":\"low|medium|high\",\"situation\":{\"current\":\"...\",\"rationale\":\"...\"},\"risks\":[{\"title\":\"...\",\"rationale\":\"...\"}],\"blockers\":[{\"title\":\"...\",\"rationale\":\"...\"}]}\n\n"
+            . "Respondé en español con markdown como informe de lectura para el líder.\n"
+            . "Comenzá con una línea: Nivel de riesgo: bajo|medio|alto\n"
+            . "Luego un párrafo resumen breve.\n"
+            . "Incluí estas secciones con encabezados ##:\n"
+            . "## Situación actual\n"
+            . "## Riesgos\n"
+            . "## Posibles bloqueos\n\n"
             . "Reglas:\n"
-            . "- Escribir en español.\n"
             . "- No inventar datos.\n"
-            . "- rationale obligatorio citando métricas del JSON.\n\n"
+            . "- Cada sección debe citar métricas del JSON con **Por qué:** cuando aplique.\n"
+            . "- No uses bloques de código ni JSON en la respuesta.\n\n"
             . "Datos de la persona:\n"
             . $contextJson;
     }
@@ -502,196 +506,46 @@ final class ManagementRecommendationService
     }
 
     /**
-     * @return array{
-     *   summary: string,
-     *   executive_bullets: list<string>,
-     *   risks: list<array<string, mixed>>,
-     *   actions: list<array<string, mixed>>
-     * }
+     * @return array{body: string}
      */
-    private function parseTeamOverviewResponse(string $raw): array
+    private function parseProseResponse(string $raw): array
     {
-        $decoded = OllamaJsonParser::decodeToArray($raw);
-
-        $bullets = $this->pickStringList($decoded, [['executive_bullets']]);
-        $summary = $this->pickString($decoded, [['summary'], ['resumen']]);
-        if ($summary === '' && $bullets !== []) {
-            $summary = implode(' ', array_slice($bullets, 0, 3));
+        $body = trim($raw);
+        if ($body === '') {
+            throw new \RuntimeException('Ollama devolvió una respuesta vacía.');
         }
 
-        return [
-            'summary' => $this->cutText($summary, 3000),
-            'executive_bullets' => array_slice($bullets, 0, 8),
-            'risks' => $this->pickObjectList($decoded, [['risks'], ['riesgos']]),
-            'actions' => $this->pickObjectList($decoded, [['actions'], ['acciones']]),
-        ];
+        return ['body' => $body];
     }
 
     /**
-     * @return array{
-     *   people_focus: list<array<string, mixed>>,
-     *   topics_focus: list<array<string, mixed>>,
-     *   delegations: list<array<string, mixed>>,
-     *   one_on_one: list<array<string, mixed>>
-     * }
-     */
-    private function parseTeamFocusResponse(string $raw): array
-    {
-        $decoded = OllamaJsonParser::decodeToArray($raw);
-
-        return [
-            'people_focus' => $this->pickObjectList($decoded, [['people_focus'], ['personas']]),
-            'topics_focus' => $this->pickObjectList($decoded, [['topics_focus'], ['temas']]),
-            'delegations' => $this->pickObjectList($decoded, [['delegations'], ['delegaciones']]),
-            'one_on_one' => [],
-        ];
-    }
-
-    /**
-     * @return array{
-     *   summary: string,
-     *   risk_level: ?string,
-     *   situation: array<string, mixed>,
-     *   risks: list<array<string, mixed>>,
-     *   blockers: list<array<string, mixed>>,
-     *   one_on_one_questions: list<string>,
-     *   suggested_actions: list<array<string, mixed>>,
-     *   pentagon_note: ?string
-     * }
+     * @return array{body: string, risk_level: ?string}
      */
     private function parsePersonResponse(string $raw): array
     {
-        $decoded = OllamaJsonParser::decodeToArray($raw);
-
-        $riskLevel = $this->pickString($decoded, [['risk_level'], ['nivel_riesgo']]);
-        if (!in_array($riskLevel, ['low', 'medium', 'high'], true)) {
-            $riskLevel = null;
-        }
-
-        $situation = $this->pickObject($decoded, [['situation'], ['situacion']]);
+        $parsed = $this->parseProseResponse($raw);
 
         return [
-            'summary' => $this->cutText($this->pickString($decoded, [['summary'], ['resumen']]), 2500),
-            'risk_level' => $riskLevel,
-            'situation' => $situation,
-            'risks' => $this->pickObjectList($decoded, [['risks'], ['riesgos']]),
-            'blockers' => $this->pickObjectList($decoded, [['blockers'], ['bloqueos']]),
-            'one_on_one_questions' => [],
-            'suggested_actions' => [],
-            'pentagon_note' => null,
+            'body' => $parsed['body'],
+            'risk_level' => $this->extractRiskLevel($parsed['body']),
         ];
     }
 
-    /**
-     * @param array<string, mixed> $data
-     * @param list<list<string>> $paths
-     */
-    private function pickString(array $data, array $paths): string
+    private function extractRiskLevel(string $body): ?string
     {
-        foreach ($paths as $path) {
-            $value = $this->valueByPath($data, $path);
-            if ($value === null) {
-                continue;
-            }
-            if (is_string($value) || is_numeric($value)) {
-                $text = trim((string) $value);
-                if ($text !== '') {
-                    return $text;
-                }
-            }
+        $head = substr($body, 0, 500);
+        if (preg_match('/Nivel de riesgo:\s*(bajo|medio|alto)/iu', $head, $m) !== 1) {
+            return null;
         }
 
-        return '';
-    }
+        $level = mb_strtolower(trim($m[1]));
+        $map = [
+            'bajo' => 'low',
+            'medio' => 'medium',
+            'alto' => 'high',
+        ];
 
-    /**
-     * @param array<string, mixed> $data
-     * @param list<list<string>> $paths
-     * @return list<string>
-     */
-    private function pickStringList(array $data, array $paths): array
-    {
-        foreach ($paths as $path) {
-            $value = $this->valueByPath($data, $path);
-            if (!is_array($value)) {
-                continue;
-            }
-            $out = [];
-            foreach ($value as $item) {
-                if (is_string($item) || is_numeric($item)) {
-                    $t = trim((string) $item);
-                    if ($t !== '') {
-                        $out[] = $t;
-                    }
-                }
-            }
-            if ($out !== []) {
-                return $out;
-            }
-        }
-
-        return [];
-    }
-
-    /**
-     * @param array<string, mixed> $data
-     * @param list<list<string>> $paths
-     * @return list<array<string, mixed>>
-     */
-    private function pickObjectList(array $data, array $paths): array
-    {
-        foreach ($paths as $path) {
-            $value = $this->valueByPath($data, $path);
-            if (!is_array($value)) {
-                continue;
-            }
-            $out = [];
-            foreach ($value as $item) {
-                if (is_array($item)) {
-                    $out[] = $item;
-                }
-            }
-            if ($out !== []) {
-                return $out;
-            }
-        }
-
-        return [];
-    }
-
-    /**
-     * @param array<string, mixed> $data
-     * @param list<list<string>> $paths
-     * @return array<string, mixed>
-     */
-    private function pickObject(array $data, array $paths): array
-    {
-        foreach ($paths as $path) {
-            $value = $this->valueByPath($data, $path);
-            if (is_array($value)) {
-                return $value;
-            }
-        }
-
-        return [];
-    }
-
-    /**
-     * @param array<string, mixed> $data
-     * @param list<string> $path
-     * @return mixed
-     */
-    private function valueByPath(array $data, array $path)
-    {
-        $cursor = $data;
-        foreach ($path as $key) {
-            if (!is_array($cursor) || !array_key_exists($key, $cursor)) {
-                return null;
-            }
-            $cursor = $cursor[$key];
-        }
-
-        return $cursor;
+        return $map[$level] ?? null;
     }
 
     private function cutText(string $text, int $maxLen): string

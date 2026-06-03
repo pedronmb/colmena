@@ -4706,3 +4706,84 @@ a.devops-card__link:focus-visible {
     text-align: left;
 }
 
+/* Informe markdown del Copiloto (respuesta libre) */
+.copiloto-prose {
+    margin: 0 0 1.25rem;
+    padding: 1rem 1.15rem;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--surface);
+    font-size: 0.92rem;
+    line-height: 1.55;
+}
+
+.copiloto-prose--compact {
+    margin: 0;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+}
+
+.copiloto-prose__title {
+    margin: 0 0 0.85rem;
+    font-size: 1.05rem;
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+.copiloto-prose__section {
+    margin-bottom: 1.1rem;
+}
+
+.copiloto-prose__section:last-child {
+    margin-bottom: 0;
+}
+
+.copiloto-prose__heading {
+    margin: 0 0 0.55rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+}
+
+.copiloto-prose__subheading {
+    margin: 0.65rem 0 0.35rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+}
+
+.copiloto-prose__p {
+    margin: 0 0 0.65rem;
+}
+
+.copiloto-prose__p:last-child {
+    margin-bottom: 0;
+}
+
+.copiloto-prose__list {
+    margin: 0 0 0.65rem;
+    padding-left: 1.25rem;
+}
+
+.copiloto-prose__list li {
+    margin-bottom: 0.35rem;
+}
+
+.copiloto-prose__list li:last-child {
+    margin-bottom: 0;
+}
+
+.copiloto-prose__hr {
+    margin: 1.25rem 0;
+    border: none;
+    border-top: 1px dashed var(--border);
+}
+
+.copiloto-section--highlight .copiloto-prose {
+    border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+    background: color-mix(in srgb, var(--accent-soft) 40%, var(--surface));
+}
+

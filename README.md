@@ -133,13 +133,13 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
   ],
   ```
 
-  Se utiliza para generar resumen y recomendación de próximos pasos por ticket abierto, y para el **Copiloto de Management** (resumen semanal por equipo y lectura por persona). Las peticiones piden **`format: json`** a Ollama (con reintento sin ese flag si la API responde 400 o si `response` viene vacío). El parser acepta JSON puro, bloques `` ```json `` o texto alrededor. Si falla el parseo, el mensaje de error guardado en base incluye una **vista previa** de la respuesta (útil para depurar). Para el copiloto conviene `timeout` **180–300** segundos y `num_predict` **4096** (o más si el modelo corta la salida).
+  Se utiliza para generar resumen y recomendación de próximos pasos por ticket abierto (**InvGate**, respuesta JSON), y para el **Copiloto de Management** (informes semanales en **markdown libre**). InvGate pide **`format: json`** a Ollama (con reintento sin ese flag si la API responde 400 o si `response` viene vacío); el parser acepta JSON puro, bloques `` ```json `` o texto alrededor. Para el copiloto conviene `timeout` **180–300** segundos y `num_predict` **4096** (o más si el modelo corta la salida).
 
   El cron de recomendaciones InvGate solo regenera tickets cuya `last_update` es igual o posterior a la última generación exitosa (`generated_at`). Los demás conservan el análisis existente hasta que InvGate actualice el ticket. Los tickets sin recomendación previa (o con error en la última generación) se procesan en cada ejecución.
 
   #### Copiloto de Management (CLI + UI)
 
-  Genera una agenda de gestión auditable (cada ítem incluye **por qué**, con métricas del snapshot: carga, tickets stale, temas críticos, alertas, pentágono).
+  Genera una agenda de gestión auditable (cada ítem incluye **por qué**, con métricas del snapshot: carga, tickets stale, temas críticos, alertas, pentágono). Ollama responde en **markdown** (sin exigir JSON); el informe completo del equipo se guarda en `summary` y la UI lo renderiza como texto estructurado por secciones.
 
   | Script | Destino |
   |--------|---------|
@@ -150,7 +150,7 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
 
   **Regeneración:** si ya existe una fila `ok` para el mismo `team_id` + `period_start` y el hash del contexto (`context_hash`) no cambió, el script omite ese equipo/persona.
 
-  **Llamadas Ollama por equipo:** 2 para el resumen del equipo (1) ejecutivo + riesgos + acciones; (2) personas a revisar + temas + delegaciones + 1:1; más 1 llamada por persona con señales relevantes. Así se reduce el tamaño de cada respuesta JSON.
+  **Llamadas Ollama por equipo:** 2 informes markdown que se concatenan: (1) resumen ejecutivo + riesgos + acciones; (2) personas a revisar + temas + delegaciones; más 1 informe por persona. Las columnas `*_json` quedan vacías en generaciones nuevas; filas antiguas con JSON siguen mostrándose con la UI de tarjetas hasta regenerar.
 
   **Orden cron sugerido** (después de sync InvGate/DevOps):
 
@@ -161,11 +161,11 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
 
   **Interfaz:**
 
-  - **Dashboards → Copiloto** (`dashboard.php?panel=copiloto`) — resumen ejecutivo, riesgos, acciones, personas/temas a revisar, 1:1 y delegaciones; **tarjetas por persona** con lectura IA al hacer clic (`GET api/management-copilot.php`, `api/person-management-copilot-list.php`, `api/person-management-copilot.php`).
+  - **Dashboards → Copiloto** (`dashboard.php?panel=copiloto`) — informe semanal en markdown (secciones ##) y **tarjetas por persona** con lectura IA al hacer clic (`GET api/management-copilot.php`, `api/person-management-copilot-list.php`, `api/person-management-copilot.php`).
 
   **Limitaciones v1:** no hay histórico de evolución del pentágono ni throughput; el prompt lo indica. Los temas no tienen `due_date` (las acciones de fecha usan alertas del equipo). La generación es **offline** (no on-demand en la web).
 
-  **Error «no contiene JSON parseable»:** revisá que el modelo esté instalado (`ollama list`), subí el `timeout`, y mirá `error_message` en `management_recommendations` (incluye vista previa). Volvé a ejecutar tras corregir; si cambió el contexto del equipo, se regenera aunque ya exista fila `ok`.
+  **Error de generación:** revisá que el modelo esté instalado (`ollama list`), subí el `timeout`, y mirá `error_message` en `management_recommendations`. Una respuesta vacía de Ollama también marca error. Volvé a ejecutar tras corregir; si cambió el contexto del equipo, se regenera aunque ya exista fila `ok`.
 
   **Log crudo de Ollama:** cada llamada appendea en `storage/logs/ollama/YYYY-MM-DD.log` el cuerpo HTTP completo (`raw_http`), el texto extraído de `response` si hubo, y metadata (endpoint, modelo, etiqueta). Las etiquetas del copiloto son `management-team-{id}-overview`, `-focus`, `-person-{id}`; InvGate: `invgate-ticket-{id}`. El directorio no se versiona en git.
 

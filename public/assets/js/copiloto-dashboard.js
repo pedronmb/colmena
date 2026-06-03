@@ -41,6 +41,159 @@
         return d.innerHTML;
     }
 
+    /** @param {string} text */
+    function inlineMarkdown(text) {
+        const escaped = escapeHtml(text);
+        return escaped.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+    }
+
+    /** @param {string} markdown */
+    function renderMarkdown(markdown) {
+        if (!markdown || String(markdown).trim() === "") return "";
+
+        let html = "";
+        let inList = false;
+        let inSection = false;
+        const lines = String(markdown).split(/\r\n|\r|\n/);
+
+        const closeList = () => {
+            if (inList) {
+                html += "</ul>";
+                inList = false;
+            }
+        };
+
+        const closeSection = () => {
+            closeList();
+            if (inSection) {
+                html += "</section>";
+                inSection = false;
+            }
+        };
+
+        for (const line of lines) {
+            const trim = line.trim();
+
+            if (trim === "---") {
+                closeSection();
+                html += '<hr class="copiloto-prose__hr">';
+                continue;
+            }
+
+            if (trim === "") {
+                closeList();
+                continue;
+            }
+
+            const h1 = trim.match(/^# (.+)$/);
+            if (h1) {
+                closeSection();
+                html += `<h2 class="copiloto-prose__title">${inlineMarkdown(h1[1])}</h2>`;
+                continue;
+            }
+
+            const h2 = trim.match(/^## (.+)$/);
+            if (h2) {
+                closeSection();
+                html += '<section class="copiloto-prose__section">';
+                html += `<h3 class="copiloto-prose__heading">${inlineMarkdown(h2[1])}</h3>`;
+                inSection = true;
+                continue;
+            }
+
+            const h3 = trim.match(/^### (.+)$/);
+            if (h3) {
+                closeList();
+                html += `<h4 class="copiloto-prose__subheading">${inlineMarkdown(h3[1])}</h4>`;
+                continue;
+            }
+
+            const li = trim.match(/^[-*] (.+)$/);
+            if (li) {
+                if (!inList) {
+                    html += '<ul class="copiloto-prose__list">';
+                    inList = true;
+                }
+                html += `<li>${inlineMarkdown(li[1])}</li>`;
+                continue;
+            }
+
+            closeList();
+            html += `<p class="copiloto-prose__p">${inlineMarkdown(trim)}</p>`;
+        }
+
+        closeSection();
+        return html;
+    }
+
+    /** @param {object} rec */
+    function isStructuredRecommendation(rec) {
+        return (
+            (Array.isArray(rec.executive_bullets) && rec.executive_bullets.length > 0) ||
+            (Array.isArray(rec.risks) && rec.risks.length > 0) ||
+            (Array.isArray(rec.actions) && rec.actions.length > 0) ||
+            (Array.isArray(rec.people_focus) && rec.people_focus.length > 0) ||
+            (Array.isArray(rec.topics_focus) && rec.topics_focus.length > 0) ||
+            (Array.isArray(rec.delegations) && rec.delegations.length > 0)
+        );
+    }
+
+    /** @param {object} rec */
+    function isStructuredPersonRecommendation(rec) {
+        const situation =
+            rec.situation && typeof rec.situation === "object"
+                ? rec.situation.current || rec.situation.text || ""
+                : "";
+        return (
+            Boolean(situation && String(situation).trim()) ||
+            (Array.isArray(rec.risks) && rec.risks.length > 0) ||
+            (Array.isArray(rec.blockers) && rec.blockers.length > 0)
+        );
+    }
+
+    /** @param {object} meta */
+    function renderReportHeader(meta) {
+        const periodLabel =
+            meta.period_start && meta.period_end
+                ? `${meta.period_start} — ${meta.period_end}`
+                : "";
+
+        let header = `<header class="copiloto-dashboard__header">
+            <p class="copiloto-dashboard__period muted">Semana ${escapeHtml(periodLabel)}</p>`;
+        if (meta.generated_at) {
+            header += `<p class="muted copiloto-dashboard__meta">Generado: ${escapeHtml(formatGeneratedAt(meta.generated_at))}`;
+            if (meta.model) {
+                header += ` · Modelo: ${escapeHtml(meta.model)}`;
+            }
+            header += "</p>";
+        }
+        header += "</header>";
+        return header;
+    }
+
+    /**
+     * @param {object} rec
+     * @param {object} meta
+     * @param {{ compact?: boolean, includePeopleMount?: boolean }} [opts]
+     */
+    function renderProseReport(rec, meta, opts) {
+        const compact = opts?.compact === true;
+        const includePeopleMount = opts?.includePeopleMount !== false;
+        const body = rec.summary || "";
+        const proseClass = compact
+            ? "copiloto-prose copiloto-prose--compact"
+            : "copiloto-prose";
+
+        let html = compact ? "" : renderReportHeader(meta);
+        html += `<article class="${proseClass}">${renderMarkdown(body)}</article>`;
+
+        if (!compact && includePeopleMount) {
+            html += `<div id="copilotoPeopleGridMount"></div>`;
+        }
+
+        return html;
+    }
+
     function periodKey() {
         const v = periodEl?.value;
         return v === "previous" ? "previous" : "current";
@@ -132,6 +285,31 @@
             )}</div>`;
         }
 
+        if (rec.summary && !isStructuredPersonRecommendation(rec)) {
+            const risk = rec.risk_level || "";
+            const riskBadge = risk
+                ? `<span class="copiloto-person-modal__risk copiloto-person-modal__risk--${escapeHtml(risk)}">${escapeHtml(riskLevelLabel(risk))}</span>`
+                : "";
+            const periodLabel =
+                meta.period_start && meta.period_end
+                    ? `Semana ${meta.period_start} — ${meta.period_end}`
+                    : "";
+            let footer = "";
+            if (meta?.generated_at) {
+                footer = `<footer class="copiloto-person-modal__footer muted">Generado: ${escapeHtml(formatGeneratedAt(meta.generated_at))}`;
+                if (meta.model) footer += ` · ${escapeHtml(meta.model)}`;
+                footer += "</footer>";
+            }
+            return `<div class="copiloto-person-modal__content">
+                <div class="copiloto-person-modal__topbar">
+                    ${riskBadge}
+                    ${periodLabel ? `<span class="copiloto-person-modal__period muted">${escapeHtml(periodLabel)}</span>` : ""}
+                </div>
+                ${renderProseReport(rec, meta, { compact: true, includePeopleMount: false })}
+                ${footer}
+            </div>`;
+        }
+
         const risk = rec.risk_level || "";
         const riskBadge = risk
             ? `<span class="copiloto-person-modal__risk copiloto-person-modal__risk--${escapeHtml(risk)}">${escapeHtml(riskLevelLabel(risk))}</span>`
@@ -221,21 +399,7 @@
     function renderRecommendation(rec, meta) {
         const bullets = rec.executive_bullets || [];
         const summary = rec.summary || "";
-        const periodLabel =
-            meta.period_start && meta.period_end
-                ? `${meta.period_start} — ${meta.period_end}`
-                : "";
-
-        let header = `<header class="copiloto-dashboard__header">
-            <p class="copiloto-dashboard__period muted">Semana ${escapeHtml(periodLabel)}</p>`;
-        if (meta.generated_at) {
-            header += `<p class="muted copiloto-dashboard__meta">Generado: ${escapeHtml(formatGeneratedAt(meta.generated_at))}`;
-            if (meta.model) {
-                header += ` · Modelo: ${escapeHtml(meta.model)}`;
-            }
-            header += "</p>";
-        }
-        header += "</header>";
+        const header = renderReportHeader(meta);
 
         let execHtml = "";
         if (bullets.length > 0) {
@@ -462,7 +626,10 @@
                 return;
             }
 
-            contentEl.innerHTML = renderRecommendation(data.recommendation, meta);
+            const rec = data.recommendation;
+            contentEl.innerHTML = isStructuredRecommendation(rec)
+                ? renderRecommendation(rec, meta)
+                : renderProseReport(rec, meta);
             await loadPeopleGrid();
         } catch (e) {
             if (seq !== loadSeq) return;
