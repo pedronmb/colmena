@@ -71,6 +71,9 @@ try {
 
     $cards = [];
     foreach ($people as $person) {
+        if (empty($person['is_direct_team'])) {
+            continue;
+        }
         $personId = (int) ($person['id'] ?? 0);
         if ($personId < 1) {
             continue;

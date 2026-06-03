@@ -8,6 +8,10 @@ use App\Repositories\AlertRepository;
 use App\Repositories\TeamHealthRepository;
 use App\Repositories\TeamPersonRepository;
 use App\Repositories\TopicRepository;
+use App\Support\AzureDevOpsFinalStates;
+use App\Support\InvgateFinalStatuses;
+use App\Support\InvgatePriority;
+use App\Support\ManagementOrgGrouping;
 use App\Support\TeamHealthThresholds;
 use DateTimeImmutable;
 use PDO;
@@ -16,7 +20,9 @@ final class ManagementContextBuilder
 {
     private const STALE_TOPIC_DAYS = 14;
     private const MAX_TOPICS = 80;
-    private const MAX_TICKETS_PER_PERSON = 8;
+    private const MAX_STALE_TICKETS_PER_PERSON = 8;
+    private const MAX_OPEN_TICKETS_PER_PERSON = 6;
+    private const MAX_WORK_ITEMS_PER_PERSON = 5;
 
     /** @var TeamHealthService */
     private $healthService;
@@ -59,7 +65,11 @@ final class ManagementContextBuilder
     public function buildTeamSnapshot(int $teamId, array $options = []): array
     {
         $staleDays = max(1, (int) ($options['stale_days'] ?? 3));
-        $scope = (string) ($options['scope'] ?? 'all');
+        $scope = (string) ($options['scope'] ?? 'direct');
+
+        $teamPeople = $this->peopleRepo->listByTeam($teamId);
+        $directTeamIds = $this->directTeamPersonIds($teamPeople);
+        $org = ManagementOrgGrouping::build($this->mapPeopleForOrg($teamPeople));
 
         $health = $this->healthService->computeForTeam($teamId, [
             'period_days' => null,
@@ -67,18 +77,24 @@ final class ManagementContextBuilder
             'scope' => $scope,
         ]);
 
-        $peopleProfiles = $this->buildPeopleProfiles($teamId);
-        $topics = $this->buildTopicsList($teamId);
+        $peopleProfiles = $this->buildPeopleProfiles($teamPeople, $directTeamIds);
+        $topics = $this->buildTopicsList($teamId, $directTeamIds);
         $alerts = $this->buildAlertsSummary($teamId);
         $staleTopics = $this->filterStaleTopics($topics);
-        $ticketsSample = $this->buildTicketsSample($teamId, $staleDays);
+        $ticketsSample = $this->buildTicketsStaleSample($teamId, $staleDays, $directTeamIds);
+        $ticketsOpenSample = $this->buildTicketsOpenSample($teamId, $staleDays, $directTeamIds);
+        $workItemsSample = $this->buildWorkItemsSample($teamId, $directTeamIds);
 
         $peopleWithShare = $this->attachLoadShare($health['people'] ?? []);
 
         return [
             'team_id' => $teamId,
             'generated_at' => (new DateTimeImmutable())->format('c'),
+            'scope' => $scope,
             'historical_note' => 'No hay histórico de evolución de pentágono ni throughput en la base de datos.',
+            'encargados' => $org['encargados'],
+            'org_by_encargado' => $org['org_by_encargado'],
+            'direct_team_unassigned' => $org['direct_team_unassigned'],
             'health' => $health,
             'people' => $peopleWithShare,
             'people_profiles' => $peopleProfiles,
@@ -86,6 +102,8 @@ final class ManagementContextBuilder
             'stale_topics' => $staleTopics,
             'alerts' => $alerts,
             'tickets_sample' => $ticketsSample,
+            'tickets_open_sample' => $ticketsOpenSample,
+            'work_items_sample' => $workItemsSample,
         ];
     }
 
@@ -128,27 +146,36 @@ final class ManagementContextBuilder
         }
 
         $personTickets = [];
-        foreach ($teamSnapshot['tickets_sample'] ?? [] as $ticket) {
-            if ((int) ($ticket['person_id'] ?? 0) === $personId) {
-                $personTickets[] = $ticket;
+        foreach (['tickets_sample', 'tickets_open_sample'] as $key) {
+            foreach ($teamSnapshot[$key] ?? [] as $ticket) {
+                if ((int) ($ticket['person_id'] ?? 0) === $personId) {
+                    $personTickets[] = $ticket;
+                }
+            }
+        }
+
+        $personWorkItems = [];
+        foreach ($teamSnapshot['work_items_sample'] ?? [] as $item) {
+            if ((int) ($item['person_id'] ?? 0) === $personId) {
+                $personWorkItems[] = $item;
             }
         }
 
         return [
             'team_id' => (int) ($teamSnapshot['team_id'] ?? 0),
             'person_id' => $personId,
+            'encargados' => $teamSnapshot['encargados'] ?? [],
             'team_summary' => $teamSnapshot['health']['team'] ?? [],
             'person' => $person,
             'profile' => $profile,
             'topics' => $personTopics,
             'tickets' => $personTickets,
+            'work_items' => $personWorkItems,
             'historical_note' => $teamSnapshot['historical_note'] ?? '',
         ];
     }
 
     /**
-     * Personas que conviene generar recomendación individual.
-     *
      * @param array<string, mixed> $teamSnapshot
      * @return list<int>
      */
@@ -157,80 +184,75 @@ final class ManagementContextBuilder
         $ids = [];
         foreach ($teamSnapshot['people'] ?? [] as $person) {
             $personId = (int) ($person['person_id'] ?? 0);
-            if ($personId < 1) {
+            if ($personId < 1 || empty($person['is_direct_team'])) {
                 continue;
             }
-            if ($this->personNeedsRecommendation($person)) {
-                $ids[] = $personId;
-            }
+            $ids[] = $personId;
         }
 
         return array_values(array_unique($ids));
     }
 
     /**
-     * @param array<string, mixed> $person
+     * @param list<array<string, mixed>> $people
+     * @return array<int, true>
      */
-    private function personNeedsRecommendation(array $person): bool
+    private function directTeamPersonIds(array $people): array
     {
-        if (!empty($person['is_direct_team'])) {
-            return true;
+        $ids = [];
+        foreach ($people as $row) {
+            if (!empty($row['is_direct_team'])) {
+                $id = (int) ($row['id'] ?? 0);
+                if ($id > 0) {
+                    $ids[$id] = true;
+                }
+            }
         }
 
-        $status = (string) ($person['status'] ?? '');
-        if (in_array($status, ['red', 'yellow'], true)) {
-            return true;
-        }
-
-        $metrics = is_array($person['metrics'] ?? null) ? $person['metrics'] : [];
-        if ((int) ($metrics['stale_tickets'] ?? 0) > 0) {
-            return true;
-        }
-        if ((int) ($metrics['critical_topics'] ?? 0) > 0) {
-            return true;
-        }
-        if ((int) ($person['load_score'] ?? 0) >= TeamHealthThresholds::LOAD_YELLOW_MIN) {
-            return true;
-        }
-
-        return false;
+        return $ids;
     }
 
     /**
      * @param list<array<string, mixed>> $people
      * @return list<array<string, mixed>>
      */
-    private function attachLoadShare(array $people): array
+    private function mapPeopleForOrg(array $people): array
     {
-        $sum = 0;
-        foreach ($people as $p) {
-            $sum += (int) ($p['load_score'] ?? 0);
-        }
-
         $out = [];
-        foreach ($people as $p) {
-            $load = (int) ($p['load_score'] ?? 0);
-            $share = $sum > 0 ? round(100 * $load / $sum, 1) : 0.0;
-            $p['load_share_percent'] = $share;
-            $out[] = $p;
+        foreach ($people as $row) {
+            $out[] = [
+                'id' => (int) ($row['id'] ?? 0),
+                'display_name' => (string) ($row['display_name'] ?? ''),
+                'role' => $row['role'] ?? null,
+                'is_direct_team' => !empty($row['is_direct_team']),
+                'is_encargado' => !empty($row['is_encargado']),
+                'reports_to_id' => isset($row['reports_to_id']) && $row['reports_to_id'] !== null
+                    ? (int) $row['reports_to_id']
+                    : null,
+            ];
         }
 
         return $out;
     }
 
     /**
+     * @param list<array<string, mixed>> $people
+     * @param array<int, true> $directTeamIds
      * @return list<array<string, mixed>>
      */
-    private function buildPeopleProfiles(int $teamId): array
+    private function buildPeopleProfiles(array $people, array $directTeamIds): array
     {
-        $people = $this->peopleRepo->listByTeam($teamId);
         $out = [];
         foreach ($people as $row) {
+            $personId = (int) ($row['id'] ?? 0);
+            if ($personId < 1 || !isset($directTeamIds[$personId])) {
+                continue;
+            }
             $out[] = [
-                'person_id' => (int) ($row['id'] ?? 0),
+                'person_id' => $personId,
                 'display_name' => (string) ($row['display_name'] ?? ''),
                 'role' => $row['role'] ?? null,
-                'is_direct_team' => !empty($row['is_direct_team']),
+                'is_direct_team' => true,
                 'invgate_id' => $row['invgate_id'] ?? null,
                 'pentagon' => [
                     'autonomy_problem_solving' => $row['axis_autonomy_problem_solving'] ?? null,
@@ -246,10 +268,15 @@ final class ManagementContextBuilder
     }
 
     /**
+     * @param array<int, true> $directTeamIds
      * @return list<array<string, mixed>>
      */
-    private function buildTopicsList(int $teamId): array
+    private function buildTopicsList(int $teamId, array $directTeamIds): array
     {
+        if ($directTeamIds === []) {
+            return [];
+        }
+
         $topics = $this->topicsRepo->listByTeam($teamId, false, self::MAX_TOPICS);
         $out = [];
         foreach ($topics as $topic) {
@@ -257,12 +284,13 @@ final class ManagementContextBuilder
             if (!in_array($arr['status'] ?? '', ['open', 'in_progress', 'blocked'], true)) {
                 continue;
             }
-            if (empty($arr['person_id'])) {
+            $personId = (int) ($arr['person_id'] ?? 0);
+            if ($personId < 1 || !isset($directTeamIds[$personId])) {
                 continue;
             }
             $out[] = [
                 'id' => (int) $arr['id'],
-                'person_id' => (int) $arr['person_id'],
+                'person_id' => $personId,
                 'title' => (string) ($arr['title'] ?? ''),
                 'priority' => (int) ($arr['priority'] ?? 5),
                 'importance' => (int) ($arr['importance'] ?? 5),
@@ -327,45 +355,37 @@ final class ManagementContextBuilder
     }
 
     /**
+     * @param array<int, true> $directTeamIds
      * @return list<array<string, mixed>>
      */
-    private function buildTicketsSample(int $teamId, int $staleDays): array
+    private function buildTicketsStaleSample(int $teamId, int $staleDays, array $directTeamIds): array
     {
-        if (!$this->healthRepo->hasTable('invgate_tickets')) {
+        if ($directTeamIds === [] || !$this->healthRepo->hasTable('invgate_tickets')) {
             return [];
         }
 
-        $tickets = $this->healthRepo->listOpenTicketsForTeam($teamId);
+        $tickets = $this->filterTicketsForDirectTeam(
+            $this->healthRepo->listOpenTicketsForTeam($teamId),
+            $directTeamIds
+        );
         if ($tickets === []) {
             return [];
         }
 
-        $comments = $this->healthRepo->listCommentsForTeam($teamId);
-        $commentsByTicket = [];
-        foreach ($comments as $c) {
-            $tid = (int) $c['ticket_id'];
-            if (!isset($commentsByTicket[$tid])) {
-                $commentsByTicket[$tid] = [];
-            }
-            $commentsByTicket[$tid][] = $c;
-        }
-
+        $commentsByTicket = $this->commentsByTicket($teamId);
         $staleCutoff = time() - ($staleDays * 86400);
         $byPerson = [];
+
         foreach ($tickets as $ticket) {
             $pid = (int) ($ticket['person_id'] ?? 0);
-            if ($pid < 1) {
-                continue;
-            }
             $lastTs = $this->lastInteractionTs($ticket, $commentsByTicket[(int) $ticket['id']] ?? []);
-            $isStale = $lastTs !== null && $lastTs < $staleCutoff;
-            if (!$isStale) {
+            if ($lastTs === null || $lastTs >= $staleCutoff) {
                 continue;
             }
             if (!isset($byPerson[$pid])) {
                 $byPerson[$pid] = [];
             }
-            if (count($byPerson[$pid]) >= self::MAX_TICKETS_PER_PERSON) {
+            if (count($byPerson[$pid]) >= self::MAX_STALE_TICKETS_PER_PERSON) {
                 continue;
             }
             $byPerson[$pid][] = [
@@ -379,6 +399,203 @@ final class ManagementContextBuilder
             ];
         }
 
+        return $this->enrichTicketTitles($this->flattenByPerson($byPerson));
+    }
+
+    /**
+     * @param array<int, true> $directTeamIds
+     * @return list<array<string, mixed>>
+     */
+    private function buildTicketsOpenSample(int $teamId, int $staleDays, array $directTeamIds): array
+    {
+        if ($directTeamIds === [] || !$this->healthRepo->hasTable('invgate_tickets')) {
+            return [];
+        }
+
+        $tickets = $this->filterTicketsForDirectTeam(
+            $this->healthRepo->listOpenTicketsForTeam($teamId),
+            $directTeamIds
+        );
+        if ($tickets === []) {
+            return [];
+        }
+
+        $commentsByTicket = $this->commentsByTicket($teamId);
+        $staleCutoff = time() - ($staleDays * 86400);
+        $byPerson = [];
+
+        foreach ($tickets as $ticket) {
+            $pid = (int) ($ticket['person_id'] ?? 0);
+            if (!isset($byPerson[$pid])) {
+                $byPerson[$pid] = [];
+            }
+            $lastTs = $this->lastInteractionTs($ticket, $commentsByTicket[(int) $ticket['id']] ?? []);
+            $isStale = $lastTs !== null && $lastTs < $staleCutoff;
+            $priority = isset($ticket['priority']) ? (int) $ticket['priority'] : null;
+            $byPerson[$pid][] = [
+                'ticket_id' => (int) $ticket['id'],
+                'person_id' => $pid,
+                'invgate_incident_id' => (int) ($ticket['invgate_incident_id'] ?? 0),
+                'priority' => $priority,
+                'status_name' => $ticket['status_name'] ?? null,
+                'last_update' => (string) ($ticket['last_update'] ?? ''),
+                'stale' => $isStale,
+                '_sort_weight' => InvgatePriority::weight($priority),
+                '_sort_ts' => $lastTs ?? 0,
+            ];
+        }
+
+        foreach ($byPerson as $pid => &$list) {
+            usort(
+                $list,
+                static function (array $a, array $b): int {
+                    $w = ($b['_sort_weight'] ?? 0) <=> ($a['_sort_weight'] ?? 0);
+                    if ($w !== 0) {
+                        return $w;
+                    }
+
+                    return ($a['_sort_ts'] ?? 0) <=> ($b['_sort_ts'] ?? 0);
+                }
+            );
+            $list = array_slice($list, 0, self::MAX_OPEN_TICKETS_PER_PERSON);
+            foreach ($list as &$item) {
+                unset($item['_sort_weight'], $item['_sort_ts']);
+            }
+            unset($item);
+        }
+        unset($list);
+
+        return $this->enrichTicketTitles($this->flattenByPerson($byPerson));
+    }
+
+    /**
+     * @param array<int, true> $directTeamIds
+     * @return list<array<string, mixed>>
+     */
+    private function buildWorkItemsSample(int $teamId, array $directTeamIds): array
+    {
+        if ($directTeamIds === [] || !$this->healthRepo->hasTable('azure_work_items')) {
+            return [];
+        }
+
+        $finalStates = new AzureDevOpsFinalStates();
+        $placeholders = $finalStates->sqlNotInPlaceholders();
+        $lowerNames = $finalStates->namesLower();
+        if ($lowerNames === []) {
+            return [];
+        }
+
+        $peopleStmt = $this->pdo->prepare(
+            'SELECT id, email FROM team_people WHERE team_id = :team_id'
+        );
+        $peopleStmt->execute(['team_id' => $teamId]);
+
+        /** @var array<string, int> */
+        $emailIndex = [];
+        /** @var array<int, true> */
+        $teamPersonIds = [];
+        while ($row = $peopleStmt->fetch(PDO::FETCH_ASSOC)) {
+            $personId = isset($row['id']) ? (int) $row['id'] : 0;
+            if ($personId < 1 || !isset($directTeamIds[$personId])) {
+                continue;
+            }
+            $teamPersonIds[$personId] = true;
+            $email = isset($row['email']) && $row['email'] !== null ? trim((string) $row['email']) : '';
+            if ($email !== '') {
+                $emailIndex[strtolower($email)] = $personId;
+            }
+        }
+
+        if ($teamPersonIds === []) {
+            return [];
+        }
+
+        $itemsStmt = $this->pdo->prepare(
+            'SELECT azure_id, title, work_item_type, state, assigned_to,
+                    assigned_unique_name, changed_at, person_id
+             FROM azure_work_items
+             WHERE removed_at IS NULL
+               AND LOWER(state) NOT IN (' . $placeholders . ')
+             ORDER BY changed_at DESC'
+        );
+        $itemsStmt->execute($lowerNames);
+
+        /** @var array<int, list<array<string, mixed>>> */
+        $byPerson = [];
+
+        while ($row = $itemsStmt->fetch(PDO::FETCH_ASSOC)) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $personId = $this->resolveWorkItemPersonId($row, $teamPersonIds, $emailIndex);
+            if ($personId === null) {
+                continue;
+            }
+            if (!isset($byPerson[$personId])) {
+                $byPerson[$personId] = [];
+            }
+            if (count($byPerson[$personId]) >= self::MAX_WORK_ITEMS_PER_PERSON) {
+                continue;
+            }
+            $byPerson[$personId][] = [
+                'azure_id' => (int) ($row['azure_id'] ?? 0),
+                'person_id' => $personId,
+                'title' => (string) ($row['title'] ?? ''),
+                'work_item_type' => $row['work_item_type'] ?? null,
+                'state' => (string) ($row['state'] ?? ''),
+                'changed_at' => (string) ($row['changed_at'] ?? ''),
+            ];
+        }
+
+        return $this->flattenByPerson($byPerson);
+    }
+
+    /**
+     * @param list<array<string, mixed>> $tickets
+     * @param array<int, true> $directTeamIds
+     * @return list<array<string, mixed>>
+     */
+    private function filterTicketsForDirectTeam(array $tickets, array $directTeamIds): array
+    {
+        $out = [];
+        foreach ($tickets as $ticket) {
+            $pid = (int) ($ticket['person_id'] ?? 0);
+            if ($pid < 1 || !isset($directTeamIds[$pid])) {
+                continue;
+            }
+            if (InvgateFinalStatuses::isFinal($ticket['status_id'] ?? null)) {
+                continue;
+            }
+            $out[] = $ticket;
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return array<int, list<array<string, mixed>>>
+     */
+    private function commentsByTicket(int $teamId): array
+    {
+        $comments = $this->healthRepo->listCommentsForTeam($teamId);
+        $commentsByTicket = [];
+        foreach ($comments as $c) {
+            $tid = (int) $c['ticket_id'];
+            if (!isset($commentsByTicket[$tid])) {
+                $commentsByTicket[$tid] = [];
+            }
+            $commentsByTicket[$tid][] = $c;
+        }
+
+        return $commentsByTicket;
+    }
+
+    /**
+     * @param array<int, list<array<string, mixed>>> $byPerson
+     * @return list<array<string, mixed>>
+     */
+    private function flattenByPerson(array $byPerson): array
+    {
         $out = [];
         foreach ($byPerson as $list) {
             foreach ($list as $item) {
@@ -386,7 +603,7 @@ final class ManagementContextBuilder
             }
         }
 
-        return $this->enrichTicketTitles($out);
+        return $out;
     }
 
     /**
@@ -407,7 +624,7 @@ final class ManagementContextBuilder
         $stmt->execute($ids);
         /** @var array<int, string> */
         $titles = [];
-        while ($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             $titles[(int) $row['id']] = (string) ($row['title'] ?? '');
         }
 
@@ -418,6 +635,61 @@ final class ManagementContextBuilder
         unset($ticket);
 
         return $tickets;
+    }
+
+    /**
+     * @param array<string, mixed> $row
+     * @param array<int, true> $teamPersonIds
+     * @param array<string, int> $emailIndex
+     */
+    private function resolveWorkItemPersonId(array $row, array $teamPersonIds, array $emailIndex): ?int
+    {
+        $storedId = isset($row['person_id']) && $row['person_id'] !== null && $row['person_id'] !== ''
+            ? (int) $row['person_id']
+            : 0;
+        if ($storedId > 0 && isset($teamPersonIds[$storedId])) {
+            return $storedId;
+        }
+
+        $upn = isset($row['assigned_unique_name']) ? trim((string) $row['assigned_unique_name']) : '';
+        if ($upn !== '') {
+            $key = strtolower($upn);
+            if (isset($emailIndex[$key])) {
+                return $emailIndex[$key];
+            }
+        }
+
+        $assigned = isset($row['assigned_to']) ? trim((string) $row['assigned_to']) : '';
+        if ($assigned !== '') {
+            $key = strtolower($assigned);
+            if (isset($emailIndex[$key])) {
+                return $emailIndex[$key];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param list<array<string, mixed>> $people
+     * @return list<array<string, mixed>>
+     */
+    private function attachLoadShare(array $people): array
+    {
+        $sum = 0;
+        foreach ($people as $p) {
+            $sum += (int) ($p['load_score'] ?? 0);
+        }
+
+        $out = [];
+        foreach ($people as $p) {
+            $load = (int) ($p['load_score'] ?? 0);
+            $share = $sum > 0 ? round(100 * $load / $sum, 1) : 0.0;
+            $p['load_share_percent'] = $share;
+            $out[] = $p;
+        }
+
+        return $out;
     }
 
     /**

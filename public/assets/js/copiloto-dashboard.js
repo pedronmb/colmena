@@ -158,8 +158,16 @@
                 ? `${meta.period_start} — ${meta.period_end}`
                 : "";
 
+        const encargados = Array.isArray(meta.encargados) ? meta.encargados : [];
+        const encargadoNames = encargados
+            .map((e) => (e && e.name ? String(e.name).trim() : ""))
+            .filter((n) => n !== "");
+
         let header = `<header class="copiloto-dashboard__header">
-            <p class="copiloto-dashboard__period muted">Semana ${escapeHtml(periodLabel)}</p>`;
+            <p class="copiloto-dashboard__period muted">Semana ${escapeHtml(periodLabel)} · Equipo directo</p>`;
+        if (encargadoNames.length > 0) {
+            header += `<p class="copiloto-dashboard__audience muted">Dirigido a: ${escapeHtml(encargadoNames.join(", "))}</p>`;
+        }
         if (meta.generated_at) {
             header += `<p class="muted copiloto-dashboard__meta">Generado: ${escapeHtml(formatGeneratedAt(meta.generated_at))}`;
             if (meta.model) {
@@ -390,7 +398,7 @@
             })
             .join("");
 
-        return `<section class="copiloto-section copiloto-section--people"><h3 class="copiloto-section__title">Lectura IA por persona</h3>
+        return `<section class="copiloto-section copiloto-section--people"><h3 class="copiloto-section__title">Lectura IA por persona (equipo directo)</h3>
             <p class="muted copiloto-section__hint">Hacé clic en una tarjeta para ver la lectura completa de management.</p>
             <div class="copiloto-person-grid">${cards}</div></section>`;
     }

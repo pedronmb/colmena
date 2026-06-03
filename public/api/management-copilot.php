@@ -8,6 +8,7 @@ $config = require dirname(__DIR__, 2) . '/bootstrap_web.php';
 
 use App\Database\Connection;
 use App\Repositories\ManagementRecommendationRepository;
+use App\Repositories\TeamPersonRepository;
 use App\Repositories\TeamRepository;
 use App\Repositories\UserRepository;
 use App\Services\AuthService;
@@ -59,10 +60,28 @@ try {
     $repo = new ManagementRecommendationRepository($pdo);
     $row = $repo->findForTeamPeriod($teamId, $period['period_start']);
 
+    $encargados = [];
+    foreach ((new TeamPersonRepository($pdo))->listByTeam($teamId) as $person) {
+        if (empty($person['is_encargado'])) {
+            continue;
+        }
+        $name = trim((string) ($person['display_name'] ?? ''));
+        if ($name === '') {
+            continue;
+        }
+        $encargados[] = [
+            'person_id' => (int) ($person['id'] ?? 0),
+            'name' => $name,
+            'role' => isset($person['role']) && $person['role'] !== '' ? (string) $person['role'] : null,
+        ];
+    }
+
     $meta = [
         'period_key' => $periodKey,
         'period_start' => $period['period_start'],
         'period_end' => $period['period_end'],
+        'encargados' => $encargados,
+        'scope' => 'direct',
         'has_recommendation' => false,
         'message' => 'Se generará en la próxima ejecución del cron (php database/generate_management_recommendations.php).',
     ];

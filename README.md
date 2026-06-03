@@ -139,7 +139,7 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
 
   #### Copiloto de Management (CLI + UI)
 
-  Genera una agenda de gestión auditable (cada ítem incluye **por qué**, con métricas del snapshot: carga, tickets stale, temas críticos, alertas, pentágono). Ollama responde en **markdown** (sin exigir JSON); el informe completo del equipo se guarda en `summary` y la UI lo renderiza como texto estructurado por secciones.
+  Genera una agenda de gestión auditable para los **encargados** (`is_encargado` en ficha de persona), centrada en el **equipo directo** (`is_direct_team`). El contexto cruza **temas Colmena**, **tickets InvGate** (abiertos y stale) y **work items DevOps**; el organigrama (`reports_to_id`) define cómo se reparte el equipo directo bajo cada encargado (`org_by_encargado` en el snapshot). Ollama responde en **markdown**; el informe del equipo se guarda en `summary` y la UI lo renderiza por secciones (incluye «Dirigido a» en cabecera).
 
   | Script | Destino |
   |--------|---------|
@@ -150,7 +150,7 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
 
   **Regeneración:** si ya existe una fila `ok` para el mismo `team_id` + `period_start` y el hash del contexto (`context_hash`) no cambió, el script omite ese equipo/persona.
 
-  **Llamadas Ollama por equipo:** 2 informes markdown que se concatenan: (1) resumen ejecutivo + riesgos + acciones; (2) personas a revisar + temas + delegaciones; más 1 informe por persona. Las columnas `*_json` quedan vacías en generaciones nuevas; filas antiguas con JSON siguen mostrándose con la UI de tarjetas hasta regenerar.
+  **Llamadas Ollama por equipo:** 2 informes markdown que se concatenan: (1) resumen ejecutivo + panorama operativo (InvGate/DevOps/temas) + riesgos + acciones; (2) personas a revisar (por rama de encargado) + temas + delegaciones; más 1 informe por cada persona del equipo directo. Las columnas `*_json` quedan vacías en generaciones nuevas; filas antiguas con JSON siguen mostrándose con la UI de tarjetas hasta regenerar.
 
   **Orden cron sugerido** (después de sync InvGate/DevOps):
 
@@ -161,7 +161,7 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
 
   **Interfaz:**
 
-  - **Dashboards → Copiloto** (`dashboard.php?panel=copiloto`) — informe semanal en markdown (secciones ##) y **tarjetas por persona** con lectura IA al hacer clic (`GET api/management-copilot.php`, `api/person-management-copilot-list.php`, `api/person-management-copilot.php`).
+  - **Dashboards → Copiloto** (`dashboard.php?panel=copiloto`) — informe semanal en markdown (secciones ##), cabecera «Dirigido a» con encargados, y **tarjetas solo del equipo directo** con lectura IA al hacer clic (`GET api/management-copilot.php`, `api/person-management-copilot-list.php`, `api/person-management-copilot.php`).
 
   **Limitaciones v1:** no hay histórico de evolución del pentágono ni throughput; el prompt lo indica. Los temas no tienen `due_date` (las acciones de fecha usan alertas del equipo). La generación es **offline** (no on-demand en la web).
 

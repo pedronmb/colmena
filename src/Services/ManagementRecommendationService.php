@@ -120,7 +120,7 @@ final class ManagementRecommendationService
             try {
                 $snapshot = $this->contextBuilder->buildTeamSnapshot($teamId, [
                     'stale_days' => $staleDays,
-                    'scope' => 'all',
+                    'scope' => 'direct',
                 ]);
                 $hash = $this->contextBuilder->contextHash($snapshot);
 
@@ -338,17 +338,22 @@ final class ManagementRecommendationService
             self::MAX_CONTEXT_CHARS
         );
 
-        return "Sos un copiloto de management de un equipo técnico. Te paso datos del equipo en JSON.\n"
+        return "Sos un copiloto de management de un equipo técnico. Te paso datos del equipo directo en JSON.\n"
+            . $this->audienceInstruction($snapshot)
             . "Respondé en español con markdown. Esta es la PRIMERA parte del informe semanal.\n"
             . "Incluí estas secciones con encabezados ## exactos:\n"
             . "## Resumen ejecutivo\n"
-            . "(bullets o párrafo corto con lo más importante de la semana)\n"
+            . "(bullets o párrafo corto con lo más importante de la semana para el equipo directo)\n"
+            . "## Panorama operativo\n"
+            . "(síntesis cruzada: tickets InvGate, work items DevOps y temas Colmena; correlacioná fuentes)\n"
             . "## Riesgos detectados\n"
             . "(cada riesgo con título en negrita y línea **Por qué:** citando métricas del JSON)\n"
             . "## Acciones recomendadas\n"
             . "(acciones concretas con **Por qué:** auditable)\n\n"
             . "Reglas:\n"
-            . "- No inventar datos; si falta una fuente (invgate/devops), indicarlo.\n"
+            . "- Analizá ÚNICAMENTE el equipo directo del JSON; los colaboradores quedaron fuera del alcance.\n"
+            . "- Priorizá el análisis cruzado entre topics, tickets_open_sample/tickets_sample y work_items_sample.\n"
+            . "- No inventar datos; si falta una fuente (invgate/devops/temas), indicarlo.\n"
             . "- Cada riesgo y acción DEBE incluir **Por qué:** con métricas del JSON.\n"
             . "- Priorizá recomendaciones accionables.\n"
             . "- No uses bloques de código ni JSON en la respuesta.\n\n"
@@ -368,17 +373,22 @@ final class ManagementRecommendationService
         );
         $prior = $this->cutText(trim($overview['body']), self::MAX_PRIOR_REPORT_CHARS);
 
-        return "Sos un copiloto de management de un equipo técnico. Te paso datos del equipo en JSON.\n"
+        return "Sos un copiloto de management de un equipo técnico. Te paso datos del equipo directo en JSON.\n"
+            . $this->audienceInstruction($snapshot)
             . "Respondé en español con markdown. Esta es la SEGUNDA parte del informe semanal.\n"
-            . "NO repitas el resumen, riesgos ni acciones de la primera parte; mantené coherencia.\n"
+            . "NO repitas el resumen, panorama operativo, riesgos ni acciones de la primera parte; mantené coherencia.\n"
             . "Incluí estas secciones con encabezados ## exactos:\n"
             . "## Personas a revisar\n"
-            . "(nombre, señales relevantes y **Por qué:** con métricas)\n"
+            . "(agrupá por rama usando org_by_encargado: bajo cada encargado, nombre y señales con **Por qué:**; "
+            . "si hay direct_team_unassigned, mencionarlo y sugerir completar organigrama)\n"
             . "## Temas críticos\n"
-            . "(título o id del tema si aplica, **Por qué:**)\n"
+            . "(título o id del tema si aplica, **Por qué:** vinculando temas con tickets/devops de la persona)\n"
             . "## Delegaciones sugeridas\n"
             . "(opcional si no hay candidatos; incluir **Por qué:**)\n\n"
             . "Reglas:\n"
+            . "- Analizá ÚNICAMENTE el equipo directo; no menciones colaboradores externos.\n"
+            . "- Usá org_by_encargado para reflejar cómo se reparte el equipo según el organigrama.\n"
+            . "- Priorizá correlación entre topics, tickets y work_items_sample por persona.\n"
             . "- No inventar datos; si falta una fuente, indicarlo.\n"
             . "- Cada ítem DEBE incluir **Por qué:** con métricas del JSON del equipo.\n"
             . "- No uses bloques de código ni JSON en la respuesta.\n\n"
@@ -402,7 +412,7 @@ final class ManagementRecommendationService
             : 'Persona';
 
         return "Sos un copiloto de management para la persona {$name}. Te paso sus datos en JSON.\n"
-            . "Respondé en español con markdown como informe de lectura para el líder.\n"
+            . "Respondé en español con markdown como informe de lectura para el encargado que la supervisa.\n"
             . "Comenzá con una línea: Nivel de riesgo: bajo|medio|alto\n"
             . "Luego un párrafo resumen breve.\n"
             . "Incluí estas secciones con encabezados ##:\n"
@@ -411,10 +421,38 @@ final class ManagementRecommendationService
             . "## Posibles bloqueos\n\n"
             . "Reglas:\n"
             . "- No inventar datos.\n"
+            . "- Cruzá temas, tickets y work_items del JSON en el análisis.\n"
             . "- Cada sección debe citar métricas del JSON con **Por qué:** cuando aplique.\n"
             . "- No uses bloques de código ni JSON en la respuesta.\n\n"
             . "Datos de la persona:\n"
             . $contextJson;
+    }
+
+    /**
+     * @param array<string, mixed> $snapshot
+     */
+    private function audienceInstruction(array $snapshot): string
+    {
+        $encargados = is_array($snapshot['encargados'] ?? null) ? $snapshot['encargados'] : [];
+        if ($encargados === []) {
+            return "El informe es para el líder del equipo (no hay encargados marcados en la ficha; indicá que conviene designarlos).\n";
+        }
+
+        $names = [];
+        foreach ($encargados as $enc) {
+            if (!is_array($enc)) {
+                continue;
+            }
+            $name = trim((string) ($enc['name'] ?? ''));
+            if ($name !== '') {
+                $names[] = $name;
+            }
+        }
+        if ($names === []) {
+            return "El informe es para los encargados del equipo directo.\n";
+        }
+
+        return 'Redactá en segunda persona plural dirigido a: ' . implode(', ', $names) . ".\n";
     }
 
     /**
@@ -446,7 +484,11 @@ final class ManagementRecommendationService
 
         return [
             'team_id' => $snapshot['team_id'] ?? null,
+            'scope' => $snapshot['scope'] ?? 'direct',
             'historical_note' => $snapshot['historical_note'] ?? '',
+            'encargados' => $snapshot['encargados'] ?? [],
+            'org_by_encargado' => $snapshot['org_by_encargado'] ?? [],
+            'direct_team_unassigned' => $snapshot['direct_team_unassigned'] ?? [],
             'team' => $health['team'] ?? [],
             'meta' => $health['meta'] ?? [],
             'people' => $people,
@@ -455,6 +497,8 @@ final class ManagementRecommendationService
             'stale_topics' => $snapshot['stale_topics'] ?? [],
             'alerts' => $snapshot['alerts'] ?? [],
             'tickets_sample' => $snapshot['tickets_sample'] ?? [],
+            'tickets_open_sample' => $snapshot['tickets_open_sample'] ?? [],
+            'work_items_sample' => $snapshot['work_items_sample'] ?? [],
         ];
     }
 
@@ -482,12 +526,14 @@ final class ManagementRecommendationService
         return [
             'team_id' => $snapshot['team_id'] ?? null,
             'person_id' => $snapshot['person_id'] ?? null,
+            'encargados' => $snapshot['encargados'] ?? [],
             'historical_note' => $snapshot['historical_note'] ?? '',
             'team_summary' => $snapshot['team_summary'] ?? [],
             'person' => $person,
             'profile' => $snapshot['profile'] ?? null,
             'topics' => $snapshot['topics'] ?? [],
             'tickets' => $snapshot['tickets'] ?? [],
+            'work_items' => $snapshot['work_items'] ?? [],
         ];
     }
 

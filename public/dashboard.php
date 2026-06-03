@@ -232,8 +232,9 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                     data-team-id="<?= (int) $personalTeamId ?>"
                 >
                     <p class="muted copiloto-dashboard__lead">
-                        Agenda de gestión generada por IA a partir de temas, alertas, carga InvGate/DevOps y perfiles pentagonales.
-                        Cada recomendación incluye el <strong>por qué</strong> (datos auditable). Se actualiza con el cron semanal.
+                        Informe semanal para los <strong>encargados</strong> del <strong>equipo directo</strong>, con análisis cruzado de temas Colmena,
+                        tickets InvGate y work items DevOps según el organigrama. Cada recomendación incluye el <strong>por qué</strong> (datos auditable).
+                        Se actualiza con el cron semanal.
                     </p>
                     <div class="copiloto-filters" role="toolbar" aria-label="Filtros del copiloto">
                         <label class="copiloto-filters__field" for="copilotoPeriod">
