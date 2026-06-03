@@ -4496,3 +4496,234 @@ a.devops-card__link:focus-visible {
     margin-top: 0.45rem;
 }
 
+/* Modal lectura IA por persona (Copiloto) */
+.copiloto-person-modal__card.modal__card--wide {
+    width: min(100%, 40rem);
+    max-height: min(92vh, 52rem);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.copiloto-person-modal__head {
+    flex-shrink: 0;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1.15rem 1.25rem 0.9rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.copiloto-person-modal__head-main {
+    min-width: 0;
+    flex: 1;
+}
+
+.copiloto-person-modal__eyebrow {
+    margin: 0 0 0.25rem;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+}
+
+.copiloto-person-modal__head h2 {
+    margin: 0;
+    font-size: 1.28rem;
+    line-height: 1.25;
+    font-weight: 600;
+}
+
+.copiloto-person-modal__role {
+    margin: 0.3rem 0 0;
+    font-size: 0.86rem;
+}
+
+.copiloto-person-modal__body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 1rem 1.25rem 1.25rem;
+    -webkit-overflow-scrolling: touch;
+}
+
+.copiloto-person-modal__content {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.copiloto-person-modal__topbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.45rem 0.65rem;
+    margin-bottom: 0.95rem;
+}
+
+.copiloto-person-modal__period {
+    font-size: 0.8rem;
+}
+
+.copiloto-person-modal__risk {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.18rem 0.55rem;
+    border-radius: 999px;
+    background: var(--surface-hover);
+    border: 1px solid var(--border);
+}
+
+.copiloto-person-modal__risk--high {
+    color: var(--danger, #c0392b);
+    border-color: color-mix(in srgb, var(--danger, #c0392b) 35%, var(--border));
+    background: color-mix(in srgb, var(--danger, #c0392b) 10%, var(--surface));
+}
+
+.copiloto-person-modal__risk--medium {
+    color: #b8860b;
+    border-color: color-mix(in srgb, #b8860b 35%, var(--border));
+    background: color-mix(in srgb, #b8860b 10%, var(--surface));
+}
+
+.copiloto-person-modal__risk--low {
+    color: var(--muted);
+}
+
+.copiloto-person-modal__summary {
+    margin: 0 0 1rem;
+    padding: 0.9rem 1rem;
+    border-radius: 10px;
+    border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+    background: color-mix(in srgb, var(--accent-soft) 55%, var(--surface));
+}
+
+.copiloto-person-modal__summary p {
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.copiloto-person-modal__section {
+    margin-bottom: 1rem;
+}
+
+.copiloto-person-modal__section:last-child {
+    margin-bottom: 0;
+}
+
+.copiloto-person-modal__section-title {
+    margin: 0 0 0.55rem;
+    font-size: 0.76rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--muted);
+}
+
+.copiloto-person-modal__prose {
+    margin: 0;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    font-size: 0.9rem;
+    line-height: 1.45;
+}
+
+.copiloto-person-modal__prose p {
+    margin: 0;
+}
+
+.copiloto-person-modal__prose--accent {
+    border-color: color-mix(in srgb, var(--accent) 30%, var(--border));
+    background: color-mix(in srgb, var(--accent-soft) 35%, var(--surface));
+}
+
+.copiloto-person-modal__items {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.copiloto-person-modal__item {
+    padding: 0.7rem 0.85rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface);
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+.copiloto-person-modal__section--risks .copiloto-person-modal__item {
+    border-left: 3px solid color-mix(in srgb, var(--danger, #c0392b) 55%, var(--border));
+}
+
+.copiloto-person-modal__section--actions .copiloto-person-modal__item {
+    border-left: 3px solid color-mix(in srgb, var(--accent) 55%, var(--border));
+}
+
+.copiloto-person-modal__item-title {
+    display: block;
+    font-weight: 600;
+}
+
+.copiloto-person-modal__rationale {
+    margin: 0.4rem 0 0;
+    font-size: 0.84rem;
+    color: var(--muted);
+    line-height: 1.45;
+}
+
+.copiloto-person-modal__rationale-label {
+    font-weight: 600;
+    color: var(--text);
+}
+
+.copiloto-person-modal__questions {
+    margin: 0;
+    padding-left: 1.35rem;
+    font-size: 0.9rem;
+    line-height: 1.45;
+}
+
+.copiloto-person-modal__questions li {
+    margin-bottom: 0.45rem;
+    padding-left: 0.15rem;
+}
+
+.copiloto-person-modal__questions li::marker {
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.copiloto-person-modal__footer {
+    margin-top: 1rem;
+    padding-top: 0.85rem;
+    border-top: 1px dashed var(--border);
+    font-size: 0.78rem;
+}
+
+.copiloto-person-modal__loading,
+.copiloto-person-modal__empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 8rem;
+    padding: 1rem;
+    text-align: center;
+    font-size: 0.9rem;
+}
+
+.copiloto-person-modal__empty.form-error {
+    align-items: flex-start;
+    justify-content: flex-start;
+    text-align: left;
+}
+

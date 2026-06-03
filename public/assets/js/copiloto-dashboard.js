@@ -15,6 +15,7 @@
     const refreshBtn = document.getElementById("copilotoRefresh");
     const personModal = document.getElementById("copilotoPersonModal");
     const personModalTitle = document.getElementById("copilotoPersonModalTitle");
+    const personModalRole = document.getElementById("copilotoPersonModalRole");
     const personModalBody = document.getElementById("copilotoPersonModalBody");
 
     let loadSeq = 0;
@@ -100,19 +101,46 @@
         return `<section class="copiloto-section"><h3 class="copiloto-section__title">${escapeHtml(title)}</h3><div class="copiloto-section__cards">${cards}</div></section>`;
     }
 
+    /** @param {string} rationale */
+    function renderModalRationale(rationale) {
+        if (!rationale || String(rationale).trim() === "") return "";
+        return `<p class="copiloto-person-modal__rationale"><span class="copiloto-person-modal__rationale-label">Por qué:</span> ${escapeHtml(String(rationale))}</p>`;
+    }
+
+    /** @param {string} title @param {unknown[]} items @param {boolean} withRationale @param {string} [sectionClass] */
+    function renderModalItemSection(title, items, withRationale, sectionClass) {
+        if (!Array.isArray(items) || items.length === 0) return "";
+        const extraClass = sectionClass ? ` ${sectionClass}` : "";
+        const lis = items
+            .map((item) => {
+                const t = typeof item === "string" ? item : item.title || item.text || "";
+                const rat =
+                    withRationale && item && item.rationale
+                        ? renderModalRationale(String(item.rationale))
+                        : "";
+                return `<li class="copiloto-person-modal__item"><span class="copiloto-person-modal__item-title">${escapeHtml(String(t))}</span>${rat}</li>`;
+            })
+            .join("");
+        return `<section class="copiloto-person-modal__section${extraClass}"><h3 class="copiloto-person-modal__section-title">${escapeHtml(title)}</h3><ul class="copiloto-person-modal__items">${lis}</ul></section>`;
+    }
+
     /** @param {object} rec @param {object} meta */
     function renderPersonReadingHtml(rec, meta) {
         if (!rec || rec.status === "error") {
-            return `<p class="form-error person-copilot__empty">${escapeHtml(
+            return `<div class="copiloto-person-modal__empty form-error">${escapeHtml(
                 rec?.error_message || meta?.message || "Error al generar."
-            )}</p>`;
+            )}</div>`;
         }
 
         const risk = rec.risk_level || "";
-        const riskClass = risk ? ` person-copilot__risk--${risk}` : "";
         const riskBadge = risk
-            ? `<span class="person-copilot__risk${riskClass}">Riesgo ${escapeHtml(riskLevelLabel(risk))}</span>`
+            ? `<span class="copiloto-person-modal__risk copiloto-person-modal__risk--${escapeHtml(risk)}">${escapeHtml(riskLevelLabel(risk))}</span>`
             : "";
+
+        const periodLabel =
+            meta.period_start && meta.period_end
+                ? `Semana ${meta.period_start} — ${meta.period_end}`
+                : "";
 
         const situation =
             rec.situation && typeof rec.situation === "object"
@@ -120,49 +148,48 @@
                 : "";
         const situationRat =
             rec.situation && rec.situation.rationale
-                ? `<p class="person-copilot__rationale"><strong>Por qué:</strong> ${escapeHtml(String(rec.situation.rationale))}</p>`
+                ? renderModalRationale(String(rec.situation.rationale))
                 : "";
 
-        /** @param {string} title @param {unknown[]} items @param {boolean} withRationale */
-        function listBlock(title, items, withRationale) {
-            if (!Array.isArray(items) || items.length === 0) return "";
-            const lis = items
-                .map((item) => {
-                    const t =
-                        typeof item === "string" ? item : item.title || item.text || "";
-                    const rat =
-                        withRationale && item && item.rationale
-                            ? `<span class="person-copilot__rationale">${escapeHtml(String(item.rationale))}</span>`
-                            : "";
-                    return `<li>${escapeHtml(String(t))}${rat}</li>`;
-                })
+        let situationHtml = "";
+        if (situation) {
+            situationHtml = `<section class="copiloto-person-modal__section"><h3 class="copiloto-person-modal__section-title">Situación actual</h3><div class="copiloto-person-modal__prose"><p>${escapeHtml(String(situation))}</p>${situationRat}</div></section>`;
+        }
+
+        let questionsHtml = "";
+        if (Array.isArray(rec.one_on_one_questions) && rec.one_on_one_questions.length > 0) {
+            const lis = rec.one_on_one_questions
+                .map((q) => `<li>${escapeHtml(String(q))}</li>`)
                 .join("");
-            return `<div class="person-copilot__block"><h4>${escapeHtml(title)}</h4><ul class="person-copilot__list">${lis}</ul></div>`;
+            questionsHtml = `<section class="copiloto-person-modal__section copiloto-person-modal__section--questions"><h3 class="copiloto-person-modal__section-title">Preguntas para el próximo 1:1</h3><ol class="copiloto-person-modal__questions">${lis}</ol></section>`;
         }
 
-        const qs = Array.isArray(rec.one_on_one_questions)
-            ? listBlock("Preguntas para el próximo 1:1", rec.one_on_one_questions, false)
-            : "";
+        let pentagonHtml = "";
+        if (rec.pentagon_note) {
+            pentagonHtml = `<section class="copiloto-person-modal__section copiloto-person-modal__section--pentagon"><h3 class="copiloto-person-modal__section-title">Perfil pentagonal</h3><div class="copiloto-person-modal__prose copiloto-person-modal__prose--accent"><p>${escapeHtml(rec.pentagon_note)}</p></div></section>`;
+        }
 
-        let generated = "";
+        let footer = "";
         if (meta?.generated_at) {
-            generated = `<p class="muted person-copilot__meta">Generado: ${escapeHtml(formatGeneratedAt(meta.generated_at))}`;
-            if (meta.model) generated += ` · ${escapeHtml(meta.model)}`;
-            generated += "</p>";
+            footer = `<footer class="copiloto-person-modal__footer muted">Generado: ${escapeHtml(formatGeneratedAt(meta.generated_at))}`;
+            if (meta.model) footer += ` · ${escapeHtml(meta.model)}`;
+            footer += "</footer>";
         }
 
-        return `
-            <div class="person-copilot__head">
+        return `<div class="copiloto-person-modal__content">
+            <div class="copiloto-person-modal__topbar">
                 ${riskBadge}
+                ${periodLabel ? `<span class="copiloto-person-modal__period muted">${escapeHtml(periodLabel)}</span>` : ""}
             </div>
-            ${rec.summary ? `<p class="person-copilot__summary">${escapeHtml(rec.summary)}</p>` : ""}
-            ${situation ? `<div class="person-copilot__block"><h4>Situación actual</h4><p>${escapeHtml(String(situation))}</p>${situationRat}</div>` : ""}
-            ${listBlock("Riesgos", rec.risks, true)}
-            ${listBlock("Posibles bloqueos", rec.blockers, true)}
-            ${qs}
-            ${listBlock("Acciones sugeridas", rec.suggested_actions, true)}
-            ${rec.pentagon_note ? `<div class="person-copilot__block"><h4>Perfil pentagonal</h4><p>${escapeHtml(rec.pentagon_note)}</p></div>` : ""}
-            ${generated}`;
+            ${rec.summary ? `<section class="copiloto-person-modal__summary" aria-label="Resumen"><p>${escapeHtml(rec.summary)}</p></section>` : ""}
+            ${situationHtml}
+            ${renderModalItemSection("Riesgos", rec.risks, true, "copiloto-person-modal__section--risks")}
+            ${renderModalItemSection("Posibles bloqueos", rec.blockers, true)}
+            ${questionsHtml}
+            ${renderModalItemSection("Acciones sugeridas", rec.suggested_actions, true, "copiloto-person-modal__section--actions")}
+            ${pentagonHtml}
+            ${footer}
+        </div>`;
     }
 
     /** @param {object[]} people */
@@ -190,7 +217,7 @@
                     ? "copiloto-person-card--has-rec"
                     : "copiloto-person-card--empty";
 
-                return `<button type="button" class="copiloto-person-card ${statusCls}" data-copilot-person-id="${escapeHtml(String(p.person_id))}" data-copilot-person-name="${escapeHtml(name)}" aria-label="Ver lectura IA de ${escapeHtml(name)}">
+                return `<button type="button" class="copiloto-person-card ${statusCls}" data-copilot-person-id="${escapeHtml(String(p.person_id))}" data-copilot-person-name="${escapeHtml(name)}"${p.role ? ` data-copilot-person-role="${escapeHtml(String(p.role))}"` : ""} aria-label="Ver lectura IA de ${escapeHtml(name)}">
                     <span class="copiloto-person-card__head">
                         <span class="copiloto-person-card__name ${escapeHtml(nameCls)}">${escapeHtml(name)}</span>
                         ${riskBadge}
@@ -310,15 +337,27 @@
         personModalLoadSeq = null;
     }
 
-    async function openPersonModal(personId, displayName) {
+    function setPersonModalSubtitle(role) {
+        if (!personModalRole) return;
+        const trimmed = role && String(role).trim();
+        if (trimmed) {
+            personModalRole.textContent = trimmed;
+            personModalRole.hidden = false;
+        } else {
+            personModalRole.textContent = "";
+            personModalRole.hidden = true;
+        }
+    }
+
+    async function openPersonModal(personId, displayName, role) {
         if (!personModal || !personModalBody || !personModalTitle) return;
         const tid = teamId();
         if (tid < 1 || personId < 1) return;
 
-        personModalTitle.textContent = displayName
-            ? `Lectura IA — ${displayName}`
-            : "Lectura IA de management";
-        personModalBody.innerHTML = '<p class="muted person-copilot__empty">Cargando lectura IA…</p>';
+        personModalTitle.textContent = displayName || "Persona";
+        setPersonModalSubtitle(role);
+        personModalBody.innerHTML =
+            '<div class="copiloto-person-modal__loading"><p class="muted">Cargando lectura IA…</p></div>';
         personModal.hidden = false;
         document.body.style.overflow = "hidden";
 
@@ -336,9 +375,9 @@
             }
 
             if (!data.recommendation) {
-                personModalBody.innerHTML = `<p class="muted person-copilot__empty">${escapeHtml(
+                personModalBody.innerHTML = `<div class="copiloto-person-modal__empty muted">${escapeHtml(
                     data.meta?.message || "Sin recomendación para esta semana."
-                )}</p>`;
+                )}</div>`;
                 return;
             }
 
@@ -349,17 +388,20 @@
         } catch (e) {
             if (personModalLoadSeq !== seq) return;
             const msg = e instanceof Error ? e.message : "Error";
-            personModalBody.innerHTML = `<p class="form-error person-copilot__empty">${escapeHtml(msg)}</p>`;
+            personModalBody.innerHTML = `<div class="copiloto-person-modal__empty form-error">${escapeHtml(msg)}</div>`;
         }
     }
 
     function bindPersonInteractions(people) {
-        /** @type {Record<number, string>} */
-        const names = {};
+        /** @type {Record<number, { name: string, role: string }>} */
+        const peopleMeta = {};
         if (Array.isArray(people)) {
             people.forEach((p) => {
                 if (p.person_id != null) {
-                    names[p.person_id] = p.display_name || "";
+                    peopleMeta[p.person_id] = {
+                        name: p.display_name || "",
+                        role: p.role ? String(p.role) : "",
+                    };
                 }
             });
         }
@@ -371,9 +413,14 @@
                 const fromAttr = el.getAttribute("data-copilot-person-name");
                 const name =
                     (fromAttr && fromAttr.trim()) ||
-                    names[pid] ||
+                    peopleMeta[pid]?.name ||
                     "";
-                openPersonModal(pid, name);
+                const fromRole = el.getAttribute("data-copilot-person-role");
+                const role =
+                    (fromRole && fromRole.trim()) ||
+                    peopleMeta[pid]?.role ||
+                    "";
+                openPersonModal(pid, name, role);
             });
         });
     }
@@ -476,6 +523,12 @@
 
     personModal?.querySelectorAll("[data-copilot-person-close]").forEach((el) => {
         el.addEventListener("click", closePersonModal);
+    });
+
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && personModal && !personModal.hidden) {
+            closePersonModal();
+        }
     });
 
     periodEl?.addEventListener("change", () => load());

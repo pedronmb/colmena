@@ -273,14 +273,18 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
         </div>
     </div>
 
-    <div id="copilotoPersonModal" class="modal" hidden aria-modal="true" role="dialog" aria-labelledby="copilotoPersonModalTitle">
+    <div id="copilotoPersonModal" class="modal copiloto-person-modal" hidden aria-modal="true" role="dialog" aria-labelledby="copilotoPersonModalTitle">
         <div class="modal__backdrop" data-copilot-person-close></div>
-        <div class="modal__card modal__card--wide">
-            <header class="modal__head">
-                <h2 id="copilotoPersonModalTitle">Lectura IA de management</h2>
+        <div class="modal__card modal__card--wide copiloto-person-modal__card">
+            <header class="modal__head copiloto-person-modal__head">
+                <div class="copiloto-person-modal__head-main">
+                    <p class="copiloto-person-modal__eyebrow">Lectura IA de management</p>
+                    <h2 id="copilotoPersonModalTitle">Persona</h2>
+                    <p id="copilotoPersonModalRole" class="copiloto-person-modal__role muted" hidden></p>
+                </div>
                 <button type="button" class="icon-btn" data-copilot-person-close aria-label="Cerrar"><?php require __DIR__ . '/includes/icon-close.php'; ?></button>
             </header>
-            <div id="copilotoPersonModalBody" class="person-copilot person-copilot--modal" aria-live="polite"></div>
+            <div id="copilotoPersonModalBody" class="copiloto-person-modal__body" aria-live="polite"></div>
         </div>
     </div>
 
