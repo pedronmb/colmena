@@ -50,7 +50,8 @@ final class InvgateRecommendationService
             $ollama['base_url'],
             $ollama['model'],
             $ollama['timeout'],
-            $ollama['num_predict']
+            $ollama['num_predict'],
+            $ollama['think']
         );
 
         return new self($client, $ticketsRepo, $commentsRepo, $recommendationsRepo);
@@ -58,7 +59,7 @@ final class InvgateRecommendationService
 
     /**
      * @param array<string, mixed> $config
-     * @return array{base_url: string, model: string, timeout: int, num_predict: int}
+     * @return array{base_url: string, model: string, timeout: int, num_predict: int, think: bool}
      */
     public static function parseOllamaConfig(array $config): array
     {
@@ -80,7 +81,28 @@ final class InvgateRecommendationService
             'model' => $model,
             'timeout' => max(10, $timeout),
             'num_predict' => max(256, $numPredict),
+            'think' => self::parseOllamaThinkFlag($ollama['think'] ?? false),
         ];
+    }
+
+    /**
+     * @param mixed $value
+     */
+    public static function parseOllamaThinkFlag($value): bool
+    {
+        if (is_bool($value)) {
+            return $value;
+        }
+        if (is_int($value) || is_float($value)) {
+            return (int) $value !== 0;
+        }
+        if (is_string($value)) {
+            $normalized = strtolower(trim($value));
+
+            return in_array($normalized, ['1', 'true', 'yes', 'on'], true);
+        }
+
+        return false;
     }
 
     /**

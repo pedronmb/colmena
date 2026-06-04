@@ -67,7 +67,8 @@ final class ManagementRecommendationService
             $ollama['base_url'],
             $ollama['model'],
             $ollama['timeout'],
-            $ollama['num_predict']
+            $ollama['num_predict'],
+            $ollama['think']
         );
 
         return new self(

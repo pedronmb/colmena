@@ -67,5 +67,7 @@ return [
         'timeout' => 180,
         // Tokens máximos de salida del modelo (evita response vacío por límite).
         'num_predict' => 4096,
+        // Modo thinking (qwen3, etc.). false = respuesta en response/content (recomendado para Copiloto).
+        'think' => false,
     ],
 ];

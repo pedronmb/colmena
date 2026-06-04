@@ -130,6 +130,8 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
       'base_url' => 'http://localhost:11434',
       'model' => 'llama3.1',
       'timeout' => 180,
+      'num_predict' => 4096,
+      'think' => false,
   ],
   ```
 

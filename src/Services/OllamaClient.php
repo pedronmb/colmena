@@ -21,8 +21,16 @@ final class OllamaClient
     /** @var int */
     private $numPredict;
 
-    public function __construct(string $baseUrl, string $model, int $timeout = 120, int $numPredict = 4096)
-    {
+    /** @var bool */
+    private $think;
+
+    public function __construct(
+        string $baseUrl,
+        string $model,
+        int $timeout = 120,
+        int $numPredict = 4096,
+        bool $think = false
+    ) {
         $baseUrl = self::normalizeBaseUrl($baseUrl);
         if ($baseUrl === '') {
             throw new \InvalidArgumentException('Ollama base_url vacío.');
@@ -31,6 +39,7 @@ final class OllamaClient
         $this->model = trim($model);
         $this->timeout = max(10, $timeout);
         $this->numPredict = max(256, $numPredict);
+        $this->think = $think;
 
         if ($this->model === '') {
             throw new \InvalidArgumentException('Ollama model vacío.');
@@ -77,7 +86,7 @@ final class OllamaClient
             'model' => $this->model,
             'prompt' => $prompt,
             'stream' => false,
-            'think' => false,
+            'think' => $this->think,
             'options' => [
                 'num_predict' => $this->numPredict,
                 'temperature' => 0.2,
@@ -210,7 +219,7 @@ final class OllamaClient
                 ['role' => 'user', 'content' => $prompt],
             ],
             'stream' => false,
-            'think' => false,
+            'think' => $this->think,
             'options' => [
                 'num_predict' => $this->numPredict,
                 'temperature' => 0.2,
