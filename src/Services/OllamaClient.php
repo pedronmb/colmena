@@ -77,6 +77,7 @@ final class OllamaClient
             'model' => $this->model,
             'prompt' => $prompt,
             'stream' => false,
+            'think' => false,
             'options' => [
                 'num_predict' => $this->numPredict,
                 'temperature' => 0.2,
@@ -209,6 +210,7 @@ final class OllamaClient
                 ['role' => 'user', 'content' => $prompt],
             ],
             'stream' => false,
+            'think' => false,
             'options' => [
                 'num_predict' => $this->numPredict,
                 'temperature' => 0.2,
