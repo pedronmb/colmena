@@ -11,7 +11,9 @@ require_once $base . '/src/Bootstrap.php';
 
 \App\Bootstrap::registerAutoload($base);
 
-$config = require $base . '/config/config.php';
+use App\Support\ConfigLoader;
+
+$config = ConfigLoader::load($base);
 $dbPath = $config['db']['path'] ?? ($base . '/database/app.sqlite');
 if (!is_string($dbPath) || !file_exists($dbPath)) {
     fwrite(STDERR, "No existe la base de datos configurada.\n");

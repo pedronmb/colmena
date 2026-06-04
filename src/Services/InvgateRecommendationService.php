@@ -46,13 +46,7 @@ final class InvgateRecommendationService
         InvgateTicketRecommendationRepository $recommendationsRepo
     ): self {
         $ollama = self::parseOllamaConfig($config);
-        $client = new OllamaClient(
-            $ollama['base_url'],
-            $ollama['model'],
-            $ollama['timeout'],
-            $ollama['num_predict'],
-            $ollama['think']
-        );
+        $client = OllamaClient::fromParsedConfig($ollama);
 
         return new self($client, $ticketsRepo, $commentsRepo, $recommendationsRepo);
     }
@@ -67,7 +61,11 @@ final class InvgateRecommendationService
         $baseUrl = trim((string) ($ollama['base_url'] ?? ''));
         $model = trim((string) ($ollama['model'] ?? 'llama3.1'));
         $timeout = (int) ($ollama['timeout'] ?? 120);
-        $numPredict = (int) ($ollama['num_predict'] ?? 4096);
+        $numPredict = self::parseOllamaNumPredict($ollama);
+        $thinkRaw = $ollama['think'] ?? null;
+        if ($thinkRaw === null && is_array($ollama['options'] ?? null)) {
+            $thinkRaw = $ollama['options']['think'] ?? null;
+        }
 
         if ($baseUrl === '') {
             throw new \RuntimeException('Ollama no está configurado en config.php (ollama.base_url).');
@@ -80,9 +78,32 @@ final class InvgateRecommendationService
             'base_url' => $baseUrl,
             'model' => $model,
             'timeout' => max(10, $timeout),
-            'num_predict' => max(256, $numPredict),
-            'think' => self::parseOllamaThinkFlag($ollama['think'] ?? false),
+            'num_predict' => $numPredict,
+            'think' => self::parseOllamaThinkFlag($thinkRaw ?? false),
         ];
+    }
+
+    /**
+     * @param array<string, mixed> $ollama
+     */
+    public static function parseOllamaNumPredict(array $ollama): int
+    {
+        $raw = $ollama['num_predict'] ?? null;
+        if ($raw === null && is_array($ollama['options'] ?? null)) {
+            $raw = $ollama['options']['num_predict'] ?? null;
+        }
+
+        if ($raw === null || $raw === '') {
+            return 4096;
+        }
+
+        if (is_numeric($raw)) {
+            $n = (int) $raw;
+
+            return $n >= 256 ? $n : 4096;
+        }
+
+        return 4096;
     }
 
     /**

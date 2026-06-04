@@ -16,13 +16,9 @@ use App\Repositories\InvgateTicketRepository;
 use App\Repositories\TeamPersonRepository;
 use App\Services\InvgateTicketSyncService;
 
-$configPath = $base . '/config/config.php';
-if (!is_file($configPath)) {
-    fwrite(STDERR, "No existe config/config.php. Copiá config.php.default.\n");
-    exit(1);
-}
+use App\Support\ConfigLoader;
 
-$config = require $configPath;
+$config = ConfigLoader::load($base);
 $dbPath = $config['db']['path'] ?? ($base . '/database/app.sqlite');
 if (!is_string($dbPath) || !file_exists($dbPath)) {
     fwrite(STDERR, "No existe la base de datos configurada.\n");

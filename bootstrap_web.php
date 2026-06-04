@@ -12,7 +12,7 @@ Bootstrap::registerAutoload($projectRoot);
 Bootstrap::sessionStart();
 
 if (!isset($GLOBALS['COLMENA_CONFIG'])) {
-    $GLOBALS['COLMENA_CONFIG'] = require $projectRoot . '/config/config.php';
+    $GLOBALS['COLMENA_CONFIG'] = \App\Support\ConfigLoader::load($projectRoot);
 }
 
 return $GLOBALS['COLMENA_CONFIG'];

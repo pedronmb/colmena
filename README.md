@@ -121,7 +121,7 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
   ],
   ```
 
-  Copiá los valores desde `config/config.php.default` si aún no tenés el bloque. No subas `config.php` al repositorio si incluye credenciales.
+  Copiá los valores desde `config/config.php.default` si aún no tenés el bloque (`num_predict`, `think`, etc.). La app fusiona `config.php` con `config.php.default` al cargar; los scripts CLI y la web usan la misma lógica. No subas `config.php` al repositorio si incluye credenciales.
 
 - **Ollama (recomendaciones IA de InvGate):** en `config/config.php`, bloque `ollama`:
 

@@ -20,17 +20,16 @@ use App\Repositories\TeamHealthRepository;
 use App\Repositories\TeamPersonRepository;
 use App\Repositories\TeamRepository;
 use App\Repositories\TopicRepository;
+use App\Services\InvgateRecommendationService;
 use App\Services\ManagementContextBuilder;
 use App\Services\ManagementRecommendationService;
 use App\Services\TeamHealthService;
+use App\Support\ConfigLoader;
 
-$configPath = $base . '/config/config.php';
-if (!is_file($configPath)) {
-    fwrite(STDERR, "No existe config/config.php. Copiá config.php.default.\n");
-    exit(1);
+$config = ConfigLoader::load($base);
+if (!is_file($base . '/config/config.php')) {
+    fwrite(STDERR, "Aviso: no existe config/config.php; usando config.php.default.\n");
 }
-
-$config = require $configPath;
 $dbPath = $config['db']['path'] ?? ($base . '/database/app.sqlite');
 if (!is_string($dbPath) || !file_exists($dbPath)) {
     fwrite(STDERR, "No existe la base de datos configurada.\n");
@@ -55,6 +54,15 @@ try {
         new TeamPersonRepository($pdo),
         $pdo
     );
+    $ollamaCfg = InvgateRecommendationService::parseOllamaConfig($config);
+    fwrite(
+        STDERR,
+        '[Ollama] model=' . $ollamaCfg['model']
+        . ' num_predict=' . $ollamaCfg['num_predict']
+        . ' think=' . ($ollamaCfg['think'] ? 'true' : 'false')
+        . ' timeout=' . $ollamaCfg['timeout'] . "\n"
+    );
+
     $service = ManagementRecommendationService::fromConfig(
         $config,
         $contextBuilder,

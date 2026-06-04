@@ -18,14 +18,9 @@ require_once $base . '/src/Bootstrap.php';
 use App\Database\Connection;
 use App\Repositories\InvgateCatalogRepository;
 use App\Services\InvgateCatalogSyncService;
+use App\Support\ConfigLoader;
 
-$configPath = $base . '/config/config.php';
-if (!is_file($configPath)) {
-    fwrite(STDERR, "No existe config/config.php. Copiá config.php.default.\n");
-    exit(1);
-}
-
-$config = require $configPath;
+$config = ConfigLoader::load($base);
 $dbPath = $config['db']['path'] ?? ($base . '/database/app.sqlite');
 if (!is_string($dbPath) || !file_exists($dbPath)) {
     fwrite(STDERR, "No existe la base de datos configurada.\n");

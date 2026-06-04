@@ -46,9 +46,39 @@ final class OllamaClient
         }
     }
 
+    /**
+     * @param array{
+     *   base_url: string,
+     *   model: string,
+     *   timeout: int,
+     *   num_predict: int,
+     *   think: bool
+     * } $ollama
+     */
+    public static function fromParsedConfig(array $ollama): self
+    {
+        return new self(
+            $ollama['base_url'],
+            $ollama['model'],
+            (int) $ollama['timeout'],
+            (int) $ollama['num_predict'],
+            (bool) $ollama['think']
+        );
+    }
+
     public function model(): string
     {
         return $this->model;
+    }
+
+    public function numPredict(): int
+    {
+        return $this->numPredict;
+    }
+
+    public function thinkEnabled(): bool
+    {
+        return $this->think;
     }
 
     public function generate(string $prompt, bool $jsonFormat = false, ?string $logLabel = null): string
@@ -130,6 +160,7 @@ final class OllamaClient
                     'payload_attempt' => $payloadIndex + 1,
                     'load_retry' => $loadRetries,
                     'num_predict' => $this->numPredict,
+                    'think' => $this->think,
                 ]);
 
                 $request = $this->request($endpointUrl, $payload);
@@ -236,6 +267,7 @@ final class OllamaClient
                 'model' => $this->model,
                 'api' => 'chat',
                 'num_predict' => $this->numPredict,
+                'think' => $this->think,
             ]);
 
             $request = $this->request($endpointUrl, $payload);

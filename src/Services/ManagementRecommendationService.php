@@ -63,13 +63,7 @@ final class ManagementRecommendationService
         TeamRepository $teamsRepo
     ): self {
         $ollama = InvgateRecommendationService::parseOllamaConfig($config);
-        $client = new OllamaClient(
-            $ollama['base_url'],
-            $ollama['model'],
-            $ollama['timeout'],
-            $ollama['num_predict'],
-            $ollama['think']
-        );
+        $client = OllamaClient::fromParsedConfig($ollama);
 
         return new self(
             $client,
