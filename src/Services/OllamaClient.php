@@ -108,12 +108,17 @@ final class OllamaClient
 
         foreach ($endpoints as $endpointUrl) {
             foreach ($payloads as $payloadIndex => $payload) {
+                for ($loadRetries = 0; ; $loadRetries++) {
                 $attemptLabel = $label . ($payloadIndex > 0 ? '-retry' . ($payloadIndex + 1) : '');
+                if ($loadRetries > 0) {
+                    $attemptLabel .= '-load' . ($loadRetries + 1);
+                }
                 OllamaResponseLogger::logRequest($attemptLabel, $endpointUrl, $payload, $this->timeout, [
                     'model' => $this->model,
                     'api' => 'generate',
                     'json_format' => $jsonFormat && $payloadIndex === 0,
                     'payload_attempt' => $payloadIndex + 1,
+                    'load_retry' => $loadRetries,
                     'num_predict' => $this->numPredict,
                 ]);
 
@@ -125,6 +130,7 @@ final class OllamaClient
                     'json_format' => $jsonFormat && $payloadIndex === 0,
                     'http_code' => $request['http_code'],
                     'payload_attempt' => $payloadIndex + 1,
+                    'load_retry' => $loadRetries,
                     'num_predict' => $this->numPredict,
                 ];
 
@@ -135,18 +141,23 @@ final class OllamaClient
 
                         return $extracted;
                     } catch (\Throwable $e) {
-                        $doneReason = $this->extractDoneReason($rawBody);
+                        $doneReason = $this->extractDoneReasonFromRaw($rawBody);
                         OllamaResponseLogger::log($label, $rawBody, null, array_merge($meta, [
                             'parse_error' => $e->getMessage(),
                             'done_reason' => $doneReason,
                         ]));
+
+                        if ($doneReason === 'load' && $loadRetries < 2) {
+                            usleep(2_000_000);
+                            continue;
+                        }
 
                         if (
                             $payloadIndex + 1 < count($payloads)
                             && $this->shouldRetryPayload($e, $doneReason, $jsonFormat)
                         ) {
                             $lastParseError = $e;
-                            continue;
+                            break;
                         }
 
                         throw $e;
@@ -160,13 +171,20 @@ final class OllamaClient
                 }
 
                 if ($request['http_code'] === 404) {
-                    break;
+                    break 2;
                 }
                 if ($request['http_code'] === 400 && $payloadIndex + 1 < count($payloads)) {
-                    continue;
+                    break;
                 }
                 if ($request['http_code'] !== 404) {
                     throw new \RuntimeException($request['error']);
+                }
+
+                break;
+                }
+
+                if ($lastParseError instanceof \Throwable && $payloadIndex + 1 < count($payloads)) {
+                    continue;
                 }
             }
             $lastError = $request['error'] ?? $lastError;
@@ -322,9 +340,11 @@ final class OllamaClient
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => $payload,
             CURLOPT_TIMEOUT => $this->timeout,
+            CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
             CURLOPT_HTTPHEADER => [
                 'Content-Type: application/json',
                 'Accept: application/json',
+                'Expect:',
             ],
         ]);
         $raw = curl_exec($ch);
@@ -360,28 +380,108 @@ final class OllamaClient
 
     private function parseResponse(string $raw): string
     {
-        $decoded = json_decode($raw, true);
-        if (!is_array($decoded)) {
-            throw new \RuntimeException(
-                'Respuesta de Ollama inválida (JSON).'
-                . OllamaJsonParser::responsePreview($raw)
-            );
+        $response = $this->extractTextFromRawBody($raw);
+        if ($response !== '') {
+            return $response;
         }
 
-        $response = $this->extractResponseText($decoded);
-        if ($response === '') {
-            $reason = $this->extractDoneReason($raw);
-            $suffix = OllamaJsonParser::responsePreview($raw);
-            if ($reason !== null && $reason !== '') {
-                $suffix .= ' done_reason=' . $reason . '.';
+        $reason = $this->extractDoneReasonFromRaw($raw);
+        $suffix = OllamaJsonParser::responsePreview($raw);
+        if ($reason !== null && $reason !== '') {
+            $suffix .= ' done_reason=' . $reason . '.';
+        }
+
+        throw new \RuntimeException(
+            'Ollama no devolvió contenido en "response".' . $suffix
+        );
+    }
+
+    private function extractTextFromRawBody(string $raw): string
+    {
+        $trimmed = trim($raw);
+        if ($trimmed === '') {
+            return '';
+        }
+
+        if (str_contains($trimmed, "\n")) {
+            $fromLines = $this->extractFromNdjsonLines($trimmed);
+            if ($fromLines !== '') {
+                return $fromLines;
             }
-
-            throw new \RuntimeException(
-                'Ollama no devolvió contenido en "response".' . $suffix
-            );
         }
 
-        return $response;
+        $decoded = json_decode($trimmed, true);
+        if (is_array($decoded)) {
+            $single = $this->extractResponseText($decoded);
+            if ($single !== '') {
+                return $single;
+            }
+        }
+
+        $jsonStr = OllamaJsonParser::extractJsonString($trimmed);
+        if ($jsonStr !== null) {
+            $decoded = json_decode($jsonStr, true);
+            if (is_array($decoded)) {
+                $single = $this->extractResponseText($decoded);
+                if ($single !== '') {
+                    return $single;
+                }
+            }
+        }
+
+        return '';
+    }
+
+    private function extractFromNdjsonLines(string $raw): string
+    {
+        $aggregated = '';
+        $lastDecoded = null;
+
+        foreach (preg_split('/\r\n|\r|\n/', $raw) as $line) {
+            $line = trim($line);
+            if ($line === '' || $line[0] !== '{') {
+                continue;
+            }
+            $decoded = json_decode($line, true);
+            if (!is_array($decoded)) {
+                continue;
+            }
+            $lastDecoded = $decoded;
+            $chunk = $this->extractStreamChunkText($decoded);
+            if ($chunk !== '') {
+                $aggregated .= $chunk;
+            }
+        }
+
+        $aggregated = trim($aggregated);
+        if ($aggregated !== '') {
+            return $aggregated;
+        }
+
+        if ($lastDecoded !== null) {
+            return $this->extractResponseText($lastDecoded);
+        }
+
+        return '';
+    }
+
+    /**
+     * Fragmento incremental de /api/generate en streaming (NDJSON).
+     *
+     * @param array<string, mixed> $decoded
+     */
+    private function extractStreamChunkText(array $decoded): string
+    {
+        if (isset($decoded['response']) && is_string($decoded['response'])) {
+            return $decoded['response'];
+        }
+
+        $message = $decoded['message'] ?? null;
+        if (is_array($message) && isset($message['content']) && is_string($message['content'])) {
+            return $message['content'];
+        }
+
+        return '';
     }
 
     /**
@@ -391,6 +491,13 @@ final class OllamaClient
     {
         if (isset($decoded['response']) && is_string($decoded['response'])) {
             $text = trim($decoded['response']);
+            if ($text !== '') {
+                return $text;
+            }
+        }
+
+        if (isset($decoded['content']) && is_string($decoded['content'])) {
+            $text = trim($decoded['content']);
             if ($text !== '') {
                 return $text;
             }
@@ -431,9 +538,29 @@ final class OllamaClient
         return '';
     }
 
-    private function extractDoneReason(string $raw): ?string
+    private function extractDoneReasonFromRaw(string $raw): ?string
     {
-        $decoded = json_decode($raw, true);
+        $lastReason = null;
+        foreach (preg_split('/\r\n|\r|\n/', trim($raw)) as $line) {
+            $line = trim($line);
+            if ($line === '' || $line[0] !== '{') {
+                continue;
+            }
+            $decoded = json_decode($line, true);
+            if (!is_array($decoded)) {
+                continue;
+            }
+            $reason = $decoded['done_reason'] ?? null;
+            if (is_string($reason) && trim($reason) !== '') {
+                $lastReason = trim($reason);
+            }
+        }
+
+        if ($lastReason !== null) {
+            return $lastReason;
+        }
+
+        $decoded = json_decode(trim($raw), true);
         if (!is_array($decoded)) {
             return null;
         }
@@ -447,16 +574,21 @@ final class OllamaClient
 
     private function shouldRetryPayload(\Throwable $e, ?string $doneReason, bool $jsonFormat): bool
     {
+        if ($doneReason === 'load') {
+            return true;
+        }
+
         if (!$jsonFormat) {
             return false;
         }
 
-        return $this->isEmptyResponseError($e) || in_array($doneReason, ['length', 'load'], true);
+        return $this->isEmptyResponseError($e) || $doneReason === 'length';
     }
 
     private function shouldTryChatFallback(\Throwable $e): bool
     {
-        return $this->isEmptyResponseError($e);
+        return $this->isEmptyResponseError($e)
+            || str_contains($e->getMessage(), 'Respuesta de Ollama inválida (JSON)');
     }
 
     private function isEmptyResponseError(\Throwable $e): bool
