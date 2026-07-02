@@ -7,6 +7,7 @@ $config = require dirname(__DIR__) . '/bootstrap_web.php';
 use App\Database\Connection;
 use App\Repositories\UserRepository;
 use App\Services\AuthService;
+use App\Support\InvgateUrl;
 use App\Support\PersonalTeamBootstrap;
 
 $dbExists = file_exists($config['db']['path']);
@@ -23,6 +24,9 @@ if (!$dbExists || $user === null) {
 }
 
 $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
+$invgateWebBase = InvgateUrl::normalizeBase(
+    is_array($config['invgate'] ?? null) ? ($config['invgate']['server_url'] ?? null) : null
+);
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -69,7 +73,6 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
                 <p class="invgate-meta muted" id="invgateMeta" aria-live="polite" hidden></p>
                 <div id="invgateListWrap" class="invgate-list-wrap">
                     <p class="muted" id="invgateLoading">Cargando…</p>
-                    <article id="invgateDetail" class="invgate-detail" hidden aria-live="polite"></article>
                     <div id="invgateRoot" hidden></div>
                 </div>
             </div>
@@ -98,6 +101,21 @@ $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
             </div>
 
         </section>
+    </div>
+
+    <?php if ($invgateWebBase !== null) { ?>
+    <input type="hidden" id="invgateWebBase" value="<?= htmlspecialchars($invgateWebBase, ENT_QUOTES, 'UTF-8') ?>">
+    <?php } ?>
+
+    <div id="invgateTicketModal" class="modal invgate-ticket-modal" hidden aria-modal="true" role="dialog" aria-labelledby="invgateTicketModalTitle">
+        <div class="modal__backdrop" data-invgate-ticket-close></div>
+        <div class="modal__card modal__card--wide invgate-ticket-modal__card">
+            <header class="modal__head invgate-ticket-modal__head">
+                <h2 id="invgateTicketModalTitle">Detalle del ticket</h2>
+                <button type="button" class="icon-btn" data-invgate-ticket-close aria-label="Cerrar"><?php require __DIR__ . '/includes/icon-close.php'; ?></button>
+            </header>
+            <div id="invgateTicketModalBody" class="invgate-ticket-modal__body" aria-live="polite"></div>
+        </div>
     </div>
 
     <div id="invgateAiModal" class="modal invgate-ai-modal" hidden aria-modal="true" role="dialog" aria-labelledby="invgateAiModalTitle">

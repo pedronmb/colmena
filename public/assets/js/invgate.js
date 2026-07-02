@@ -8,11 +8,14 @@
     const loadingEl = document.getElementById("invgateLoading");
     const metaEl = document.getElementById("invgateMeta");
     const rootEl = document.getElementById("invgateRoot");
-    const detailEl = document.getElementById("invgateDetail");
+    const ticketModalEl = document.getElementById("invgateTicketModal");
+    const ticketModalBodyEl = document.getElementById("invgateTicketModalBody");
+    const ticketModalTitleEl = document.getElementById("invgateTicketModalTitle");
     const searchInput = document.getElementById("invgateTicketSearch");
 
     let selectedTicketId = null;
     let detailRequestSeq = 0;
+    let ticketModalWired = false;
     let cachedGroups = [];
     let cachedOrphanTickets = [];
     let cachedMeta = null;
@@ -32,6 +35,18 @@
 
     function formatTimestamp(raw) {
         return C.formatTimestamp(raw);
+    }
+
+    function renderIncidentCell(incidentId) {
+        if (incidentId === null || incidentId === undefined || incidentId === "") {
+            return formatCell(incidentId);
+        }
+        const label = String(incidentId);
+        const url = C.incidentUrl(incidentId);
+        if (!url) {
+            return formatCell(incidentId);
+        }
+        return `<a class="invgate-table__ticket-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" aria-label="Abrir ticket #${escapeHtml(label)} en InvGate">${escapeHtml(label)}</a>`;
     }
 
     function personSubtitle(person) {
@@ -73,7 +88,7 @@
                           ? String(id)
                           : "";
                 return `<tr class="invgate-table__row${active ? " invgate-table__row--active" : ""}" data-ticket-id="${id > 0 ? id : ""}" tabindex="0" role="button" aria-label="Ver detalle del ticket">
-            <td>${formatCell(t.invgate_incident_id)}</td>
+            <td>${renderIncidentCell(t.invgate_incident_id)}</td>
             <td><strong>${formatCell(t.title)}</strong></td>
             <td>${statusCell}</td>
             <td>${typeCell}</td>
@@ -143,8 +158,6 @@
     }
 
     function renderDetail(ticket, comments) {
-        const incidentId = formatCell(ticket.invgate_incident_id);
-        const title = formatCell(ticket.title);
         const statusLabel =
             ticket.status_name != null && ticket.status_name !== ""
                 ? `Estado ${escapeHtml(String(ticket.status_name))}`
@@ -171,11 +184,7 @@
             `Actualizado ${formatTimestamp(ticket.last_update)}`,
         ].filter(Boolean);
 
-        return `<div class="invgate-detail__head">
-                <h3 class="invgate-detail__title">#${incidentId} — ${title}</h3>
-                <button type="button" class="btn invgate-detail__close" id="invgateDetailClose" aria-label="Cerrar detalle">Cerrar</button>
-            </div>
-            <p class="invgate-detail__meta muted">${metaBits.join(" · ")}</p>
+        return `<p class="invgate-detail__meta muted">${metaBits.join(" · ")}</p>
             <section class="invgate-detail__section">
                 <h4 class="invgate-detail__section-title">Descripción</h4>
                 ${formatHtmlContent(ticket.description)}
@@ -186,22 +195,57 @@
             </section>`;
     }
 
-    function setDetailLoading(ticketId) {
-        if (!detailEl) {
+    function ticketTitleLabel(ticket) {
+        const incidentId =
+            ticket.invgate_incident_id != null && ticket.invgate_incident_id !== ""
+                ? String(ticket.invgate_incident_id)
+                : "";
+        const title =
+            ticket.title != null && String(ticket.title).trim() !== ""
+                ? String(ticket.title)
+                : "(sin título)";
+        return incidentId ? `#${incidentId} — ${title}` : title;
+    }
+
+    function setTicketModalTitle(text) {
+        if (ticketModalTitleEl) {
+            ticketModalTitleEl.textContent = text;
+        }
+    }
+
+    function wireTicketModalOnce() {
+        if (ticketModalWired || !ticketModalEl) {
             return;
         }
-        detailEl.hidden = false;
-        detailEl.innerHTML = `<p class="muted invgate-detail__loading">Cargando ticket #${escapeHtml(String(ticketId))}…</p>`;
-        detailEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        ticketModalWired = true;
+        ticketModalEl.addEventListener("click", (e) => {
+            const t = e.target;
+            if (t instanceof Element && t.closest("[data-invgate-ticket-close]")) {
+                closeDetail();
+            }
+        });
+    }
+
+    function setDetailLoading(ticketId) {
+        if (!ticketModalEl || !ticketModalBodyEl) {
+            return;
+        }
+        wireTicketModalOnce();
+        ticketModalEl.hidden = false;
+        setTicketModalTitle(`Ticket #${ticketId}`);
+        ticketModalBodyEl.innerHTML = `<p class="muted invgate-detail__loading">Cargando ticket #${escapeHtml(String(ticketId))}…</p>`;
     }
 
     function closeDetail() {
         selectedTicketId = null;
         detailRequestSeq += 1;
-        if (detailEl) {
-            detailEl.hidden = true;
-            detailEl.innerHTML = "";
+        if (ticketModalEl) {
+            ticketModalEl.hidden = true;
         }
+        if (ticketModalBodyEl) {
+            ticketModalBodyEl.innerHTML = "";
+        }
+        setTicketModalTitle("Detalle del ticket");
         rootEl?.querySelectorAll(".invgate-table__row--active").forEach((row) => {
             row.classList.remove("invgate-table__row--active");
         });
@@ -251,24 +295,21 @@
             if (!res.ok || !data.ok) {
                 throw new Error(data.error || "No se pudo cargar el ticket");
             }
-            if (!detailEl) {
+            if (!ticketModalEl || !ticketModalBodyEl) {
                 return;
             }
-            detailEl.hidden = false;
-            detailEl.innerHTML = renderDetail(data.ticket, data.comments);
-            detailEl.querySelector("#invgateDetailClose")?.addEventListener("click", closeDetail);
-            detailEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+            ticketModalEl.hidden = false;
+            setTicketModalTitle(ticketTitleLabel(data.ticket));
+            ticketModalBodyEl.innerHTML = renderDetail(data.ticket, data.comments);
         } catch (e) {
             if (requestId !== detailRequestSeq || selectedTicketId !== ticketId) {
                 return;
             }
-            if (detailEl) {
-                detailEl.hidden = false;
-                detailEl.innerHTML = `<p class="form-error" role="alert">${
+            if (ticketModalEl && ticketModalBodyEl) {
+                ticketModalEl.hidden = false;
+                ticketModalBodyEl.innerHTML = `<p class="form-error" role="alert">${
                     e instanceof Error ? escapeHtml(e.message) : "Error al cargar el ticket."
-                }</p>
-                <button type="button" class="btn invgate-detail__close" id="invgateDetailClose">Cerrar</button>`;
-                detailEl.querySelector("#invgateDetailClose")?.addEventListener("click", closeDetail);
+                }</p>`;
             }
         }
     }
@@ -279,7 +320,10 @@
         }
         rootEl.dataset.invgateRowBound = "1";
         rootEl.addEventListener("click", (e) => {
-            if (e.target.closest(".invgate-table__actions")) {
+            if (
+                e.target.closest(".invgate-table__actions") ||
+                e.target.closest(".invgate-table__ticket-link")
+            ) {
                 return;
             }
             const row = e.target.closest(".invgate-table__row");
@@ -296,7 +340,10 @@
             if (e.key !== "Enter" && e.key !== " ") {
                 return;
             }
-            if (e.target.closest(".invgate-table__actions")) {
+            if (
+                e.target.closest(".invgate-table__actions") ||
+                e.target.closest(".invgate-table__ticket-link")
+            ) {
                 return;
             }
             const row = e.target.closest(".invgate-table__row");
@@ -634,7 +681,7 @@
     }
 
     document.addEventListener("keydown", (e) => {
-        if (e.key === "Escape" && selectedTicketId != null) {
+        if (e.key === "Escape" && ticketModalEl && !ticketModalEl.hidden) {
             closeDetail();
         }
     });

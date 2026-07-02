@@ -854,6 +854,16 @@ body {
     width: 4.25rem;
 }
 
+.invgate-table__ticket-link {
+    color: var(--accent);
+    text-decoration: none;
+    font-variant-numeric: tabular-nums;
+}
+
+.invgate-table__ticket-link:hover {
+    text-decoration: underline;
+}
+
 .invgate-table th:nth-child(2),
 .invgate-table td:nth-child(2) {
     overflow-wrap: anywhere;
@@ -1357,6 +1367,39 @@ body {
 
 .invgate-ai-modal__body .invgate-detail__empty,
 .invgate-ai-modal__body .invgate-detail__loading {
+    margin: 0;
+}
+
+.invgate-ticket-modal .invgate-ticket-modal__card {
+    width: min(100%, 720px);
+    border: 1px solid var(--accent);
+    box-shadow: var(--shadow);
+}
+
+.invgate-ticket-modal .invgate-ticket-modal__head {
+    padding: 1rem 1.1rem 0.75rem;
+    border-bottom: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+}
+
+.invgate-ticket-modal .invgate-ticket-modal__head h2 {
+    font-size: 1.05rem;
+    font-weight: 600;
+    line-height: 1.35;
+}
+
+.invgate-ticket-modal__body {
+    padding: 1rem 1.1rem 1.1rem;
+    max-height: min(70vh, 42rem);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.invgate-ticket-modal__body .invgate-detail__meta {
+    margin-top: 0;
+}
+
+.invgate-ticket-modal__body .invgate-detail__empty,
+.invgate-ticket-modal__body .invgate-detail__loading {
     margin: 0;
 }
 

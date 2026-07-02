@@ -2,6 +2,12 @@
  * Utilidades compartidas para InvGate (tickets y estadísticas).
  */
 (function () {
+    const invgateWebBaseEl = document.getElementById("invgateWebBase");
+    const invgateWebBase =
+        invgateWebBaseEl && invgateWebBaseEl.value
+            ? String(invgateWebBaseEl.value).replace(/\/$/, "")
+            : "";
+
     function getTeamId() {
         const appEl = document.getElementById("appPersonalTeamId");
         if (appEl) {
@@ -42,9 +48,12 @@
             }
         }
         if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
-            const p = s.slice(0, 10).split("-");
-            if (p.length === 3) {
-                return `${p[2]}/${p[1]}/${p[0]}`;
+            const d = new Date(s);
+            if (!Number.isNaN(d.getTime())) {
+                return d.toLocaleString("es-AR", {
+                    dateStyle: "short",
+                    timeStyle: "short",
+                });
             }
         }
         return escapeHtml(s);
@@ -128,6 +137,17 @@
         return tickets.filter((t) => ticketMatchesSearch(t, q));
     }
 
+    function incidentUrl(incidentId) {
+        if (!invgateWebBase) {
+            return null;
+        }
+        const n = Number(incidentId);
+        if (!Number.isFinite(n) || n <= 0) {
+            return null;
+        }
+        return `${invgateWebBase}/requests/show/index/id/${n}`;
+    }
+
     window.InvgateCommon = {
         getTeamId,
         escapeHtml,
@@ -138,5 +158,6 @@
         formatPct,
         ticketMatchesSearch,
         filterTicketsBySearch,
+        incidentUrl,
     };
 })();
