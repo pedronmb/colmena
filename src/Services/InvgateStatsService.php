@@ -204,6 +204,9 @@ final class InvgateStatsService
         $resolved30d = 0;
         $resolutionHours = [];
         $weeklyThroughput = $this->emptyWeeklyBuckets($nowTs);
+        $heatmapYear = (int) (new DateTimeImmutable())->setTimestamp($nowTs)->format('Y');
+        /** @var array<string, int> $closedByDay */
+        $closedByDay = [];
 
         foreach ($finalTickets as $ticket) {
             $lastUpdateTs = InvgateTimestamp::epochSeconds($ticket['last_update']);
@@ -231,6 +234,12 @@ final class InvgateStatsService
                 $weekKey = $this->isoWeekKey($lastUpdateTs);
                 if (isset($weeklyThroughput[$weekKey])) {
                     $weeklyThroughput[$weekKey]++;
+                }
+
+                $dayDt = (new DateTimeImmutable())->setTimestamp($lastUpdateTs);
+                if ((int) $dayDt->format('Y') === $heatmapYear) {
+                    $dayKey = $dayDt->format('Y-m-d');
+                    $closedByDay[$dayKey] = ($closedByDay[$dayKey] ?? 0) + 1;
                 }
             }
         }
@@ -291,6 +300,7 @@ final class InvgateStatsService
                 'resolution_p50_hours' => $this->percentile($resolutionHours, 50),
                 'resolution_p90_hours' => $this->percentile($resolutionHours, 90),
                 'weekly_throughput' => $this->weeklyThroughputToList($weeklyThroughput),
+                'closed_heatmap' => $this->buildClosedHeatmap($heatmapYear, $closedByDay),
             ],
             'comments' => array_merge($commentMetrics, [
                 'solution_rate_pct' => $solutionRatePct,
@@ -442,6 +452,26 @@ final class InvgateStatsService
     }
 
     /**
+     * @param array<string, int> $closedByDay
+     * @return array{year: int, days: array<string, int>, max: int}
+     */
+    private function buildClosedHeatmap(int $year, array $closedByDay): array
+    {
+        $max = 0;
+        foreach ($closedByDay as $count) {
+            if ($count > $max) {
+                $max = $count;
+            }
+        }
+
+        return [
+            'year' => $year,
+            'days' => $closedByDay,
+            'max' => $max,
+        ];
+    }
+
+    /**
      * @param list<array<string, mixed>> $openTickets
      * @return array{backlog_age_max_days: ?float, oldest_open_ticket: ?array{invgate_incident_id: int, age_days: float, person_display_name?: string}}
      */
@@ -543,7 +573,45 @@ final class InvgateStatsService
             'load_balance' => $this->buildTeamLoadBalance($peopleStats),
             'distributions' => $this->aggregateOpenDistributions($teamOpenTickets),
             'orphans' => $this->buildOrphanSummary($orphanTickets, $nowTs),
+            'closed_heatmap' => $this->aggregateClosedHeatmaps($peopleStats, $nowTs),
         ];
+    }
+
+    /**
+     * Suma los heatmaps de cierres de todas las personas del equipo.
+     *
+     * @param list<array<string, mixed>> $peopleStats
+     * @return array{year: int, days: array<string, int>, max: int}
+     */
+    private function aggregateClosedHeatmaps(array $peopleStats, int $nowTs): array
+    {
+        $year = (int) (new DateTimeImmutable())->setTimestamp($nowTs)->format('Y');
+        /** @var array<string, int> $closedByDay */
+        $closedByDay = [];
+
+        foreach ($peopleStats as $row) {
+            $heatmap = $row['historical']['closed_heatmap'] ?? null;
+            if (!is_array($heatmap)) {
+                continue;
+            }
+            if (isset($heatmap['year']) && (int) $heatmap['year'] !== $year) {
+                continue;
+            }
+            $days = $heatmap['days'] ?? [];
+            if (!is_array($days)) {
+                continue;
+            }
+            foreach ($days as $day => $count) {
+                $dayKey = (string) $day;
+                $n = (int) $count;
+                if ($n <= 0) {
+                    continue;
+                }
+                $closedByDay[$dayKey] = ($closedByDay[$dayKey] ?? 0) + $n;
+            }
+        }
+
+        return $this->buildClosedHeatmap($year, $closedByDay);
     }
 
     /**

@@ -61,6 +61,10 @@
             "Percentil 90: el 90% de los cierres del período fueron más rápidos que este valor.",
         weekly_throughput:
             "Tickets que pasaron a estado final por semana ISO (últimas 8 semanas en el gráfico).",
+        closed_heatmap:
+            "Tickets en estado final por día del año calendario, según la última actualización (aproxima la fecha de cierre). El color es más intenso cuanto más cierres hubo ese día.",
+        closed_heatmap_team:
+            "Suma de tickets cerrados por día de todas las personas del equipo en el año calendario. Misma lógica que el calendario individual.",
         comments_per_ticket:
             "Promedio de comentarios sincronizados por ticket de la persona.",
         comments_agent:
@@ -404,6 +408,156 @@
         </table>`;
     }
 
+    /**
+     * @param {unknown} days
+     * @returns {Record<string, number>}
+     */
+    function normalizeHeatmapDays(days) {
+        if (!days || typeof days !== "object" || Array.isArray(days)) {
+            return {};
+        }
+        /** @type {Record<string, number>} */
+        const out = {};
+        for (const [key, value] of Object.entries(days)) {
+            const n = Number(value);
+            if (Number.isFinite(n) && n > 0) {
+                out[key] = n;
+            }
+        }
+        return out;
+    }
+
+    /**
+     * @param {number} count
+     * @param {number} max
+     */
+    function heatmapLevel(count, max) {
+        if (count <= 0 || max <= 0) {
+            return 0;
+        }
+        const ratio = count / max;
+        if (ratio <= 0.25) {
+            return 1;
+        }
+        if (ratio <= 0.5) {
+            return 2;
+        }
+        if (ratio <= 0.75) {
+            return 3;
+        }
+        return 4;
+    }
+
+    /**
+     * @param {Date} d
+     */
+    function formatLocalYmd(d) {
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, "0");
+        const day = String(d.getDate()).padStart(2, "0");
+        return `${y}-${m}-${day}`;
+    }
+
+    /**
+     * @param {{ year?: number, days?: unknown, max?: number } | null | undefined} heatmap
+     */
+    function renderClosedHeatmap(heatmap) {
+        const year =
+            heatmap && Number.isFinite(Number(heatmap.year))
+                ? Number(heatmap.year)
+                : new Date().getFullYear();
+        const daysMap = normalizeHeatmapDays(heatmap?.days);
+        const max = Math.max(0, Number(heatmap?.max) || 0);
+
+        /** @type {Array<{ date: string, count: number } | null>} */
+        const cells = [];
+        const jan1 = new Date(year, 0, 1);
+        for (let i = 0; i < jan1.getDay(); i++) {
+            cells.push(null);
+        }
+
+        const cursor = new Date(year, 0, 1);
+        while (cursor.getFullYear() === year) {
+            const ymd = formatLocalYmd(cursor);
+            cells.push({ date: ymd, count: daysMap[ymd] || 0 });
+            cursor.setDate(cursor.getDate() + 1);
+        }
+        while (cells.length % 7 !== 0) {
+            cells.push(null);
+        }
+
+        const weekCount = cells.length / 7;
+        const monthLabels = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
+        /** @type {Array<{ label: string, weekIndex: number }>} */
+        const monthMarkers = [];
+        let lastMonth = -1;
+        for (let week = 0; week < weekCount; week++) {
+            for (let dow = 0; dow < 7; dow++) {
+                const cell = cells[week * 7 + dow];
+                if (!cell) {
+                    continue;
+                }
+                const month = Number(cell.date.slice(5, 7)) - 1;
+                if (month !== lastMonth) {
+                    monthMarkers.push({ label: monthLabels[month], weekIndex: week });
+                    lastMonth = month;
+                }
+                break;
+            }
+        }
+
+        const monthsHtml = monthMarkers
+            .map(
+                (m) =>
+                    `<span class="invgate-heatmap__month" style="grid-column: ${m.weekIndex + 1}">${C.escapeHtml(m.label)}</span>`
+            )
+            .join("");
+
+        const weekdayLabels = ["", "Lun", "", "Mié", "", "Vie", ""];
+        const weekdaysHtml = weekdayLabels
+            .map((label) =>
+                label
+                    ? `<span class="invgate-heatmap__weekday">${label}</span>`
+                    : '<span class="invgate-heatmap__weekday" aria-hidden="true"></span>'
+            )
+            .join("");
+
+        const daysHtml = cells
+            .map((cell) => {
+                if (!cell) {
+                    return '<span class="invgate-heatmap__day invgate-heatmap__day--empty" aria-hidden="true"></span>';
+                }
+                const level = heatmapLevel(cell.count, max);
+                const label =
+                    cell.count === 1
+                        ? `${cell.date}: 1 ticket cerrado`
+                        : `${cell.date}: ${cell.count} tickets cerrados`;
+                return `<span class="invgate-heatmap__day invgate-heatmap__day--l${level}" title="${C.escapeHtml(label)}" aria-label="${C.escapeHtml(label)}"></span>`;
+            })
+            .join("");
+
+        return `<div class="invgate-heatmap" role="img" aria-label="Calendario de tickets cerrados en ${year}">
+            <div class="invgate-heatmap__scroll">
+                <div class="invgate-heatmap__inner" style="--invgate-heatmap-weeks: ${weekCount}">
+                    <div class="invgate-heatmap__months">${monthsHtml}</div>
+                    <div class="invgate-heatmap__body">
+                        <div class="invgate-heatmap__weekdays">${weekdaysHtml}</div>
+                        <div class="invgate-heatmap__grid">${daysHtml}</div>
+                    </div>
+                </div>
+            </div>
+            <div class="invgate-heatmap__legend" aria-hidden="true">
+                <span>Menos</span>
+                <span class="invgate-heatmap__day invgate-heatmap__day--l0"></span>
+                <span class="invgate-heatmap__day invgate-heatmap__day--l1"></span>
+                <span class="invgate-heatmap__day invgate-heatmap__day--l2"></span>
+                <span class="invgate-heatmap__day invgate-heatmap__day--l3"></span>
+                <span class="invgate-heatmap__day invgate-heatmap__day--l4"></span>
+                <span>Más</span>
+            </div>
+        </div>`;
+    }
+
     function renderTeamSummary(summary, staleDays) {
         if (!summary || typeof summary !== "object") {
             return "";
@@ -443,6 +597,10 @@
                 ${renderStatCard("Ticket más antiguo", maxAgeVal, { helpKey: "backlog_age_max", hint: oldestHint || undefined })}
                 ${renderStatCard("Stale (total)", C.formatNumber(summary.stale_total), { helpKey: "stale_total", staleDays, hint: "sin movimiento" })}
                 ${renderStatCard("Resueltos 30d", C.formatNumber(summary.resolved_30d_total), { helpKey: "resolved_30d_total" })}
+            </div>
+            <div class="invgate-stats-team__block">
+                <h4 class="invgate-stats-section-title">${renderLabelWithHelp("Cierres del equipo (año)", "closed_heatmap_team", staleDays)}</h4>
+                ${renderClosedHeatmap(summary.closed_heatmap)}
             </div>
             <div class="invgate-stats-team__ranking">
                 <h4 class="invgate-stats-section-title">${renderLabelWithHelp("Top 3 por carga ponderada", "top_by_load")}</h4>
@@ -521,6 +679,8 @@
             </section>
             <section class="invgate-stats-detail__block">
                 <h4 class="invgate-stats-section-title">Histórico</h4>
+                <h5 class="invgate-stats-subtitle">${renderLabelWithHelp("Cierres del año", "closed_heatmap", staleDays)}</h5>
+                ${renderClosedHeatmap(hist.closed_heatmap)}
                 <ul class="invgate-stats-metrics-list">
                     ${renderMetricListItem("Resueltos (período)", C.formatNumber(hist.resolved_in_period), "resolved_period", staleDays)}
                     ${renderMetricListItem("Resueltos 7d", C.formatNumber(hist.resolved_7d), "resolved_7d", staleDays)}
