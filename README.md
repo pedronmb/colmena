@@ -267,7 +267,7 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
   | Distribución | Por categoría / tipo (equipo) | Agregado de todos los abiertos asignados a personas del equipo |
   | Huérfanos | Sin asignar | Tickets abiertos con `person_id` nulo (globales, mismo criterio que pestaña Tickets) |
 
-  **Limitaciones:** el sync de tickets solo trae incidentes **abiertos**; los cierres históricos solo aparecen si el ticket estuvo abierto al sincronizar y luego se actualizó el estado local. Las métricas de comentarios requieren `sync_invgate_comments.php` y que `author_id` coincida con el ID InvGate de la persona.
+  **Limitaciones:** el sync de tickets solo trae incidentes **abiertos** por agente; los cierres se detectan reconciliando por ID los tickets locales que ya no aparecen en ese listado (incluye huérfanos con `person_id` nulo). Los cierres históricos solo aparecen si el ticket estuvo abierto al sincronizar y luego se actualizó el estado local. Las métricas de comentarios requieren `sync_invgate_comments.php` y que `author_id` coincida con el ID InvGate de la persona.
 
 ---
 

@@ -85,6 +85,7 @@ final class InvgateTicketSyncService
     public function run(): array
     {
         $people = $this->peopleRepo->listWithInvgateId();
+        $finalStatusIds = InvgateFinalStatuses::ids();
         $result = [
             'ok' => true,
             'people_total' => count($people),
@@ -95,15 +96,10 @@ final class InvgateTicketSyncService
             'errors' => [],
         ];
 
-        if ($people === []) {
-            return $result;
-        }
-
         foreach ($people as $person) {
             $personId = (int) $person['id'];
             $agentId = (int) $person['invgate_id'];
             $displayName = (string) $person['display_name'];
-            $finalStatusIds = InvgateFinalStatuses::ids();
 
             try {
                 $incidents = $this->client->fetchIncidentsByAgent($agentId);
@@ -130,59 +126,13 @@ final class InvgateTicketSyncService
                 // traemos individualmente para actualizar su status.
                 $ticketsToReconcile = $this->ticketsRepo
                     ->listTicketsForStatusReconciliation($personId, $finalStatusIds);
-                foreach ($ticketsToReconcile as $ticketRow) {
-                    $incidentId = isset($ticketRow['invgate_incident_id'])
-                        ? (int) $ticketRow['invgate_incident_id']
-                        : 0;
-                    if ($incidentId <= 0) {
-                        continue;
-                    }
-                    if (isset($apiIncidentIds[$incidentId])) {
-                        continue;
-                    }
-
-                    try {
-                        $incident = $this->client->fetchIncidentById($incidentId);
-                        $statusId = isset($incident['status_id']) ? (int) $incident['status_id'] : null;
-                        if ($statusId !== null && $statusId <= 0) {
-                            $statusId = null;
-                        }
-
-                        $assignedInvgateId = isset($incident['assigned_id']) ? (int) $incident['assigned_id'] : null;
-                        if ($assignedInvgateId !== null && $assignedInvgateId <= 0) {
-                            $assignedInvgateId = null;
-                        }
-                        $newPersonId = $assignedInvgateId !== null
-                            ? $this->peopleRepo->findPersonIdByInvgateId($assignedInvgateId)
-                            : null;
-
-                        $lastUpdate = isset($incident['last_update'])
-                            ? trim((string) $incident['last_update'])
-                            : '';
-                        if ($lastUpdate === '') {
-                            $lastUpdate = '0';
-                        }
-
-                        if ($this->ticketsRepo->updateStatusAndAssigneeByInvgateIncidentId(
-                            $incidentId,
-                            $statusId,
-                            $lastUpdate,
-                            $newPersonId
-                        )) {
-                            $result['tickets_status_updated']++;
-                        } else {
-                            $result['tickets_skipped']++;
-                        }
-                    } catch (\Throwable $e) {
-                        $result['tickets_skipped']++;
-                        $result['errors'][] = [
-                            'person_id' => $personId,
-                            'display_name' => $displayName,
-                            'error' => 'Error actualizando status para invgate_incident_id #' . $incidentId
-                                . ': ' . $e->getMessage(),
-                        ];
-                    }
-                }
+                $this->reconcileTicketsById(
+                    $ticketsToReconcile,
+                    $apiIncidentIds,
+                    $personId,
+                    $displayName,
+                    $result
+                );
 
                 $result['people_ok']++;
             } catch (\Throwable $e) {
@@ -194,10 +144,98 @@ final class InvgateTicketSyncService
             }
         }
 
+        // Huérfanos: no tienen agente local, así que solo se actualizan por ID.
+        $orphanTickets = $this->ticketsRepo
+            ->listOrphanTicketsForStatusReconciliation($finalStatusIds);
+        $this->reconcileTicketsById(
+            $orphanTickets,
+            [],
+            0,
+            'Sin persona asignada',
+            $result
+        );
+
         if ($result['errors'] !== []) {
-            $result['ok'] = $result['people_ok'] > 0;
+            $result['ok'] = $result['people_ok'] > 0 || $result['tickets_status_updated'] > 0;
         }
 
         return $result;
+    }
+
+    /**
+     * Trae cada incidente por ID y actualiza status/asignado local.
+     *
+     * @param list<array{invgate_incident_id: int, status_id: ?int}> $ticketsToReconcile
+     * @param array<int, true> $skipIncidentIds
+     * @param array{
+     *   ok: bool,
+     *   people_total: int,
+     *   people_ok: int,
+     *   tickets_upserted: int,
+     *   tickets_status_updated: int,
+     *   tickets_skipped: int,
+     *   errors: list<array{person_id: int, display_name: string, error: string}>
+     * } $result
+     */
+    private function reconcileTicketsById(
+        array $ticketsToReconcile,
+        array $skipIncidentIds,
+        int $errorPersonId,
+        string $errorDisplayName,
+        array &$result
+    ): void {
+        foreach ($ticketsToReconcile as $ticketRow) {
+            $incidentId = isset($ticketRow['invgate_incident_id'])
+                ? (int) $ticketRow['invgate_incident_id']
+                : 0;
+            if ($incidentId <= 0) {
+                continue;
+            }
+            if (isset($skipIncidentIds[$incidentId])) {
+                continue;
+            }
+
+            try {
+                $incident = $this->client->fetchIncidentById($incidentId);
+                $statusId = isset($incident['status_id']) ? (int) $incident['status_id'] : null;
+                if ($statusId !== null && $statusId <= 0) {
+                    $statusId = null;
+                }
+
+                $assignedInvgateId = isset($incident['assigned_id']) ? (int) $incident['assigned_id'] : null;
+                if ($assignedInvgateId !== null && $assignedInvgateId <= 0) {
+                    $assignedInvgateId = null;
+                }
+                $newPersonId = $assignedInvgateId !== null
+                    ? $this->peopleRepo->findPersonIdByInvgateId($assignedInvgateId)
+                    : null;
+
+                $lastUpdate = isset($incident['last_update'])
+                    ? trim((string) $incident['last_update'])
+                    : '';
+                if ($lastUpdate === '') {
+                    $lastUpdate = '0';
+                }
+
+                if ($this->ticketsRepo->updateStatusAndAssigneeByInvgateIncidentId(
+                    $incidentId,
+                    $statusId,
+                    $lastUpdate,
+                    $newPersonId
+                )) {
+                    $result['tickets_status_updated']++;
+                } else {
+                    $result['tickets_skipped']++;
+                }
+            } catch (\Throwable $e) {
+                $result['tickets_skipped']++;
+                $result['errors'][] = [
+                    'person_id' => $errorPersonId,
+                    'display_name' => $errorDisplayName,
+                    'error' => 'Error actualizando status para invgate_incident_id #' . $incidentId
+                        . ': ' . $e->getMessage(),
+                ];
+            }
+        }
     }
 }

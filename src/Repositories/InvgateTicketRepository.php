@@ -258,6 +258,52 @@ final class InvgateTicketRepository
     }
 
     /**
+     * Tickets locales sin persona asignada con estado NO final.
+     *
+     * @param array<int, int> $excludedStatusIds
+     * @return list<array{invgate_incident_id: int, status_id: ?int}>
+     */
+    public function listOrphanTicketsForStatusReconciliation(array $excludedStatusIds): array
+    {
+        $excludedStatusIds = array_values(array_filter(
+            $excludedStatusIds,
+            static fn (mixed $v): bool => is_int($v) && $v > 0
+        ));
+
+        if ($excludedStatusIds === []) {
+            return [];
+        }
+
+        $placeholders = implode(',', array_fill(0, count($excludedStatusIds), '?'));
+
+        $sql = 'SELECT invgate_incident_id, status_id
+                FROM invgate_tickets
+                WHERE person_id IS NULL
+                  AND (status_id IS NULL OR status_id NOT IN (' . $placeholders . '))
+                ORDER BY last_update DESC';
+
+        $stmt = $this->pdo->prepare($sql);
+        $stmt->execute($excludedStatusIds);
+
+        $out = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            if (!is_array($row)) {
+                continue;
+            }
+            $incidentId = isset($row['invgate_incident_id']) ? (int) $row['invgate_incident_id'] : 0;
+            if ($incidentId <= 0) {
+                continue;
+            }
+            $out[] = [
+                'invgate_incident_id' => $incidentId,
+                'status_id' => isset($row['status_id']) ? $this->mapOptionalIntColumn($row['status_id']) : null,
+            ];
+        }
+
+        return $out;
+    }
+
+    /**
      * Actualiza solo status del ticket local identificado por invgate_incident_id.
      */
     public function updateStatusAndAssigneeByInvgateIncidentId(
