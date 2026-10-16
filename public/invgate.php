@@ -59,6 +59,9 @@ $invgateWebBase = InvgateUrl::normalizeBase(
                 <button type="button" class="invgate-tab" role="tab" aria-selected="false" aria-controls="invgatePanelStats" id="invgateTabStats" data-panel="stats">
                     Estadísticas
                 </button>
+                <button type="button" class="invgate-tab" role="tab" aria-selected="false" aria-controls="invgatePanelPrioritization" id="invgateTabPrioritization" data-panel="prioritization">
+                    Priorización
+                </button>
             </div>
 
             <div id="invgatePanelTickets" class="invgate-panel" role="tabpanel" aria-labelledby="invgateTabTickets">
@@ -100,6 +103,22 @@ $invgateWebBase = InvgateUrl::normalizeBase(
                 <div id="invgateStatsRoot" hidden></div>
             </div>
 
+            <div id="invgatePanelPrioritization" class="invgate-panel" role="tabpanel" aria-labelledby="invgateTabPrioritization" hidden>
+                <h2 class="panel__title">Priorización por persona</h2>
+                <p class="muted panel__lead">Asigná una prioridad numérica a cada ticket abierto: 1 es la mayor prioridad. Dejá el campo vacío para quitarla. Guardá los cambios de cada persona antes de descargar su PDF.</p>
+                <div class="invgate-stats-toolbar">
+                    <label class="invgate-stats-toolbar__field" for="invgatePriorityPerson">
+                        Persona
+                        <select id="invgatePriorityPerson" class="invgate-stats-toolbar__select" disabled>
+                            <option value="">Todas las personas</option>
+                        </select>
+                    </label>
+                    <button type="button" class="btn btn--small" id="invgatePriorityRetry" hidden>Reintentar</button>
+                </div>
+                <p class="muted" id="invgatePriorityLoading" role="status">Seleccioná esta pestaña para cargar los tickets.</p>
+                <div id="invgatePriorityRoot" hidden></div>
+            </div>
+
         </section>
     </div>
 
@@ -134,6 +153,7 @@ $invgateWebBase = InvgateUrl::normalizeBase(
     <script src="assets/js/invgate-common.js" defer></script>
     <script src="assets/js/invgate.js" defer></script>
     <script src="assets/js/invgate-stats.js" defer></script>
+    <script src="assets/js/invgate-prioritization.js" defer></script>
     <script src="assets/js/invgate-recommendations.js" defer></script>
     <script src="assets/js/app-shell.js" defer></script>
 </body>

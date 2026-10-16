@@ -703,6 +703,9 @@
         if (panelId === "invgatePanelStats" && window.InvgateStats) {
             window.InvgateStats.loadStats(false);
         }
+        if (panelId === "invgatePanelPrioritization" && window.InvgatePrioritization) {
+            window.InvgatePrioritization.load();
+        }
     }
 
     function ensureTicketVisibleInList(ticketId) {

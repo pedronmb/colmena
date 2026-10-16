@@ -1053,6 +1053,81 @@ body {
     border-bottom: 1px solid var(--border);
 }
 
+.invgate-priority-head,
+.invgate-priority-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.65rem 1rem;
+}
+
+.invgate-priority-head {
+    justify-content: space-between;
+}
+
+.invgate-priority-person {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    min-width: 0;
+}
+
+.invgate-priority-group .invgate-group__body {
+    margin-top: 0.75rem;
+}
+
+.invgate-priority-status:empty {
+    display: none;
+}
+
+.invgate-priority-count {
+    margin: 0.25rem 0 0;
+    font-size: 0.85rem;
+}
+
+.invgate-priority-status {
+    min-height: 1.3em;
+    margin: 0.5rem 0;
+    font-size: 0.85rem;
+}
+
+.invgate-priority-status--error {
+    color: var(--danger, #c0392b);
+}
+
+.invgate-priority-table {
+    width: 100%;
+    min-width: 42rem;
+}
+
+.invgate-priority-table th:first-child {
+    width: 9rem;
+}
+
+.invgate-priority-table td:nth-child(3) {
+    overflow-wrap: anywhere;
+}
+
+.invgate-priority-input {
+    box-sizing: border-box;
+    width: 8.5rem;
+    padding: 0.45rem 0.5rem;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font: inherit;
+}
+
+.invgate-priority-input:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+.invgate-priority-group[hidden] {
+    display: none;
+}
+
 .invgate-stats-team__title {
     margin: 0 0 0.75rem;
     font-size: 1rem;

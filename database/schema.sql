@@ -137,6 +137,12 @@ CREATE TABLE invgate_tickets (
 CREATE INDEX idx_invgate_tickets_person ON invgate_tickets(person_id);
 CREATE INDEX idx_invgate_tickets_last_update ON invgate_tickets(last_update DESC);
 
+-- Priorización manual local; el sync conserva estos valores.
+CREATE TABLE invgate_ticket_priorities (
+    ticket_id INTEGER PRIMARY KEY REFERENCES invgate_tickets(id) ON DELETE CASCADE,
+    priority INTEGER NOT NULL CHECK (typeof(priority) = 'integer' AND priority BETWEEN 1 AND 2147483647)
+);
+
 -- Work items sincronizados desde Azure DevOps
 CREATE TABLE azure_work_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

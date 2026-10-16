@@ -11,7 +11,7 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
 | Requisito | Notas |
 |-----------|--------|
 | PHP | 8.0 o superior (recomendado 8.1+) |
-| Extensiones | `pdo_sqlite`, `json`, `session`, `curl` (InvGate y Azure DevOps) |
+| Extensiones | `pdo_sqlite`, `json`, `session`, `curl` (InvGate y Azure DevOps), `iconv` (exportación PDF) |
 | Servidor web | Apache, nginx u otro con soporte PHP (en local suele usarse **XAMPP** u homólogo) |
 | Base de datos | SQLite (archivo `database/app.sqlite`; no hace falta servidor MySQL) |
 | Front-end | HTML, CSS y JavaScript **vanilla** (sin npm ni bundler obligatorio) |
@@ -238,7 +238,13 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
 
   - **Tickets** — listado agrupado por persona (incluye fichas con ID InvGate aunque no tengan tickets abiertos). Las columnas **Estado**, **Tipo** y **Categoría** muestran el nombre del catálogo sincronizado; si falta el catálogo, se muestra el ID numérico. Al hacer clic en un ticket se abre el detalle con descripción y comentarios sincronizados.
   - **Estadísticas** — métricas por persona y resumen del equipo (`GET api/invgate-stats.php?team_id=&period=7|30|all&stale_days=3`).
-  - **Recomendaciones IA** — lista plana de tickets abiertos con resumen y recomendación guardados en base local (`GET api/invgate-recommendations.php` y `GET api/invgate-recommendation.php`).
+  - **Priorización** — tickets abiertos agrupados por persona, con filtro de persona y prioridad manual numérica (entero positivo; **1 es la mayor prioridad**). Los campos vacíos quedan sin prioridad, al final de la lista. Guardá los cambios de cada persona con **Guardar prioridades** y descargá su lista completa y ordenada con **Descargar PDF**. Los empates se ordenan por número de ticket. Esta prioridad se guarda en `invgate_ticket_priorities`, es compartida por los miembros del equipo y se conserva al sincronizar InvGate; es independiente de la prioridad original del servicio. El PDF incluye número, título, estado y prioridad, con paginación automática. La descarga se habilita cuando no hay cambios pendientes de guardar.
+
+  El **Análisis IA** se abre desde cada ticket y usa las recomendaciones guardadas en base local (`GET api/invgate-recommendations.php` y `GET api/invgate-recommendation.php`).
+
+  En **Priorización**, las listas comienzan plegadas. Hacé clic en el nombre o la flecha de cada persona para desplegar o plegar sus tickets; el contador y los botones de guardado y descarga siguen visibles. Plegar una lista conserva las prioridades que estés editando.
+
+  Para bases existentes, ejecutá una vez `php database/migrate_invgate_ticket_priorities.php`. La exportación PDF se genera en PHP, sin dependencias adicionales.
 
   **Métricas disponibles (por persona):**
 
@@ -345,6 +351,7 @@ Los endpoints viven en `public/api/*.php` (mismo origen que la app, `credentials
 - `azure-devops-workitems.php` (GET: tablero Kanban desde `azure_work_items` + `sync_meta`)
 - `azure-devops-workitems-list.php` (GET: `team_id` — lista agrupada por persona + grupo Otros)
 - `invgate-tickets.php` (GET: tickets agrupados por persona), `invgate-ticket.php` (GET: detalle + comentarios de un ticket), `invgate-stats.php` (GET: estadísticas por persona del equipo), `invgate-recommendations.php` (GET: lista plana + estado de recomendación), `invgate-recommendation.php` (GET: detalle de recomendación por ticket)
+- `invgate-prioritization.php` (GET: `team_id`, grupos con `manual_priority`; GET: `team_id`, `person_id`, `format=pdf`, descarga PDF; PUT: `{team_id, person_id, priorities: [{ticket_id, priority}]}`, guarda solo los tickets modificados de esa persona). `priority` admite enteros de 1 a 2147483647, o `null` para quitarla. Requiere sesión y pertenecer al equipo; no permite modificar tickets cerrados, de otra persona o de otro equipo.
 - `team-health.php` (GET: carga y salud por persona)
 - `management-copilot.php` (GET: copiloto del equipo, `period=current|previous`)
 - `person-management-copilot-list.php` (GET: tarjetas resumen por persona)
@@ -377,6 +384,7 @@ Si ya tienes un `app.sqlite` antiguo y **no** quieres borrarlo con `init.php`, e
 | `database/migrate_invgate_tickets_source_status_type.php` | Campos `source_id`, `status_id` y `type_id` en tickets InvGate |
 | `database/migrate_invgate_catalog.php` | Tablas lookup: categorías, tipos y estados de InvGate |
 | `database/migrate_invgate_recommendations.php` | Tabla `invgate_ticket_recommendations` para recomendaciones IA |
+| `database/migrate_invgate_ticket_priorities.php` | Prioridades manuales locales de tickets InvGate |
 | `database/migrate_management_recommendations.php` | Tablas del Copiloto de Management |
 
 Ejemplo (desde la raíz del proyecto):
