@@ -53,7 +53,8 @@ return [
     ],
     // InvGate Service Desk (sync de tickets). No subas config.php si incluye la contraseña.
     'invgate' => [
-        'server_url' => '', // ej. https://empresa.cloud.invgate.net (con https://, sin barra final)
+        'server_url' => '', // API de sincronización, ej. https://empresa.cloud.invgate.net
+        'web_url' => 'https://portal.austral.edu.ar', // Portal para enlaces a tickets, sin barra final
         'user' => '',
         'password' => '',
         'limit' => 100,

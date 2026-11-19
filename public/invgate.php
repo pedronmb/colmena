@@ -25,7 +25,7 @@ if (!$dbExists || $user === null) {
 
 $personalTeamId = PersonalTeamBootstrap::teamId($config, $auth);
 $invgateWebBase = InvgateUrl::normalizeBase(
-    is_array($config['invgate'] ?? null) ? ($config['invgate']['server_url'] ?? null) : null
+    is_array($config['invgate'] ?? null) ? ($config['invgate']['web_url'] ?? null) : null
 );
 ?>
 <!DOCTYPE html>
