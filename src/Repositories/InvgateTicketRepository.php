@@ -539,6 +539,21 @@ final class InvgateTicketRepository
         return $tickets;
     }
 
+    public function countAssignedOpenForTeam(int $teamId): int
+    {
+        $finalPlaceholders = InvgateFinalStatuses::sqlNotInPlaceholders();
+        $stmt = $this->pdo->prepare(
+            'SELECT COUNT(*)
+             FROM invgate_tickets it
+             INNER JOIN team_people tp ON tp.id = it.person_id
+             WHERE tp.team_id = ?
+               AND (it.status_id IS NULL OR it.status_id NOT IN (' . $finalPlaceholders . '))'
+        );
+        $stmt->execute(array_merge([$teamId], InvgateFinalStatuses::ids()));
+
+        return (int) $stmt->fetchColumn();
+    }
+
     /**
      * @param array<string, mixed> $row
      * @return array<string, mixed>

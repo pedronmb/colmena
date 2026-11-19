@@ -24,6 +24,11 @@ config/config.php
 Thumbs.db
 desktop.ini
 
+# Compilación del widget de Windows
+/windows/ColmenaWidget/bin/
+/windows/ColmenaWidget/obj/
+/windows/dist/
+
 # IDEs (descomenta si no quieres versionar ajustes locales)
 # .idea/
 # .vscode/

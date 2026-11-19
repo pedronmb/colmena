@@ -4,6 +4,8 @@ Aplicación web en **PHP** con **SQLite** para gestionar equipos, personas (tarj
 
 Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
 
+[Widget flotante para Windows 11](windows/README.md) — alertas, temas críticos, InvGate y DevOps.
+
 ---
 
 ## Requisitos

@@ -9,17 +9,18 @@ use App\Repositories\UserRepository;
 use App\Services\AuthService;
 
 $dbExists = file_exists($config['db']['path']);
+$loginTarget = ($_GET['next'] ?? null) === 'widget' ? 'widget.php' : 'index.php';
 $alreadyIn = false;
 if ($dbExists) {
     $pdo = Connection::get($config);
     $auth = new AuthService(new UserRepository($pdo));
-    if ($auth->userId() !== null) {
+    if ($auth->currentUser() !== null) {
         $alreadyIn = true;
     }
 }
 
 if ($alreadyIn) {
-    header('Location: index.php');
+    header('Location: ' . $loginTarget);
     exit;
 }
 ?>
@@ -45,7 +46,7 @@ if ($alreadyIn) {
         <?php endif; ?>
 
         <section class="panel">
-            <form id="loginForm" class="form" autocomplete="on">
+            <form id="loginForm" class="form" autocomplete="on" data-success-url="<?= $loginTarget ?>">
                 <div id="loginError" class="form-error" hidden role="alert"></div>
                 <label>
                     Email

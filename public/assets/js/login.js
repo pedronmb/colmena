@@ -29,7 +29,7 @@
                 throw new Error(data.error || "No se pudo iniciar sesión");
             }
 
-            window.location.href = "index.php";
+            window.location.href = form.dataset.successUrl || "index.php";
         } catch (err) {
             errorEl.textContent = err instanceof Error ? err.message : "Error";
             errorEl.hidden = false;
