@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Repositories\InvgateTicketRepository;
 use App\Repositories\TeamHealthRepository;
+use App\Repositories\TeamPersonRepository;
 use App\Support\TeamHealthThresholds;
 use DateTimeImmutable;
 use PDO;
@@ -66,12 +67,20 @@ final class WidgetSummaryService
             || $this->pdo->query('SELECT 1 FROM invgate_tickets LIMIT 1')->fetchColumn() !== false
         )) {
             $tickets = new InvgateTicketRepository($this->pdo);
-            if ($section === 'invgate') {
-                $invgateDetails = $tickets->listAssignedOpenForWidget($teamId, $tables->hasTable('invgate_statuses'));
+            if ($section === 'invgate-people') {
+                $invgateDetails = $tickets->listPrioritizedForWidget($teamId, $tables->hasTable('invgate_ticket_priorities'));
                 $invgate = array_sum(array_map(static fn (array $group): int => count($group['tickets']), $invgateDetails));
             } else {
                 $invgate = $tickets->countAssignedOpenForTeam($teamId);
+                if ($section === 'invgate') {
+                    $invgateDetails = $tickets->listRecentForWidget($teamId, $tables->hasTable('invgate_ticket_comments'));
+                }
             }
+        }
+        if ($section === 'invgate-people' && $invgate === null) {
+            $invgateDetails = array_map(static fn (array $person): array => [
+                'person_id' => $person['id'], 'name' => $person['display_name'], 'tickets' => [],
+            ], (new TeamPersonRepository($this->pdo))->listByTeam($teamId));
         }
 
         return [
@@ -81,7 +90,7 @@ final class WidgetSummaryService
             'topics_active' => $activeTopics,
             'invgate_open' => $invgate,
             'detail' => match ($section) {
-                'invgate' => $invgateDetails,
+                'invgate', 'invgate-people' => $invgateDetails,
                 'topics' => $topicDetails,
                 default => null,
             },

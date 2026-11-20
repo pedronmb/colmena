@@ -36,8 +36,8 @@ session_write_close();
     <title>Resumen de Colmena</title>
     <?php require __DIR__ . '/includes/favicon.php'; ?>
     <link rel="stylesheet" href="assets/css/app.css">
-    <link rel="stylesheet" href="assets/css/widget.css?v=sections">
-    <script src="assets/js/widget.js?v=sections" defer></script>
+    <link rel="stylesheet" href="assets/css/widget.css?v=invgate-recent">
+    <script src="assets/js/widget.js?v=invgate-recent" defer></script>
 </head>
 <body class="widget-page">
     <main class="widget">
@@ -51,7 +51,7 @@ session_write_close();
         <p class="widget__status" id="widget-status" role="status">Cargando resumen…</p>
 
         <div class="widget__sections" id="widget-summary" hidden>
-            <div class="widget__metrics" role="group" aria-label="Secciones del widget">
+            <div class="widget__metrics" id="widget-section-options" role="group" aria-label="Secciones del widget">
                 <button type="button" class="widget__card widget__option" data-widget-section="invgate"
                     id="widget-invgate-option" aria-controls="widget-invgate-panel" aria-expanded="false">
                     <span class="widget__option-name">InvGate</span>
@@ -67,11 +67,20 @@ session_write_close();
             </div>
             <p class="widget__caption widget__sync-status" id="widget-invgate-sync-status" role="status" hidden></p>
             <section class="widget__card" id="widget-invgate-panel" aria-labelledby="widget-invgate-heading" hidden>
+                <h2 id="widget-invgate-heading">Actividad reciente</h2>
+                <p class="widget__empty" id="widget-invgate-detail-status" role="status"></p>
+                <ul class="widget__list" id="widget-invgate-recent"></ul>
+                <div class="widget__actions">
+                    <button type="button" class="btn" id="widget-invgate-show-people">Ver los tickets por persona</button>
+                </div>
+            </section>
+            <section class="widget__card" id="widget-invgate-people-panel" aria-labelledby="widget-invgate-people-heading" hidden>
+                <button type="button" class="btn widget__back" id="widget-invgate-back">Volver a InvGate</button>
                 <div class="widget__section-head">
-                    <h2 id="widget-invgate-heading">Tickets por persona</h2>
+                    <h2 id="widget-invgate-people-heading" tabindex="-1">Tickets por persona</h2>
                     <a target="_blank" rel="noopener" href="invgate.php">Abrir en Colmena</a>
                 </div>
-                <p class="widget__empty" id="widget-invgate-detail-status" role="status"></p>
+                <p class="widget__empty" id="widget-invgate-people-detail-status" role="status"></p>
                 <div class="widget__groups" id="widget-invgate-groups"></div>
             </section>
             <section class="widget__card" id="widget-topics-panel" aria-labelledby="widget-topics-heading" hidden>

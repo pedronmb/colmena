@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Repositories;
 
 use App\Support\InvgateFinalStatuses;
+use App\Support\InvgateTimestamp;
 use PDO;
 
 final class InvgateTicketRepository
@@ -554,20 +555,20 @@ final class InvgateTicketRepository
         return (int) $stmt->fetchColumn();
     }
 
-    /** @return list<array{person_id: int, name: string, tickets: list<array{number: int, title: string, status: ?string}>}> */
-    public function listAssignedOpenForWidget(int $teamId, bool $hasStatuses): array
+    /** @return list<array{person_id: int, name: string, tickets: list<array{number: int, title: string, manual_priority: ?int}>}> */
+    public function listPrioritizedForWidget(int $teamId, bool $hasPriorities): array
     {
-        $status = $hasStatuses ? 'st.name' : 'NULL';
-        $statusJoin = $hasStatuses ? 'LEFT JOIN invgate_statuses st ON st.invgate_id = it.status_id' : '';
+        $priority = $hasPriorities ? 'p.priority' : 'NULL';
+        $priorityJoin = $hasPriorities ? 'LEFT JOIN invgate_ticket_priorities p ON p.ticket_id = it.id' : '';
         $finalPlaceholders = InvgateFinalStatuses::sqlNotInPlaceholders();
         $stmt = $this->pdo->prepare(
-            "SELECT tp.id AS person_id, tp.display_name, it.invgate_incident_id, it.title, $status AS status_name
+            "SELECT tp.id AS person_id, tp.display_name, it.invgate_incident_id, it.title, $priority AS manual_priority
              FROM team_people tp
              LEFT JOIN invgate_tickets it ON it.person_id = tp.id
                  AND (it.status_id IS NULL OR it.status_id NOT IN ($finalPlaceholders))
-             $statusJoin
-             WHERE tp.team_id = ? AND (it.id IS NOT NULL OR tp.invgate_id > 0)
-             ORDER BY tp.display_name COLLATE NOCASE, tp.id, it.last_update DESC, it.invgate_incident_id DESC"
+             $priorityJoin
+             WHERE tp.team_id = ?
+             ORDER BY tp.display_name COLLATE NOCASE, tp.id, manual_priority IS NULL, manual_priority, it.invgate_incident_id"
         );
         $stmt->execute(array_merge(InvgateFinalStatuses::ids(), [$teamId]));
 
@@ -579,11 +580,55 @@ final class InvgateTicketRepository
                 $groups[$id]['tickets'][] = [
                     'number' => (int) $row['invgate_incident_id'],
                     'title' => $row['title'],
-                    'status' => $row['status_name'],
+                    'manual_priority' => $this->mapOptionalIntColumn($row['manual_priority']),
                 ];
             }
         }
         return array_values($groups);
+    }
+
+    /** @return list<array{number: int, title: string, person: string, interaction_at: string}> */
+    public function listRecentForWidget(int $teamId, bool $hasComments): array
+    {
+        $finalPlaceholders = InvgateFinalStatuses::sqlNotInPlaceholders();
+        $teamOpenTickets = "FROM invgate_tickets it
+             INNER JOIN team_people tp ON tp.id = it.person_id";
+        $filter = "WHERE tp.team_id = ? AND (it.status_id IS NULL OR it.status_id NOT IN ($finalPlaceholders))";
+        $params = array_merge([$teamId], InvgateFinalStatuses::ids());
+        $stmt = $this->pdo->prepare("SELECT it.id, it.invgate_incident_id, it.title, it.last_update, tp.display_name $teamOpenTickets $filter");
+        $stmt->execute($params);
+        $tickets = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $tickets[(int) $row['id']] = [
+                'number' => (int) $row['invgate_incident_id'],
+                'title' => $row['title'],
+                'person' => $row['display_name'],
+                'timestamp' => InvgateTimestamp::epochSeconds($row['last_update']),
+            ];
+        }
+
+        if ($hasComments && $tickets !== []) {
+            $comments = $this->pdo->prepare("SELECT c.incident_id, c.created_at $teamOpenTickets
+                INNER JOIN invgate_ticket_comments c ON c.incident_id = it.id $filter");
+            $comments->execute($params);
+            while ($comment = $comments->fetch(PDO::FETCH_ASSOC)) {
+                $id = (int) $comment['incident_id'];
+                $timestamp = InvgateTimestamp::epochSeconds($comment['created_at']);
+                if (isset($tickets[$id]) && $timestamp !== null
+                    && ($tickets[$id]['timestamp'] === null || $timestamp > $tickets[$id]['timestamp'])) {
+                    $tickets[$id]['timestamp'] = $timestamp;
+                }
+            }
+        }
+
+        $recent = array_filter($tickets, static fn (array $ticket): bool => $ticket['timestamp'] !== null);
+        usort($recent, static fn (array $a, array $b): int => ($b['timestamp'] <=> $a['timestamp']) ?: ($b['number'] <=> $a['number']));
+        return array_map(static fn (array $ticket): array => [
+            'number' => $ticket['number'],
+            'title' => $ticket['title'],
+            'person' => $ticket['person'],
+            'interaction_at' => gmdate(DATE_ATOM, $ticket['timestamp']),
+        ], array_slice($recent, 0, 5));
     }
 
     /**

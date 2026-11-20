@@ -46,7 +46,7 @@
     color: var(--banner-warn-text);
 }
 
-.widget__sections:not([hidden]), .widget__metrics {
+.widget__sections:not([hidden]), .widget__metrics:not([hidden]) {
     display: grid;
     gap: 0.6rem;
 }
@@ -196,4 +196,12 @@
 }
 .widget .widget__sync-status {
     margin-top: 0.35rem;
+}
+
+.widget__actions {
+    margin-top: 0.65rem;
+}
+
+.widget .widget__back {
+    margin-bottom: 0.6rem;
 }

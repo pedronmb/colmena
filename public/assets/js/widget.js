@@ -7,16 +7,18 @@
     const invgateSyncStatus = document.getElementById("widget-invgate-sync-status");
     const invgateSyncToken = document.querySelector('meta[name="colmena-invgate-sync"]');
     const sectionButtons = document.querySelectorAll("[data-widget-section]");
-    const panels = Object.fromEntries([...sectionButtons].map((button) => {
-        const key = button.dataset.widgetSection;
-        return [key, {
-            root: document.getElementById(button.getAttribute("aria-controls")),
-            status: document.getElementById(`widget-${key}-detail-status`),
-            list: document.getElementById(key === "invgate" ? "widget-invgate-groups" : "widget-topic-list"),
-        }];
-    }));
+    const sectionOptions = document.getElementById("widget-section-options");
+    const browsePeople = document.getElementById("widget-invgate-show-people");
+    const backToInvgate = document.getElementById("widget-invgate-back");
+    const panels = Object.fromEntries(Object.entries({
+        invgate: "widget-invgate-recent", "invgate-people": "widget-invgate-groups", topics: "widget-topic-list",
+    }).map(([key, list]) => [key, {
+        root: document.getElementById(`widget-${key}-panel`),
+        status: document.getElementById(`widget-${key}-detail-status`),
+        list: document.getElementById(list),
+    }]));
     const timeFormat = new Intl.DateTimeFormat("es-AR", { hour: "2-digit", minute: "2-digit" });
-    const syncTimeFormat = new Intl.DateTimeFormat("es-AR", {
+    const dateTimeFormat = new Intl.DateTimeFormat("es-AR", {
         day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
     });
     const dateFormat = new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", timeZone: "UTC" });
@@ -47,7 +49,7 @@
         };
         const result = results[sync.result] ?? (sync.queued ? "En cola" : "Sin intentos");
         const attempted = sync.last_attempt_at ? new Date(sync.last_attempt_at) : null;
-        const time = attempted && Number.isFinite(attempted.getTime()) ? ` · ${syncTimeFormat.format(attempted)}` : "";
+        const time = attempted && Number.isFinite(attempted.getTime()) ? ` · ${dateTimeFormat.format(attempted)}` : "";
         invgateSyncStatus.textContent = `Sincronización: ${result}${time}`;
     }
 
@@ -78,28 +80,41 @@
         }));
     }
 
-    function showInvgateDetails(groups, total) {
+    function showRecentInvgate(tickets, total) {
         const { root, status: detailStatus, list } = panels.invgate;
+        list.replaceChildren(...tickets.map((ticket) => {
+            const time = new Date(ticket.interaction_at);
+            const description = [ticket.person, Number.isFinite(time.getTime()) ? dateTimeFormat.format(time) : null];
+            return detailRow(`#${ticket.number} ${ticket.title}`, description.filter(Boolean).join(" · "));
+        }));
+        detailStatus.textContent = total === null ? "InvGate no está disponible."
+            : tickets.length ? "" : "Sin actividad registrada en los tickets abiertos.";
+        root.dataset.loaded = "true";
+    }
+
+    function showInvgatePeople(groups, total) {
+        const { root, status: detailStatus, list } = panels["invgate-people"];
         const previouslyOpen = new Set([...list.querySelectorAll("details[open]")].map((group) => group.dataset.person));
-        const firstWithTickets = groups.findIndex((group) => group.tickets.length > 0);
-        list.replaceChildren(...groups.map((group, index) => {
+        list.replaceChildren(...groups.map((group) => {
             const details = document.createElement("details");
             details.dataset.person = String(group.person_id);
-            details.open = previouslyOpen.has(details.dataset.person) || (!root.dataset.loaded && index === firstWithTickets);
+            details.open = previouslyOpen.has(details.dataset.person);
             const heading = document.createElement("summary");
             heading.append(textNode("span", group.name), textNode("span", numberFormat.format(group.tickets.length), "widget__total"));
             details.append(heading);
             if (group.tickets.length === 0) {
-                details.append(textNode("p", "Sin tickets abiertos", "widget__empty"));
+                const message = total === null ? "Tickets no disponibles" : "Sin tickets abiertos";
+                details.append(textNode("p", message, "widget__empty"));
             } else {
                 const tickets = document.createElement("ul");
                 tickets.className = "widget__list";
-                tickets.append(...group.tickets.map((ticket) => detailRow(`#${ticket.number} ${ticket.title}`, ticket.status)));
+                tickets.append(...group.tickets.map((ticket) => detailRow(`#${ticket.number} ${ticket.title}`,
+                    ticket.manual_priority === null ? "Sin prioridad" : `Prioridad en Colmena ${ticket.manual_priority}`)));
                 details.append(tickets);
             }
             return details;
         }));
-        detailStatus.textContent = total === null ? "InvGate no está disponible." : groups.length ? "" : "Sin tickets abiertos.";
+        detailStatus.textContent = total === null ? "InvGate no está disponible." : groups.length ? "" : "Sin personas en el equipo.";
         root.dataset.loaded = "true";
     }
 
@@ -117,11 +132,12 @@
 
     function displaySection(section) {
         activeSection = section;
+        sectionOptions.hidden = section === "invgate-people";
         for (const button of sectionButtons) {
-            const key = button.dataset.widgetSection;
-            const selected = key === section;
-            button.setAttribute("aria-expanded", String(selected));
-            panels[key].root.hidden = !selected;
+            button.setAttribute("aria-expanded", String(button.dataset.widgetSection === section));
+        }
+        for (const [key, panel] of Object.entries(panels)) {
+            panel.root.hidden = key !== section;
         }
         if (section && !panels[section].root.dataset.loaded) {
             panels[section].status.textContent = "Cargando detalle…";
@@ -184,7 +200,8 @@
 
             showMetric("invgate", data.invgate_open, "Tickets abiertos");
             showMetric("topic", data.topics_active, "Temas activos");
-            if (section === "invgate") showInvgateDetails(data.detail, data.invgate_open);
+            if (section === "invgate") showRecentInvgate(data.detail, data.invgate_open);
+            if (section === "invgate-people") showInvgatePeople(data.detail, data.invgate_open);
             if (section === "topics") {
                 showTopicDetails(data.detail);
                 showAlerts(data.alerts);
@@ -270,6 +287,18 @@
             void refresh(true);
         });
     }
+    browsePeople.addEventListener("click", () => {
+        if (signingOut) return;
+        displaySection("invgate-people");
+        document.getElementById("widget-invgate-people-heading").focus();
+        void refresh(true);
+    });
+    backToInvgate.addEventListener("click", () => {
+        if (signingOut) return;
+        displaySection("invgate");
+        browsePeople.focus();
+        void refresh(true);
+    });
     window.addEventListener("colmena-invgate-sync", requestInvgateSync);
     window.addEventListener("online", () => refresh());
     window.addEventListener("pageshow", (event) => {

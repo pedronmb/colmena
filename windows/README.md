@@ -6,7 +6,7 @@
 2. Desde una PC con Windows 11 x64 y [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/), extraé todo el ZIP a una carpeta y abrí `ColmenaWidget.exe`.
 3. Ingresá la URL base y conectate a la red interna o VPN si el servidor la requiere. Si aparece **Acceso a…**, ingresá primero las credenciales que te pide el servidor cuando abrís esa URL en el navegador. Después, iniciá sesión con tu cuenta de Colmena.
 4. Arrastrá el widget desde el tirador superior o cambiá su tamaño arrastrando un borde o una esquina. En **Configuración** también podés elegir un tamaño, cambiar el tema o la **Transparencia** (de 0 a 60 %), activar **Siempre visible** y cambiar de servidor. El tamaño y las demás preferencias se guardan en esta PC.
-5. Hacé clic en **InvGate** para ver los tickets abiertos por persona o en **Temas** para consultar los temas activos y las alertas próximas. Los enlaces **Abrir en Colmena** abren el navegador predeterminado.
+5. Hacé clic en **InvGate** para ver hasta cinco tickets abiertos con la actividad más reciente. **Ver los tickets por persona** abre el directorio del equipo con las prioridades de Colmena. **Temas** muestra los temas activos y las alertas próximas. Los enlaces **Abrir en Colmena** abren el navegador predeterminado.
 
 El widget se actualiza al abrir, cada cinco minutos y al presionar **Actualizar**. Los vencimientos abarcan hoy y los seis días siguientes según la fecha del servidor PHP. InvGate muestra los datos de la última sincronización. Si falla la conexión, el widget conserva el último resumen en memoria y muestra la hora de esa actualización. **Cerrar sesión** cierra la sesión del widget.
 
