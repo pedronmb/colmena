@@ -10,8 +10,7 @@ use Throwable;
 final class InvgateSyncCoordinator
 {
     private const INTERVAL = 15 * 60;
-    private const QUEUE_TTL = 2 * 60;
-    private const EMPTY_STATE = ['pending_at' => null, 'last_attempt_at' => null, 'result' => null];
+    private const EMPTY_STATE = ['last_attempt_at' => null, 'result' => null];
 
     private string $directory;
 
@@ -29,60 +28,28 @@ final class InvgateSyncCoordinator
         return ($config['invgate']['widget_sync_enabled'] ?? false) === true;
     }
 
-    public function request(int $now): string
+    /**
+     * @param callable(): array $sync
+     * @return array{state: 'busy'}|array{state: 'recent', retry_after: int}|array{state: 'finished', result: array}
+     */
+    public function run(bool $fromWidget, callable $sync, ?int $now = null): array
     {
         $lock = $this->tryLock();
         if ($lock === null) {
-            return 'busy';
-        }
-
-        try {
-            $state = $this->readState();
-            if ($this->hasPending($state, $now)) {
-                return 'queued';
-            }
-            // Cron can start the previous run up to a minute after the widget's request.
-            // Queue the next request if it can still become eligible before expiring.
-            if ($state['last_attempt_at'] !== null
-                && $state['last_attempt_at'] + self::INTERVAL >= $now + self::QUEUE_TTL) {
-                return 'recent';
-            }
-            $state['pending_at'] = $now;
-            $this->writeState($state);
-            return 'queued';
-        } finally {
-            fclose($lock);
-        }
-    }
-
-    /** @param callable(): array $sync */
-    public function run(bool $widgetWorker, callable $sync, ?int $now = null): ?array
-    {
-        if ($widgetWorker && $this->readState()['pending_at'] === null) {
-            return null;
-        }
-        $lock = $this->tryLock();
-        if ($lock === null) {
-            return null;
+            return ['state' => 'busy'];
         }
 
         try {
             $state = $this->readState();
             $now ??= time();
-            if ($widgetWorker) {
-                if (!$this->hasPending($state, $now)) {
-                    if ($state['pending_at'] !== null) {
-                        $state['pending_at'] = null;
-                        $this->writeState($state);
-                    }
-                    return null;
-                }
-                if ($state['last_attempt_at'] !== null && $now < $state['last_attempt_at'] + self::INTERVAL) {
-                    return null;
+            if ($fromWidget && $state['last_attempt_at'] !== null) {
+                $retryAfter = $state['last_attempt_at'] + self::INTERVAL - $now;
+                if ($retryAfter > 0) {
+                    return ['state' => 'recent', 'retry_after' => $retryAfter];
                 }
             }
 
-            $state = ['pending_at' => null, 'last_attempt_at' => $now, 'result' => 'running'];
+            $state = ['last_attempt_at' => $now, 'result' => 'running'];
             $this->writeState($state);
             try {
                 $result = $sync();
@@ -93,14 +60,14 @@ final class InvgateSyncCoordinator
                 throw $error;
             }
             $this->writeState($state);
-            return $result;
+            return ['state' => 'finished', 'result' => $result];
         } finally {
             fclose($lock);
         }
     }
 
-    /** @return array{last_attempt_at: ?string, result: ?string, queued: bool} */
-    public function status(int $now): array
+    /** @return array{last_attempt_at: ?string, result: ?string} */
+    public function status(): array
     {
         $state = $this->readState();
         if ($state['result'] === 'running') {
@@ -121,13 +88,7 @@ final class InvgateSyncCoordinator
         return [
             'last_attempt_at' => $state['last_attempt_at'] === null ? null : gmdate(DATE_ATOM, $state['last_attempt_at']),
             'result' => $state['result'],
-            'queued' => $this->hasPending($state, $now),
         ];
-    }
-
-    private function hasPending(array $state, int $now): bool
-    {
-        return $state['pending_at'] !== null && $now < $state['pending_at'] + self::QUEUE_TTL;
     }
 
     /** @return resource|null */

@@ -57,10 +57,10 @@ try {
     $summary = (new WidgetSummaryService($pdo))->forTeam($teamId, $now, $config, $section);
     if (InvgateSyncCoordinator::isEnabled($config)) {
         try {
-            $summary['invgate_sync'] = (new InvgateSyncCoordinator($config['db']['path']))->status($now->getTimestamp());
+            $summary['invgate_sync'] = (new InvgateSyncCoordinator($config['db']['path']))->status();
         } catch (Throwable $error) {
             error_log('Colmena widget InvGate: ' . $error->getMessage());
-            $summary['invgate_sync'] = ['last_attempt_at' => null, 'result' => 'unavailable', 'queued' => false];
+            $summary['invgate_sync'] = ['last_attempt_at' => null, 'result' => 'unavailable'];
         }
     }
     $respond(200, ['ok' => true] + $summary);

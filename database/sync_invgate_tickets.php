@@ -5,11 +5,14 @@ declare(strict_types=1);
 /**
  * Sincroniza tickets abiertos desde InvGate hacia invgate_tickets.
  * php database/sync_invgate_tickets.php
- * php database/sync_invgate_tickets.php --widget-worker
  */
 if (PHP_SAPI !== 'cli') {
     http_response_code(404);
     exit;
+}
+// A leftover crontab entry must not become an unrestricted manual run every minute.
+if (in_array('--widget-worker', $argv, true)) {
+    exit(0);
 }
 
 $base = dirname(__DIR__);
@@ -26,19 +29,14 @@ use App\Services\InvgateTicketSyncService;
 use App\Support\ConfigLoader;
 
 $config = ConfigLoader::load($base);
-$widgetWorker = in_array('--widget-worker', $argv, true);
-$source = $widgetWorker ? 'widget' : 'manual';
-if ($widgetWorker && !InvgateSyncCoordinator::isEnabled($config)) {
-    exit(0);
-}
 $dbPath = $config['db']['path'] ?? ($base . '/database/app.sqlite');
 if (!is_string($dbPath) || !file_exists($dbPath)) {
-    fwrite(STDERR, '[' . date(DATE_ATOM) . "] InvGate ($source): No existe la base de datos configurada.\n");
+    fwrite(STDERR, '[' . date(DATE_ATOM) . "] InvGate (manual): No existe la base de datos configurada.\n");
     exit(1);
 }
 
 try {
-    $result = (new InvgateSyncCoordinator($dbPath))->run($widgetWorker, static function () use ($config): array {
+    $outcome = (new InvgateSyncCoordinator($dbPath))->run(false, static function () use ($config): array {
         $pdo = Connection::get($config);
         return InvgateTicketSyncService::fromConfig(
             $config,
@@ -47,18 +45,17 @@ try {
         )->run();
     });
 } catch (\Throwable $e) {
-    fwrite(STDERR, '[' . date(DATE_ATOM) . "] InvGate ($source): " . $e->getMessage() . "\n");
+    fwrite(STDERR, '[' . date(DATE_ATOM) . '] InvGate (manual): ' . $e->getMessage() . "\n");
     exit(1);
 }
 
-if ($result === null) {
-    if (!$widgetWorker) {
-        echo "Ya hay otra sincronización de InvGate en curso.\n";
-    }
+if ($outcome['state'] === 'busy') {
+    echo "Ya hay otra sincronización de InvGate en curso.\n";
     exit(0);
 }
 
-echo '[' . date(DATE_ATOM) . "] InvGate sync ($source)\n";
+$result = $outcome['result'];
+echo '[' . date(DATE_ATOM) . "] InvGate sync (manual)\n";
 echo '  Personas con invgate_id: ' . $result['people_total'] . "\n";
 echo '  Personas sincronizadas:  ' . $result['people_ok'] . "\n";
 echo '  Tickets guardados:       ' . $result['tickets_upserted'] . "\n";

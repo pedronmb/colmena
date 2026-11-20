@@ -28,6 +28,7 @@
     let request = null;
     let syncRequest = null;
     let syncStatusRefresh;
+    let syncRetry;
     let updatedAt = null;
     let signingOut = false;
     let activeSection = null;
@@ -43,6 +44,7 @@
     }
 
     function showInvgateSync(sync) {
+        clearTimeout(syncStatusRefresh);
         if (!invgateSyncStatus) return;
         invgateSyncStatus.hidden = !sync;
         if (!sync) return;
@@ -53,8 +55,10 @@
         const result = results[sync.result] ?? "Sin intentos";
         const attempted = sync.last_attempt_at ? new Date(sync.last_attempt_at) : null;
         const time = attempted && Number.isFinite(attempted.getTime()) ? ` · ${dateTimeFormat.format(attempted)}` : "";
-        const queued = sync.queued ? "InvGate en cola · " : "";
-        invgateSyncStatus.textContent = `${queued}Último intento de InvGate: ${result}${time}`;
+        invgateSyncStatus.textContent = `Último intento de InvGate: ${result}${time}`;
+        if (sync.result === "running" && invgateSyncToken?.isConnected) {
+            syncStatusRefresh = setTimeout(() => refresh(), 10000);
+        }
     }
 
     function showInvgateRequest(source, message) {
@@ -169,7 +173,7 @@
         showMetric("topic", null, "");
         showInvgateSync(null);
         showInvgateRequest();
-        clearTimeout(syncStatusRefresh);
+        clearTimeout(syncRetry);
     }
 
     function requireLogin() {
@@ -242,11 +246,14 @@
 
     async function requestInvgateSync(source) {
         if (!invgateSyncToken?.isConnected || syncRequest || signingOut) return;
+        clearTimeout(syncRetry);
         const controller = new AbortController();
         syncRequest = controller;
         if (invgateSyncButton) invgateSyncButton.disabled = true;
         showInvgateRequest(source, "Enviando…");
-        const timeout = setTimeout(() => controller.abort(), 12000);
+        const timeout = setTimeout(() => controller.abort(), 10 * 60 * 1000);
+        clearTimeout(syncStatusRefresh);
+        syncStatusRefresh = setTimeout(() => refresh(), 1500);
         try {
             const response = await fetch("api/widget-invgate-sync.php", {
                 method: "POST",
@@ -262,16 +269,19 @@
             if (response.status === 403) {
                 invgateSyncToken.remove();
                 showInvgateRequest(source, "El servidor rechazó la solicitud. Volvé a abrir el widget con una sesión administradora.");
+                clearTimeout(syncStatusRefresh);
                 return;
             }
             if (!response.ok) {
-                showInvgateRequest(source, `El servidor no pudo registrar el pedido (HTTP ${response.status}).`);
+                showInvgateRequest(source, `El servidor respondió con HTTP ${response.status}. Revisá el último intento.`);
+                void refresh(true);
                 return;
             }
             const data = await response.json();
             if (signingOut || !invgateSyncToken.isConnected) return;
             const messages = {
-                queued: "Registrada para el cron.",
+                started: "El servidor inició la sincronización.",
+                finished: "El servidor terminó la sincronización.",
                 recent: "El último intento está dentro del intervalo de 15 minutos.",
                 busy: "Ya hay una sincronización en curso.",
             };
@@ -279,14 +289,15 @@
             if (!message) throw new Error("Respuesta de sincronización inválida");
             showInvgateRequest(source, message);
             void refresh(true);
-            if (data.state === "queued") {
-                // Recheck after the two-minute window for the worker to take the request.
-                clearTimeout(syncStatusRefresh);
-                syncStatusRefresh = setTimeout(() => refresh(), 125000);
+            if (source === "automática" && data.state === "recent"
+                && Number.isInteger(data.retry_after) && data.retry_after > 0 && data.retry_after <= 60) {
+                // The native timer can fire just before the server's cooldown ends.
+                syncRetry = setTimeout(() => requestInvgateSync(source), (data.retry_after + 1) * 1000);
             }
         } catch {
             if (!signingOut && invgateSyncToken.isConnected) {
-                showInvgateRequest(source, "No se recibió una confirmación del servidor.");
+                showInvgateRequest(source, "No se recibió una confirmación del servidor. Revisá el último intento.");
+                void refresh(true);
             }
         } finally {
             clearTimeout(timeout);
@@ -302,6 +313,8 @@
         signOutError.hidden = true;
         request?.abort();
         syncRequest?.abort();
+        clearTimeout(syncStatusRefresh);
+        clearTimeout(syncRetry);
         if (invgateSyncButton) invgateSyncButton.disabled = true;
 
         try {

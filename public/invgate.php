@@ -66,7 +66,7 @@ $invgateWebBase = InvgateUrl::normalizeBase(
 
             <div id="invgatePanelTickets" class="invgate-panel" role="tabpanel" aria-labelledby="invgateTabTickets">
                 <h2 class="panel__title">Tickets por persona</h2>
-                <p class="muted panel__lead">Los datos provienen del sync CLI (<code>database/sync_invgate_tickets.php</code>). Las personas con ID InvGate configurado aparecen aunque no tengan tickets abiertos.</p>
+                <p class="muted panel__lead">Las personas con ID InvGate configurado aparecen aunque no tengan tickets abiertos.</p>
                 <div class="invgate-search-toolbar">
                     <label class="invgate-search-toolbar__field" for="invgateTicketSearch">
                         Buscar ticket

@@ -3,9 +3,12 @@
 declare(strict_types=1);
 
 use App\Database\Connection;
+use App\Repositories\InvgateTicketRepository;
+use App\Repositories\TeamPersonRepository;
 use App\Repositories\UserRepository;
 use App\Services\AuthService;
 use App\Services\InvgateSyncCoordinator;
+use App\Services\InvgateTicketSyncService;
 
 $config = require dirname(__DIR__, 2) . '/bootstrap_web.php';
 
@@ -23,13 +26,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     exit;
 }
 
+$responded = false;
 try {
     if (!is_file($config['db']['path'])) {
         $respond(503, ['ok' => false, 'error' => 'Base de datos no disponible']);
         exit;
     }
 
-    $auth = new AuthService(new UserRepository(Connection::get($config)));
+    $pdo = Connection::get($config);
+    $auth = new AuthService(new UserRepository($pdo));
     $user = $auth->currentUser();
     if ($user === null) {
         $respond(401, ['ok' => false, 'error' => 'Debes iniciar sesión']);
@@ -45,9 +50,38 @@ try {
     }
     session_write_close();
 
-    $state = (new InvgateSyncCoordinator($config['db']['path']))->request(time());
-    $respond($state === 'queued' ? 202 : 200, ['ok' => true, 'state' => $state]);
+    $coordinator = new InvgateSyncCoordinator($config['db']['path']);
+    $outcome = $coordinator->run(true, static function () use ($config, $pdo, $respond, &$responded): array {
+        ignore_user_abort(true);
+        if (function_exists('set_time_limit')) {
+            set_time_limit(600);
+        }
+
+        if (function_exists('fastcgi_finish_request')) {
+            $respond(202, ['ok' => true, 'state' => 'started']);
+            $responded = true;
+            fastcgi_finish_request();
+        }
+
+        $result = InvgateTicketSyncService::fromConfig(
+            $config,
+            new TeamPersonRepository($pdo),
+            new InvgateTicketRepository($pdo)
+        )->run();
+
+        foreach ($result['errors'] as $error) {
+            error_log(sprintf('Colmena widget InvGate (persona #%d): %s', $error['person_id'], $error['error']));
+        }
+        return $result;
+    });
+
+    if (!$responded) {
+        unset($outcome['result']);
+        $respond(200, ['ok' => true] + $outcome);
+    }
 } catch (Throwable $error) {
     error_log('Colmena widget InvGate: ' . $error->getMessage());
-    $respond(500, ['ok' => false, 'error' => 'No se pudo solicitar la sincronización']);
+    if (!$responded) {
+        $respond(500, ['ok' => false, 'error' => 'No se pudo ejecutar la sincronización']);
+    }
 }

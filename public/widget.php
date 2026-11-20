@@ -39,7 +39,7 @@ session_write_close();
     <?php require __DIR__ . '/includes/favicon.php'; ?>
     <link rel="stylesheet" href="assets/css/app.css">
     <link rel="stylesheet" href="assets/css/widget.css?v=invgate-sync-status">
-    <script src="assets/js/widget.js?v=invgate-sync-status" defer></script>
+    <script src="assets/js/widget.js?v=invgate-sync-direct" defer></script>
 </head>
 <body class="widget-page">
     <main class="widget">
