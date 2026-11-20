@@ -6,13 +6,13 @@
 2. Desde una PC con Windows 11 x64 y [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/), extraé todo el ZIP a una carpeta y abrí `ColmenaWidget.exe`.
 3. Ingresá la URL base y conectate a la red interna o VPN si el servidor la requiere. Si aparece **Acceso a…**, ingresá primero las credenciales que te pide el servidor cuando abrís esa URL en el navegador. Después, iniciá sesión con tu cuenta de Colmena.
 4. Arrastrá el widget desde el tirador superior o cambiá su tamaño arrastrando un borde o una esquina. En **Configuración** también podés elegir un tamaño, cambiar el tema o la **Transparencia** (de 0 a 60 %), activar **Siempre visible** y cambiar de servidor. El tamaño y las demás preferencias se guardan en esta PC.
-5. Hacé clic en **InvGate** para ver hasta cinco tickets abiertos con la actividad más reciente. **Ver los tickets por persona** muestra las fichas marcadas como **Equipo directo** y sus prioridades de Colmena. **Temas** muestra los temas activos y las alertas próximas. Los enlaces **Abrir en Colmena** abren el navegador predeterminado.
+5. El widget abre en **InvGate**, con hasta cinco tickets abiertos ordenados por actividad reciente. **Ver tickets por persona** muestra las fichas marcadas como **Equipo directo** y sus prioridades de Colmena. En ambas vistas, hacé clic en el número del ticket para abrirlo en el portal de InvGate en tu navegador predeterminado. El portal se configura en `invgate.web_url` en el servidor.
 
-El widget se actualiza al abrir, cada cinco minutos y al presionar **Actualizar**. Los vencimientos abarcan hoy y los seis días siguientes según la fecha del servidor PHP. InvGate muestra los datos de la última sincronización. Si falla la conexión, el widget conserva el último resumen en memoria y muestra la hora de esa actualización. **Cerrar sesión** cierra la sesión del widget.
+El widget se actualiza al abrir, cada cinco minutos y al presionar **Actualizar**. InvGate muestra los datos de la última sincronización. Si falla la conexión, el widget conserva el último resumen en memoria y muestra la hora de esa actualización. **Cerrar sesión** cierra la sesión del widget.
 
 ## Sincronización de InvGate con el widget abierto
 
-1. Publicá los cambios de Colmena por Git. Si ya usás el widget con sincronización automática, podés seguir usando el mismo ejecutable. En `config/config.php`, dejá `'widget_sync_enabled' => true` dentro del bloque `invgate`.
+1. Publicá los cambios de Colmena por Git y usá el ZIP actualizado para abrir los enlaces a tickets desde Windows. En `config/config.php`, dejá `'widget_sync_enabled' => true` dentro del bloque `invgate` para habilitar la sincronización desde el widget.
 2. El usuario que ejecuta PHP en el servidor, normalmente `www-data`, necesita acceso a InvGate y permisos de escritura en SQLite, su directorio y el directorio privado de estado (`database/.app.sqlite.invgate-sync` si usás la ruta por defecto). Si una prueba anterior se ejecutó con otro usuario, verificá quién es dueño de ese directorio y sus archivos.
 3. Retirá del `crontab` la entrada antigua con `--widget-worker`. Si tenés otros trabajos de InvGate programados aparte, siguen siendo independientes.
 

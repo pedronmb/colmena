@@ -455,7 +455,7 @@ internal sealed class WidgetForm : Form
             core.NewWindowRequested += (_, args) =>
             {
                 args.Handled = true;
-                if (IsCurrentBrowser(next) && args.IsUserInitiated) OpenSection(args.Uri);
+                if (IsCurrentBrowser(next) && args.IsUserInitiated) _ = OpenSectionAsync(next, args.Uri);
             };
             core.Navigate(new Uri(address, "widget.php").AbsoluteUri);
         }
@@ -496,7 +496,7 @@ internal sealed class WidgetForm : Form
         }
         args.Cancel = true;
         if (args.IsUserInitiated && !args.IsRedirected)
-            OpenSection(args.Uri);
+            _ = OpenSectionAsync(source, args.Uri);
         else
         {
             invgateSyncTimer.Stop();
@@ -658,19 +658,50 @@ internal sealed class WidgetForm : Form
         navigationTimer.Stop();
     }
 
-    private void OpenSection(string address)
+    private async Task OpenSectionAsync(WebView2 source, string address)
     {
-        if (!Matches(address, "index.php") && !Matches(address, "alerts.php") && !Matches(address, "dashboard.php?panel=focus")
-            && !Matches(address, "invgate.php")) return;
-
         try
         {
+            bool isColmenaSection = Matches(address, "index.php") || Matches(address, "alerts.php")
+                || Matches(address, "dashboard.php?panel=focus") || Matches(address, "invgate.php");
+            if (!isColmenaSection && !await IsInvgateTicketLinkAsync(source, address)) return;
+            if (!IsCurrentBrowser(source)) return;
+
             Process.Start(new ProcessStartInfo(address) { UseShellExecute = true });
         }
         catch (System.ComponentModel.Win32Exception)
         {
             ShowNotice("No se pudo abrir el navegador predeterminado.");
         }
+        catch (Exception error) when (error is COMException or InvalidOperationException or JsonException)
+        {
+            Debug.WriteLine(error);
+        }
+    }
+
+    private async Task<bool> IsInvgateTicketLinkAsync(WebView2 source, string address)
+    {
+        if (!Uri.TryCreate(address, UriKind.Absolute, out Uri? ticket)
+            || source.CoreWebView2 is not CoreWebView2 core || navigationId is not null
+            || !Matches(core.Source, "widget.php")) return false;
+
+        string result = await core.ExecuteScriptAsync("""
+            document.querySelector('meta[name="colmena-invgate-ticket-prefix"]')?.content ?? null
+            """);
+        return IsCurrentBrowser(source) && navigationId is null && Matches(core.Source, "widget.php")
+            && IsInvgateTicketUrl(ticket, JsonSerializer.Deserialize<string>(result));
+    }
+
+    private static bool IsInvgateTicketUrl(Uri ticket, string? configuredPrefix)
+    {
+        if (!Uri.TryCreate(configuredPrefix, UriKind.Absolute, out Uri? portal)
+            || (portal.Scheme != Uri.UriSchemeHttps && portal.Scheme != Uri.UriSchemeHttp)
+            || portal.UserInfo.Length != 0 || portal.Query.Length != 0 || portal.Fragment.Length != 0
+            || !portal.AbsoluteUri.EndsWith('/')
+            || !ticket.AbsoluteUri.StartsWith(portal.AbsoluteUri, StringComparison.Ordinal)) return false;
+
+        string number = ticket.AbsoluteUri[portal.AbsoluteUri.Length..];
+        return number.Length > 0 && number[0] != '0' && number.All(char.IsAsciiDigit);
     }
 
     private async Task RetryAsync()

@@ -27,11 +27,24 @@ final class InvgateUrl
         if ($incidentId <= 0) {
             return null;
         }
+        $prefix = self::ticketUrlPrefix($serverUrl);
+
+        return $prefix === null ? null : $prefix . $incidentId;
+    }
+
+    public static function ticketUrlPrefix(?string $serverUrl): ?string
+    {
         $base = self::normalizeBase($serverUrl);
         if ($base === null) {
             return null;
         }
 
-        return $base . '/requests/show/index/id/' . $incidentId;
+        $parts = parse_url($base);
+        if (empty($parts['host']) || isset($parts['user']) || isset($parts['pass'])
+            || isset($parts['query']) || isset($parts['fragment'])) {
+            return null;
+        }
+
+        return $base . '/requests/show/index/id/';
     }
 }

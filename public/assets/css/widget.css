@@ -21,7 +21,7 @@
     justify-content: space-between;
 }
 
-.widget h1, .widget h2, .widget h3, .widget p {
+.widget h1, .widget h2, .widget p {
     margin: 0;
 }
 
@@ -92,6 +92,7 @@
 
 .widget .widget__option {
     display: grid;
+    align-content: center;
     justify-items: start;
     gap: 0.12rem;
     color: var(--text);
@@ -108,7 +109,7 @@
     background: var(--badge-bg);
 }
 
-.widget__option:focus-visible, .widget__groups summary:focus-visible {
+.widget__option:focus-visible, .widget__groups summary:focus-visible, .widget__ticket-link:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
 }
@@ -150,14 +151,14 @@
     overflow-wrap: anywhere;
 }
 
-.widget__item-heading {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: 0.5rem;
+.widget__ticket-link {
+    color: var(--accent);
+    font-weight: 650;
+    text-decoration: underline;
+    text-underline-offset: 0.16em;
 }
 
-.widget__groups details, .widget__alerts {
+.widget__groups details {
     border-top: 1px solid var(--border);
     margin-top: 0.5rem;
     padding-top: 0.45rem;
@@ -168,12 +169,8 @@
     overflow-wrap: anywhere;
 }
 
-.widget__groups summary .widget__total, .widget__alerts .widget__total {
+.widget__groups summary .widget__total {
     margin-inline-start: 0.35rem;
-}
-
-.widget__alerts h3 {
-    font-size: 0.8125rem;
 }
 
 .widget .widget__empty, .widget__footer {
@@ -199,12 +196,5 @@
 }
 
 .widget__actions {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem;
     margin-top: 0.65rem;
-}
-
-.widget .widget__back {
-    margin-bottom: 0.6rem;
 }

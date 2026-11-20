@@ -27,7 +27,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
 }
 
 $section = $_GET['section'] ?? null;
-if ($section !== null && !in_array($section, ['invgate', 'invgate-people', 'topics'], true)) {
+if ($section !== null && !in_array($section, ['invgate', 'invgate-people'], true)) {
     $respond(400, ['ok' => false, 'error' => 'Sección del widget no válida']);
     exit;
 }

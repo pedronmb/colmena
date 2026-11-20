@@ -8,12 +8,10 @@
     const invgateSyncToken = document.querySelector('meta[name="colmena-invgate-sync"]');
     const invgateRequestStatus = document.getElementById("widget-invgate-request-status");
     const invgateSyncButton = document.getElementById("widget-invgate-sync-button");
+    const ticketUrlPrefix = document.querySelector('meta[name="colmena-invgate-ticket-prefix"]')?.content;
     const sectionButtons = document.querySelectorAll("[data-widget-section]");
-    const sectionOptions = document.getElementById("widget-section-options");
-    const browsePeople = document.getElementById("widget-invgate-show-people");
-    const backToInvgate = document.getElementById("widget-invgate-back");
     const panels = Object.fromEntries(Object.entries({
-        invgate: "widget-invgate-recent", "invgate-people": "widget-invgate-groups", topics: "widget-topic-list",
+        invgate: "widget-invgate-recent", "invgate-people": "widget-invgate-groups",
     }).map(([key, list]) => [key, {
         root: document.getElementById(`widget-${key}-panel`),
         status: document.getElementById(`widget-${key}-detail-status`),
@@ -23,7 +21,6 @@
     const dateTimeFormat = new Intl.DateTimeFormat("es-AR", {
         day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
     });
-    const dateFormat = new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", timeZone: "UTC" });
     const numberFormat = new Intl.NumberFormat("es-AR");
     let request = null;
     let syncRequest = null;
@@ -31,16 +28,16 @@
     let syncRetry;
     let updatedAt = null;
     let signingOut = false;
-    let activeSection = null;
+    let activeSection = "invgate";
 
     function showStatus(message, warning = false) {
         status.textContent = message;
         status.toggleAttribute("data-warning", warning);
     }
 
-    function showMetric(key, count, label) {
-        document.getElementById(`widget-${key}`).textContent = count === null ? "—" : numberFormat.format(count);
-        document.getElementById(`widget-${key}-label`).textContent = count === null ? "No disponible" : label;
+    function showTicketCount(count) {
+        document.getElementById("widget-invgate").textContent = count === null ? "—" : numberFormat.format(count);
+        document.getElementById("widget-invgate-label").textContent = count === null ? "No disponible" : "Tickets abiertos";
     }
 
     function showInvgateSync(sync) {
@@ -74,24 +71,24 @@
         return node;
     }
 
-    function detailRow(title, description, badge) {
+    function ticketRow(ticket, description) {
         const row = document.createElement("li");
-        const titleLine = document.createElement("div");
-        titleLine.className = "widget__item-heading";
-        titleLine.append(textNode("span", title, "widget__item-title"));
-        if (badge) titleLine.append(textNode("span", badge, "widget__total"));
+        const titleLine = document.createElement("span");
+        titleLine.className = "widget__item-title";
+        const number = `#${ticket.number}`;
+        if (ticketUrlPrefix && Number.isSafeInteger(ticket.number) && ticket.number > 0) {
+            const link = textNode("a", number, "widget__ticket-link");
+            link.href = ticketUrlPrefix + ticket.number;
+            link.target = "_blank";
+            link.rel = "noopener";
+            link.setAttribute("aria-label", `Abrir ticket ${number} en InvGate`);
+            titleLine.append(link, ` ${ticket.title}`);
+        } else {
+            titleLine.textContent = `${number} ${ticket.title}`;
+        }
         row.append(titleLine);
         if (description) row.append(textNode("span", description, "widget__detail"));
         return row;
-    }
-
-    function showAlerts(alerts) {
-        document.getElementById("widget-alert-total").textContent = numberFormat.format(alerts.total);
-        document.getElementById("widget-alert-empty").hidden = alerts.items.length !== 0;
-        document.getElementById("widget-alert-list").replaceChildren(...alerts.items.map((item) => {
-            const day = new Date(`${item.due_date}T00:00:00Z`);
-            return detailRow(item.title, Number.isFinite(day.getTime()) ? dateFormat.format(day) : item.due_date);
-        }));
     }
 
     function showRecentInvgate(tickets, total) {
@@ -99,7 +96,7 @@
         list.replaceChildren(...tickets.map((ticket) => {
             const time = new Date(ticket.interaction_at);
             const description = [ticket.person, Number.isFinite(time.getTime()) ? dateTimeFormat.format(time) : null];
-            return detailRow(`#${ticket.number} ${ticket.title}`, description.filter(Boolean).join(" · "));
+            return ticketRow(ticket, description.filter(Boolean).join(" · "));
         }));
         detailStatus.textContent = total === null ? "InvGate no está disponible."
             : tickets.length ? "" : "Sin actividad registrada en los tickets abiertos.";
@@ -122,7 +119,7 @@
             } else {
                 const tickets = document.createElement("ul");
                 tickets.className = "widget__list";
-                tickets.append(...group.tickets.map((ticket) => detailRow(`#${ticket.number} ${ticket.title}`,
+                tickets.append(...group.tickets.map((ticket) => ticketRow(ticket,
                     ticket.manual_priority === null ? "Sin prioridad" : `Prioridad en Colmena ${ticket.manual_priority}`)));
                 details.append(tickets);
             }
@@ -133,28 +130,15 @@
         root.dataset.loaded = "true";
     }
 
-    function showTopicDetails(topics) {
-        const { root, status: detailStatus, list } = panels.topics;
-        const labels = { open: "Pendiente", in_progress: "En curso", blocked: "Bloqueado" };
-        list.replaceChildren(...topics.map((topic) => {
-            const description = [labels[topic.status], topic.person,
-                `Urgencia ${topic.priority} / Importancia ${topic.importance}`].filter(Boolean).join(" · ");
-            return detailRow(topic.title, description, topic.critical ? "Crítico" : null);
-        }));
-        detailStatus.textContent = topics.length ? "" : "Sin temas activos.";
-        root.dataset.loaded = "true";
-    }
-
     function displaySection(section) {
         activeSection = section;
-        sectionOptions.hidden = section === "invgate-people";
         for (const button of sectionButtons) {
             button.setAttribute("aria-expanded", String(button.dataset.widgetSection === section));
         }
         for (const [key, panel] of Object.entries(panels)) {
             panel.root.hidden = key !== section;
         }
-        if (section && !panels[section].root.dataset.loaded) {
+        if (!panels[section].root.dataset.loaded) {
             panels[section].status.textContent = "Cargando detalle…";
         }
     }
@@ -162,15 +146,13 @@
     function clearSummary() {
         summary.hidden = true;
         updatedAt = null;
-        displaySection(null);
         for (const panel of Object.values(panels)) {
             panel.list.replaceChildren();
             panel.status.textContent = "";
             delete panel.root.dataset.loaded;
         }
-        showAlerts({ total: 0, items: [] });
-        showMetric("invgate", null, "");
-        showMetric("topic", null, "");
+        displaySection("invgate");
+        showTicketCount(null);
         showInvgateSync(null);
         showInvgateRequest();
         clearTimeout(syncRetry);
@@ -195,7 +177,7 @@
         refreshButton.disabled = true;
 
         try {
-            const url = section ? `api/widget-summary.php?section=${encodeURIComponent(section)}` : "api/widget-summary.php";
+            const url = `api/widget-summary.php?section=${encodeURIComponent(section)}`;
             const response = await fetch(url, { cache: "no-store", signal: controller.signal });
             if (request !== controller || signingOut) return;
             if (response.status === 401) {
@@ -215,21 +197,16 @@
             const refreshed = new Date(data.updated_at);
             if (!data.ok || !Number.isFinite(refreshed.getTime())) throw new Error("Resumen inválido");
 
-            showMetric("invgate", data.invgate_open, "Tickets abiertos");
-            showMetric("topic", data.topics_active, "Temas activos");
+            showTicketCount(data.invgate_open);
             if (section === "invgate") showRecentInvgate(data.detail, data.invgate_open);
-            if (section === "invgate-people") showInvgatePeople(data.detail, data.invgate_open);
-            if (section === "topics") {
-                showTopicDetails(data.detail);
-                showAlerts(data.alerts);
-            }
+            else showInvgatePeople(data.detail, data.invgate_open);
             showInvgateSync(data.invgate_sync);
             updatedAt = refreshed;
             summary.hidden = false;
             showStatus(`Actualizado a las ${timeFormat.format(updatedAt)}`);
         } catch {
             if (request === controller && !signingOut) {
-                if (section && !panels[section].root.dataset.loaded) {
+                if (!panels[section].root.dataset.loaded) {
                     panels[section].status.textContent = "No se pudo cargar el detalle.";
                 }
                 const lastUpdate = updatedAt ? ` Última actualización a las ${timeFormat.format(updatedAt)}.` : "";
@@ -338,24 +315,12 @@
     refreshButton.addEventListener("click", () => refresh());
     for (const button of sectionButtons) {
         button.addEventListener("click", () => {
-            if (signingOut) return;
             const key = button.dataset.widgetSection;
-            displaySection(activeSection === key ? null : key);
+            if (signingOut || activeSection === key) return;
+            displaySection(key);
             void refresh(true);
         });
     }
-    browsePeople.addEventListener("click", () => {
-        if (signingOut) return;
-        displaySection("invgate-people");
-        document.getElementById("widget-invgate-people-heading").focus();
-        void refresh(true);
-    });
-    backToInvgate.addEventListener("click", () => {
-        if (signingOut) return;
-        displaySection("invgate");
-        browsePeople.focus();
-        void refresh(true);
-    });
     invgateSyncButton?.addEventListener("click", () => requestInvgateSync("manual"));
     window.addEventListener("colmena-invgate-sync", () => requestInvgateSync("automática"));
     window.addEventListener("online", () => refresh());

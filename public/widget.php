@@ -6,6 +6,7 @@ use App\Database\Connection;
 use App\Repositories\UserRepository;
 use App\Services\AuthService;
 use App\Services\InvgateSyncCoordinator;
+use App\Support\InvgateUrl;
 
 $config = require dirname(__DIR__) . '/bootstrap_web.php';
 header('Cache-Control: no-store');
@@ -25,6 +26,7 @@ if (is_file($config['db']['path'])) {
     }
 }
 session_write_close();
+$ticketUrlPrefix = InvgateUrl::ticketUrlPrefix($config['invgate']['web_url'] ?? null);
 ?>
 <!DOCTYPE html>
 <html lang="es-AR">
@@ -34,12 +36,15 @@ session_write_close();
     <?php if ($syncToken !== null): ?>
         <meta name="colmena-invgate-sync" content="<?= htmlspecialchars($syncToken, ENT_QUOTES, 'UTF-8') ?>">
     <?php endif; ?>
+    <?php if ($ticketUrlPrefix !== null): ?>
+        <meta name="colmena-invgate-ticket-prefix" content="<?= htmlspecialchars($ticketUrlPrefix, ENT_QUOTES, 'UTF-8') ?>">
+    <?php endif; ?>
     <?php require __DIR__ . '/includes/theme-head.php'; ?>
     <title>Resumen de Colmena</title>
     <?php require __DIR__ . '/includes/favicon.php'; ?>
     <link rel="stylesheet" href="assets/css/app.css">
-    <link rel="stylesheet" href="assets/css/widget.css?v=invgate-sync-status">
-    <script src="assets/js/widget.js?v=invgate-sync-direct" defer></script>
+    <link rel="stylesheet" href="assets/css/widget.css?v=invgate-tickets">
+    <script src="assets/js/widget.js?v=invgate-tickets" defer></script>
 </head>
 <body class="widget-page">
     <main class="widget">
@@ -53,60 +58,41 @@ session_write_close();
         <p class="widget__status" id="widget-status" role="status">Cargando resumen…</p>
 
         <div class="widget__sections" id="widget-summary" hidden>
-            <div class="widget__metrics" id="widget-section-options" role="group" aria-label="Secciones del widget">
+            <div class="widget__metrics" role="group" aria-label="Vistas de InvGate">
                 <button type="button" class="widget__card widget__option" data-widget-section="invgate"
-                    id="widget-invgate-option" aria-controls="widget-invgate-panel" aria-expanded="false">
+                    aria-controls="widget-invgate-panel" aria-expanded="true">
                     <span class="widget__option-name">InvGate</span>
                     <span class="widget__metric" id="widget-invgate">—</span>
                     <span class="widget__caption" id="widget-invgate-label">Tickets abiertos</span>
                 </button>
-                <button type="button" class="widget__card widget__option" data-widget-section="topics"
-                    id="widget-topics-option" aria-controls="widget-topics-panel" aria-expanded="false">
-                    <span class="widget__option-name">Temas</span>
-                    <span class="widget__metric" id="widget-topic">—</span>
-                    <span class="widget__caption" id="widget-topic-label">Temas activos</span>
+                <button type="button" class="widget__card widget__option" data-widget-section="invgate-people"
+                    aria-controls="widget-invgate-people-panel" aria-expanded="false">
+                    <span class="widget__option-name">Ver tickets por persona</span>
                 </button>
             </div>
             <p class="widget__caption widget__sync-status" id="widget-invgate-sync-status" role="status" hidden></p>
             <?php if ($syncToken !== null): ?>
                 <p class="widget__caption widget__sync-status" id="widget-invgate-request-status" role="status" hidden></p>
             <?php endif; ?>
-            <section class="widget__card" id="widget-invgate-panel" aria-labelledby="widget-invgate-heading" hidden>
+            <section class="widget__card" id="widget-invgate-panel" aria-labelledby="widget-invgate-heading">
                 <h2 id="widget-invgate-heading">Actividad reciente</h2>
                 <p class="widget__empty" id="widget-invgate-detail-status" role="status"></p>
                 <ul class="widget__list" id="widget-invgate-recent"></ul>
-                <div class="widget__actions">
-                    <button type="button" class="btn" id="widget-invgate-show-people">Ver los tickets por persona</button>
-                    <?php if ($syncToken !== null): ?>
+                <?php if ($syncToken !== null): ?>
+                    <div class="widget__actions">
                         <button type="button" class="btn" id="widget-invgate-sync-button">Sincronizar InvGate</button>
-                    <?php endif; ?>
-                </div>
-                <?php if ($isAdmin && $syncToken === null): ?>
+                    </div>
+                <?php elseif ($isAdmin): ?>
                     <p class="widget__caption widget__sync-status">La sincronización desde el widget está desactivada en el servidor.</p>
                 <?php endif; ?>
             </section>
             <section class="widget__card" id="widget-invgate-people-panel" aria-labelledby="widget-invgate-people-heading" hidden>
-                <button type="button" class="btn widget__back" id="widget-invgate-back">Volver a InvGate</button>
                 <div class="widget__section-head">
-                    <h2 id="widget-invgate-people-heading" tabindex="-1">Tickets por persona</h2>
+                    <h2 id="widget-invgate-people-heading">Tickets por persona</h2>
                     <a target="_blank" rel="noopener" href="invgate.php">Abrir en Colmena</a>
                 </div>
                 <p class="widget__empty" id="widget-invgate-people-detail-status" role="status"></p>
                 <div class="widget__groups" id="widget-invgate-groups"></div>
-            </section>
-            <section class="widget__card" id="widget-topics-panel" aria-labelledby="widget-topics-heading" hidden>
-                <div class="widget__section-head">
-                    <h2 id="widget-topics-heading">Temas activos</h2>
-                    <a target="_blank" rel="noopener" href="dashboard.php?panel=focus">Abrir en Colmena</a>
-                </div>
-                <p class="widget__empty" id="widget-topics-detail-status" role="status"></p>
-                <ul class="widget__list" id="widget-topic-list"></ul>
-                <div class="widget__section-head widget__alerts">
-                    <h3>Alertas de los próximos 7 días <span class="widget__total" id="widget-alert-total"></span></h3>
-                    <a target="_blank" rel="noopener" href="alerts.php">Ver alertas</a>
-                </div>
-                <p class="widget__empty" id="widget-alert-empty" hidden>Sin vencimientos</p>
-                <ul class="widget__list" id="widget-alert-list"></ul>
             </section>
         </div>
 
