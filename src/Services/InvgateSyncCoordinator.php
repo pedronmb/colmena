@@ -58,7 +58,7 @@ final class InvgateSyncCoordinator
     /** @param callable(): array $sync */
     public function run(bool $widgetWorker, callable $sync, ?int $now = null): ?array
     {
-        if ($widgetWorker && !is_file($this->statePath())) {
+        if ($widgetWorker && $this->readState()['pending_at'] === null) {
             return null;
         }
         $lock = $this->tryLock();
@@ -138,7 +138,7 @@ final class InvgateSyncCoordinator
         }
         $lock = @fopen($this->directory . '/run.lock', 'c+b');
         if ($lock === false) {
-            throw new RuntimeException('No se pudo abrir el bloqueo de sincronización de InvGate.');
+            throw new RuntimeException('No se pudo abrir el bloqueo de sincronización de InvGate en ' . $this->directory . '.');
         }
         if (flock($lock, LOCK_EX | LOCK_NB, $occupied)) {
             return $lock;
@@ -160,6 +160,9 @@ final class InvgateSyncCoordinator
         $path = $this->statePath();
         clearstatcache(true, $path);
         if (!is_file($path)) {
+            if (is_dir($this->directory) && !is_readable($this->directory)) {
+                throw new RuntimeException('No se puede leer el directorio de sincronización de InvGate: ' . $this->directory);
+            }
             return self::EMPTY_STATE;
         }
         $json = @file_get_contents($path);

@@ -21,16 +21,23 @@ El widget se actualiza al abrir, cada cinco minutos y al presionar **Actualizar*
 
 3. Si ya existe un cron que ejecuta `sync_invgate_tickets.php` sin `--widget-worker`, seguirá actualizando por su cuenta. Para que la actualización automática de tickets dependa del widget, reemplazá solo esa parte de tu cron por la entrada anterior. La sincronización manual usa el mismo bloqueo y, con esta función habilitada, conviene ejecutarla con el mismo usuario de PHP.
 
-Un widget con sesión administradora solicita la sincronización al abrir y cada 15 minutos, incluso minimizado. El cron procesa las solicitudes durante los dos minutos siguientes a su recepción y aplica el intervalo para toda la instalación. Al cerrar la ventana o la sesión cesan los pedidos. El resumen muestra el resultado del último intento y los detalles de errores quedan en el log del servidor.
+Un widget con sesión administradora solicita la sincronización al abrir y cada 15 minutos, incluso minimizado. El cron procesa las solicitudes durante los dos minutos siguientes a su recepción y aplica el intervalo para toda la instalación. Al cerrar la ventana o la sesión cesan los pedidos.
 
-Para verificarlo, mirá la fecha y el estado junto a **Sincronización** en el widget y revisá el cron y su log desde la raíz de Colmena.
+1. Abrí de nuevo el widget y mirá la última **Solicitud automática**. También podés enviar un pedido desde **InvGate → Sincronizar InvGate**, con el mismo intervalo y el mismo cron.
+2. Cuando la solicitud quede registrada, mirá **Último intento de InvGate**. Al cabo de dos minutos, si la solicitud salió de la cola y la fecha del intento sigue igual, venció antes de que el cron la tomara. Una ejecución manual reciente también cuenta para el intervalo de 15 minutos.
+3. En Ubuntu, revisá el servicio, el `crontab` del usuario de PHP y el log desde la raíz de Colmena.
 
 ```bash
+systemctl is-active cron
 sudo -u www-data crontab -l
 tail -n 50 storage/logs/invgate-tickets.log
 ```
 
-La ejecución manual de `database/sync_invgate_tickets.php` sin `--widget-worker` permite probar InvGate y SQLite en el momento. La lista reciente usa la última actualización del ticket y los comentarios guardados por `database/sync_invgate_comments.php`, que es una sincronización independiente.
+La redirección del cron crea el archivo de log. El script imprime la fecha y el origen (`widget` o `manual`) cuando ejecuta una sincronización o encuentra un error. Una comprobación del cron sin pedidos válidos puede terminar sin texto.
+
+Usá el mismo usuario de PHP también para una prueba manual, por ejemplo `sudo -u www-data /usr/bin/php database/sync_invgate_tickets.php`. El script comparte un directorio de estado privado junto a SQLite (`database/.app.sqlite.invgate-sync` si usás la ruta por defecto). Si una primera ejecución se hizo con otro usuario, verificá que el usuario de PHP tenga acceso al directorio y a sus archivos.
+
+La lista reciente usa la última actualización del ticket y los comentarios guardados por `database/sync_invgate_comments.php`, que es una sincronización independiente.
 
 ## Compilar desde el repositorio
 

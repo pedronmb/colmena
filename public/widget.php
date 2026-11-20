@@ -11,6 +11,7 @@ $config = require dirname(__DIR__) . '/bootstrap_web.php';
 header('Cache-Control: no-store');
 
 $syncToken = null;
+$isAdmin = false;
 if (is_file($config['db']['path'])) {
     $auth = new AuthService(new UserRepository(Connection::get($config)));
     $user = $auth->currentUser();
@@ -18,7 +19,8 @@ if (is_file($config['db']['path'])) {
         header('Location: login.php?next=widget');
         exit;
     }
-    if ($user['role'] === 'admin' && InvgateSyncCoordinator::isEnabled($config)) {
+    $isAdmin = $user['role'] === 'admin';
+    if ($isAdmin && InvgateSyncCoordinator::isEnabled($config)) {
         $syncToken = $_SESSION['widget_invgate_sync_csrf'] ??= bin2hex(random_bytes(32));
     }
 }
@@ -36,8 +38,8 @@ session_write_close();
     <title>Resumen de Colmena</title>
     <?php require __DIR__ . '/includes/favicon.php'; ?>
     <link rel="stylesheet" href="assets/css/app.css">
-    <link rel="stylesheet" href="assets/css/widget.css?v=invgate-recent">
-    <script src="assets/js/widget.js?v=invgate-direct-team" defer></script>
+    <link rel="stylesheet" href="assets/css/widget.css?v=invgate-sync-status">
+    <script src="assets/js/widget.js?v=invgate-sync-status" defer></script>
 </head>
 <body class="widget-page">
     <main class="widget">
@@ -66,13 +68,22 @@ session_write_close();
                 </button>
             </div>
             <p class="widget__caption widget__sync-status" id="widget-invgate-sync-status" role="status" hidden></p>
+            <?php if ($syncToken !== null): ?>
+                <p class="widget__caption widget__sync-status" id="widget-invgate-request-status" role="status" hidden></p>
+            <?php endif; ?>
             <section class="widget__card" id="widget-invgate-panel" aria-labelledby="widget-invgate-heading" hidden>
                 <h2 id="widget-invgate-heading">Actividad reciente</h2>
                 <p class="widget__empty" id="widget-invgate-detail-status" role="status"></p>
                 <ul class="widget__list" id="widget-invgate-recent"></ul>
                 <div class="widget__actions">
                     <button type="button" class="btn" id="widget-invgate-show-people">Ver los tickets por persona</button>
+                    <?php if ($syncToken !== null): ?>
+                        <button type="button" class="btn" id="widget-invgate-sync-button">Sincronizar InvGate</button>
+                    <?php endif; ?>
                 </div>
+                <?php if ($isAdmin && $syncToken === null): ?>
+                    <p class="widget__caption widget__sync-status">La sincronización desde el widget está desactivada en el servidor.</p>
+                <?php endif; ?>
             </section>
             <section class="widget__card" id="widget-invgate-people-panel" aria-labelledby="widget-invgate-people-heading" hidden>
                 <button type="button" class="btn widget__back" id="widget-invgate-back">Volver a InvGate</button>

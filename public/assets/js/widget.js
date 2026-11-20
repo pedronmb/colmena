@@ -6,6 +6,8 @@
     const signOutError = document.getElementById("widget-sign-out-error");
     const invgateSyncStatus = document.getElementById("widget-invgate-sync-status");
     const invgateSyncToken = document.querySelector('meta[name="colmena-invgate-sync"]');
+    const invgateRequestStatus = document.getElementById("widget-invgate-request-status");
+    const invgateSyncButton = document.getElementById("widget-invgate-sync-button");
     const sectionButtons = document.querySelectorAll("[data-widget-section]");
     const sectionOptions = document.getElementById("widget-section-options");
     const browsePeople = document.getElementById("widget-invgate-show-people");
@@ -25,6 +27,7 @@
     const numberFormat = new Intl.NumberFormat("es-AR");
     let request = null;
     let syncRequest = null;
+    let syncStatusRefresh;
     let updatedAt = null;
     let signingOut = false;
     let activeSection = null;
@@ -47,10 +50,17 @@
         const results = {
             running: "En curso", success: "Completada", partial: "Parcial", failed: "Falló", unavailable: "No disponible",
         };
-        const result = results[sync.result] ?? (sync.queued ? "En cola" : "Sin intentos");
+        const result = results[sync.result] ?? "Sin intentos";
         const attempted = sync.last_attempt_at ? new Date(sync.last_attempt_at) : null;
         const time = attempted && Number.isFinite(attempted.getTime()) ? ` · ${dateTimeFormat.format(attempted)}` : "";
-        invgateSyncStatus.textContent = `Sincronización: ${result}${time}`;
+        const queued = sync.queued ? "InvGate en cola · " : "";
+        invgateSyncStatus.textContent = `${queued}Último intento de InvGate: ${result}${time}`;
+    }
+
+    function showInvgateRequest(source, message) {
+        if (!invgateRequestStatus) return;
+        invgateRequestStatus.textContent = message ? `Solicitud ${source} a las ${timeFormat.format(new Date())}. ${message}` : "";
+        invgateRequestStatus.hidden = !message;
     }
 
     function textNode(tag, text, className) {
@@ -158,6 +168,8 @@
         showMetric("invgate", null, "");
         showMetric("topic", null, "");
         showInvgateSync(null);
+        showInvgateRequest();
+        clearTimeout(syncStatusRefresh);
     }
 
     function requireLogin() {
@@ -228,10 +240,12 @@
         }
     }
 
-    async function requestInvgateSync() {
+    async function requestInvgateSync(source) {
         if (!invgateSyncToken?.isConnected || syncRequest || signingOut) return;
         const controller = new AbortController();
         syncRequest = controller;
+        if (invgateSyncButton) invgateSyncButton.disabled = true;
+        showInvgateRequest(source, "Enviando…");
         const timeout = setTimeout(() => controller.abort(), 12000);
         try {
             const response = await fetch("api/widget-invgate-sync.php", {
@@ -240,17 +254,44 @@
                 cache: "no-store",
                 signal: controller.signal,
             });
-            if (signingOut) return;
+            if (signingOut || !invgateSyncToken.isConnected) return;
             if (response.status === 401) {
                 requireLogin();
-            } else if (response.status === 403) {
+                return;
+            }
+            if (response.status === 403) {
                 invgateSyncToken.remove();
+                showInvgateRequest(source, "El servidor rechazó la solicitud. Volvé a abrir el widget con una sesión administradora.");
+                return;
+            }
+            if (!response.ok) {
+                showInvgateRequest(source, `El servidor no pudo registrar el pedido (HTTP ${response.status}).`);
+                return;
+            }
+            const data = await response.json();
+            if (signingOut || !invgateSyncToken.isConnected) return;
+            const messages = {
+                queued: "Registrada para el cron.",
+                recent: "El último intento está dentro del intervalo de 15 minutos.",
+                busy: "Ya hay una sincronización en curso.",
+            };
+            const message = data?.ok && messages[data.state];
+            if (!message) throw new Error("Respuesta de sincronización inválida");
+            showInvgateRequest(source, message);
+            void refresh(true);
+            if (data.state === "queued") {
+                // Recheck after the two-minute window for the worker to take the request.
+                clearTimeout(syncStatusRefresh);
+                syncStatusRefresh = setTimeout(() => refresh(), 125000);
             }
         } catch {
-            // The five-minute summary refresh keeps its last values if the request fails.
+            if (!signingOut && invgateSyncToken.isConnected) {
+                showInvgateRequest(source, "No se recibió una confirmación del servidor.");
+            }
         } finally {
             clearTimeout(timeout);
             syncRequest = null;
+            if (invgateSyncButton) invgateSyncButton.disabled = signingOut || !invgateSyncToken.isConnected;
         }
     }
 
@@ -261,6 +302,7 @@
         signOutError.hidden = true;
         request?.abort();
         syncRequest?.abort();
+        if (invgateSyncButton) invgateSyncButton.disabled = true;
 
         try {
             const response = await fetch("api/logout.php", {
@@ -276,6 +318,7 @@
             signingOut = false;
             signOutButton.disabled = false;
             refreshButton.disabled = request !== null;
+            if (invgateSyncButton) invgateSyncButton.disabled = syncRequest !== null || !invgateSyncToken?.isConnected;
         }
     });
 
@@ -300,7 +343,8 @@
         browsePeople.focus();
         void refresh(true);
     });
-    window.addEventListener("colmena-invgate-sync", requestInvgateSync);
+    invgateSyncButton?.addEventListener("click", () => requestInvgateSync("manual"));
+    window.addEventListener("colmena-invgate-sync", () => requestInvgateSync("automática"));
     window.addEventListener("online", () => refresh());
     window.addEventListener("pageshow", (event) => {
         if (event.persisted) {

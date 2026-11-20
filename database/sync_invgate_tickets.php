@@ -27,12 +27,13 @@ use App\Support\ConfigLoader;
 
 $config = ConfigLoader::load($base);
 $widgetWorker = in_array('--widget-worker', $argv, true);
+$source = $widgetWorker ? 'widget' : 'manual';
 if ($widgetWorker && !InvgateSyncCoordinator::isEnabled($config)) {
     exit(0);
 }
 $dbPath = $config['db']['path'] ?? ($base . '/database/app.sqlite');
 if (!is_string($dbPath) || !file_exists($dbPath)) {
-    fwrite(STDERR, "No existe la base de datos configurada.\n");
+    fwrite(STDERR, '[' . date(DATE_ATOM) . "] InvGate ($source): No existe la base de datos configurada.\n");
     exit(1);
 }
 
@@ -46,7 +47,7 @@ try {
         )->run();
     });
 } catch (\Throwable $e) {
-    fwrite(STDERR, 'Error: ' . $e->getMessage() . "\n");
+    fwrite(STDERR, '[' . date(DATE_ATOM) . "] InvGate ($source): " . $e->getMessage() . "\n");
     exit(1);
 }
 
@@ -57,7 +58,7 @@ if ($result === null) {
     exit(0);
 }
 
-echo 'InvGate sync' . "\n";
+echo '[' . date(DATE_ATOM) . "] InvGate sync ($source)\n";
 echo '  Personas con invgate_id: ' . $result['people_total'] . "\n";
 echo '  Personas sincronizadas:  ' . $result['people_ok'] . "\n";
 echo '  Tickets guardados:       ' . $result['tickets_upserted'] . "\n";
