@@ -53,6 +53,7 @@ return [
     ],
     // InvGate Service Desk (sync de tickets). No subas config.php si incluye la contraseña.
     'invgate' => [
+        'widget_sync_enabled' => false, // Habilitar después de configurar el cron --widget-worker.
         'server_url' => '', // API de sincronización, ej. https://empresa.cloud.invgate.net
         'web_url' => 'https://portal.austral.edu.ar', // Portal para enlaces a tickets, sin barra final
         'user' => '',

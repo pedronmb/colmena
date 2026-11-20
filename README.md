@@ -180,6 +180,8 @@ Repositorio: [github.com/pedronmb/colmena](https://github.com/pedronmb/colmena)
 
   #### Scripts de sincronización (CLI)
 
+  El widget de Windows también puede solicitar la sincronización de tickets mientras esté abierto con una sesión administradora. La configuración del cron de Ubuntu está en la [guía del widget](windows/README.md#sincronización-de-invgate-con-el-widget-abierto).
+
   Hay **cuatro scripts** independientes. El orden recomendado es:
 
   1. **Catálogo** — nombres de categorías, tipos y estados (`invgate_categories`, `invgate_types`, `invgate_statuses`).

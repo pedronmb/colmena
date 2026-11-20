@@ -6,6 +6,7 @@ use App\Database\Connection;
 use App\Repositories\TeamRepository;
 use App\Repositories\UserRepository;
 use App\Services\AuthService;
+use App\Services\InvgateSyncCoordinator;
 use App\Services\WidgetSummaryService;
 use App\Support\PersonalTeamBootstrap;
 
@@ -48,6 +49,14 @@ try {
 
     $now = new DateTimeImmutable();
     $summary = (new WidgetSummaryService($pdo))->forTeam($teamId, $now, $config);
+    if (InvgateSyncCoordinator::isEnabled($config)) {
+        try {
+            $summary['invgate_sync'] = (new InvgateSyncCoordinator($config['db']['path']))->status($now->getTimestamp());
+        } catch (Throwable $error) {
+            error_log('Colmena widget InvGate: ' . $error->getMessage());
+            $summary['invgate_sync'] = ['last_attempt_at' => null, 'result' => 'unavailable', 'queued' => false];
+        }
+    }
     $respond(200, ['ok' => true] + $summary);
 } catch (Throwable $error) {
     error_log('Colmena widget: ' . $error->getMessage());

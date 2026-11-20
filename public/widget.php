@@ -5,15 +5,21 @@ declare(strict_types=1);
 use App\Database\Connection;
 use App\Repositories\UserRepository;
 use App\Services\AuthService;
+use App\Services\InvgateSyncCoordinator;
 
 $config = require dirname(__DIR__) . '/bootstrap_web.php';
 header('Cache-Control: no-store');
 
+$syncToken = null;
 if (is_file($config['db']['path'])) {
     $auth = new AuthService(new UserRepository(Connection::get($config)));
-    if ($auth->currentUser() === null) {
+    $user = $auth->currentUser();
+    if ($user === null) {
         header('Location: login.php?next=widget');
         exit;
+    }
+    if ($user['role'] === 'admin' && InvgateSyncCoordinator::isEnabled($config)) {
+        $syncToken = $_SESSION['widget_invgate_sync_csrf'] ??= bin2hex(random_bytes(32));
     }
 }
 session_write_close();
@@ -23,12 +29,15 @@ session_write_close();
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <?php if ($syncToken !== null): ?>
+        <meta name="colmena-invgate-sync" content="<?= htmlspecialchars($syncToken, ENT_QUOTES, 'UTF-8') ?>">
+    <?php endif; ?>
     <?php require __DIR__ . '/includes/theme-head.php'; ?>
     <title>Resumen de Colmena</title>
     <?php require __DIR__ . '/includes/favicon.php'; ?>
     <link rel="stylesheet" href="assets/css/app.css">
     <link rel="stylesheet" href="assets/css/widget.css">
-    <script src="assets/js/widget.js" defer></script>
+    <script src="assets/js/widget.js?v=invgate-sync" defer></script>
 </head>
 <body class="widget-page">
     <main class="widget">
@@ -47,6 +56,7 @@ session_write_close();
                     <h2><a target="_blank" rel="noopener" href="invgate.php">InvGate</a></h2>
                     <p class="widget__metric" id="widget-invgate">—</p>
                     <p class="widget__caption" id="widget-invgate-label">Tickets abiertos</p>
+                    <p class="widget__caption widget__sync-status" id="widget-invgate-sync-status" hidden></p>
                 </section>
                 <section class="widget__card">
                     <h2><a target="_blank" rel="noopener" href="devops.php">DevOps</a></h2>

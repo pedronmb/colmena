@@ -4,10 +4,16 @@
     const refreshButton = document.getElementById("widget-refresh");
     const signOutButton = document.getElementById("widget-sign-out");
     const signOutError = document.getElementById("widget-sign-out-error");
+    const invgateSyncStatus = document.getElementById("widget-invgate-sync-status");
+    const invgateSyncToken = document.querySelector('meta[name="colmena-invgate-sync"]');
     const timeFormat = new Intl.DateTimeFormat("es-AR", { hour: "2-digit", minute: "2-digit" });
+    const syncTimeFormat = new Intl.DateTimeFormat("es-AR", {
+        day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
+    });
     const dateFormat = new Intl.DateTimeFormat("es-AR", { day: "numeric", month: "short", timeZone: "UTC" });
     const numberFormat = new Intl.NumberFormat("es-AR");
     let request = null;
+    let syncRequest = null;
     let updatedAt = null;
     let signingOut = false;
 
@@ -19,6 +25,20 @@
     function showMetric(key, count, label) {
         document.getElementById(`widget-${key}`).textContent = count === null ? "—" : numberFormat.format(count);
         document.getElementById(`widget-${key}-label`).textContent = count === null ? "No disponible" : label;
+    }
+
+    function showInvgateSync(sync) {
+        if (!invgateSyncStatus) return;
+        invgateSyncStatus.hidden = !sync;
+        if (!sync) return;
+
+        const results = {
+            running: "En curso", success: "Completada", partial: "Parcial", failed: "Falló", unavailable: "No disponible",
+        };
+        const result = results[sync.result] ?? (sync.queued ? "En cola" : "Sin intentos");
+        const attempted = sync.last_attempt_at ? new Date(sync.last_attempt_at) : null;
+        const time = attempted && Number.isFinite(attempted.getTime()) ? ` · ${syncTimeFormat.format(attempted)}` : "";
+        invgateSyncStatus.textContent = `Sincronización: ${result}${time}`;
     }
 
     function showList(key, section, describe) {
@@ -48,9 +68,12 @@
         }
         showMetric("invgate", null, "");
         showMetric("devops", null, "");
+        showInvgateSync(null);
     }
 
     function requireLogin() {
+        invgateSyncToken?.remove();
+        syncRequest?.abort();
         clearSummary();
         location.replace("login.php?next=widget");
     }
@@ -71,6 +94,8 @@
                 return;
             }
             if (response.status === 403) {
+                invgateSyncToken?.remove();
+                syncRequest?.abort();
                 clearSummary();
                 showStatus("Ya no tenés acceso a este espacio de trabajo.", true);
                 return;
@@ -85,6 +110,7 @@
             showList("topic", data.critical_topics, (item) => `Urg. ${item.priority} · Imp. ${item.importance}`);
             showMetric("invgate", data.invgate_open, "Tickets abiertos");
             showMetric("devops", data.devops_active, "Work items activos");
+            showInvgateSync(data.invgate_sync);
             updatedAt = refreshed;
             summary.hidden = false;
             showStatus(`Actualizado a las ${timeFormat.format(updatedAt)}`);
@@ -100,12 +126,39 @@
         }
     }
 
+    async function requestInvgateSync() {
+        if (!invgateSyncToken?.isConnected || syncRequest || signingOut) return;
+        const controller = new AbortController();
+        syncRequest = controller;
+        const timeout = setTimeout(() => controller.abort(), 12000);
+        try {
+            const response = await fetch("api/widget-invgate-sync.php", {
+                method: "POST",
+                headers: { "X-CSRF-Token": invgateSyncToken.content },
+                cache: "no-store",
+                signal: controller.signal,
+            });
+            if (signingOut) return;
+            if (response.status === 401) {
+                requireLogin();
+            } else if (response.status === 403) {
+                invgateSyncToken.remove();
+            }
+        } catch {
+            // The five-minute summary refresh keeps its last values if the request fails.
+        } finally {
+            clearTimeout(timeout);
+            syncRequest = null;
+        }
+    }
+
     signOutButton.addEventListener("click", async () => {
         signingOut = true;
         signOutButton.disabled = true;
         refreshButton.disabled = true;
         signOutError.hidden = true;
         request?.abort();
+        syncRequest?.abort();
 
         try {
             const response = await fetch("api/logout.php", {
@@ -125,6 +178,7 @@
     });
 
     refreshButton.addEventListener("click", refresh);
+    window.addEventListener("colmena-invgate-sync", requestInvgateSync);
     window.addEventListener("online", refresh);
     window.addEventListener("pageshow", (event) => {
         if (event.persisted) {

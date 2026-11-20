@@ -147,3 +147,6 @@
     text-decoration: underline;
     cursor: pointer;
 }
+.widget .widget__sync-status {
+    margin-top: 0.35rem;
+}

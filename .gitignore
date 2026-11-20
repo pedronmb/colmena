@@ -3,6 +3,7 @@
 /database/*.sqlite-journal
 /database/*.sqlite-wal
 /database/*.sqlite-shm
+/database/.*.invgate-sync/
 
 # Configuración local (copiar desde config/config.php.default)
 config/config.php

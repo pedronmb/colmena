@@ -1,7 +1,9 @@
 using System.Diagnostics;
+using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json;
 using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.WinForms;
 
@@ -10,6 +12,8 @@ namespace ColmenaWidget;
 internal sealed class WidgetForm : Form
 {
     private readonly WidgetSettings settings = WidgetSettings.Read();
+    private readonly WidgetToolbar toolbar;
+    private readonly WidgetPreferencesPanel preferences;
     private readonly Panel content = new() { Dock = DockStyle.Fill };
     private readonly FlowLayoutPanel connectionPanel = new()
     {
@@ -17,7 +21,6 @@ internal sealed class WidgetForm : Form
     };
     private readonly Label connectionMessage = new() { AutoSize = true, MaximumSize = new(310, 0) };
     private readonly Button retryButton = new() { AutoSize = true, Text = "Reintentar" };
-    private readonly Button serverButton = new() { AutoSize = true, Text = "Servidor…" };
     private readonly TableLayoutPanel serverEditor = new()
     {
         Dock = DockStyle.Top, AutoSize = true, AutoSizeMode = AutoSizeMode.GrowAndShrink, ColumnCount = 1, Padding = new(12, 6, 12, 8),
@@ -29,6 +32,8 @@ internal sealed class WidgetForm : Form
     private readonly Label notice = new() { Dock = DockStyle.Bottom, AutoSize = true, Padding = new(10, 4, 10, 4), Visible = false };
     private readonly System.Windows.Forms.Timer retryTimer = new() { Interval = 5 * 60 * 1000 };
     private readonly System.Windows.Forms.Timer navigationTimer = new() { Interval = 20 * 1000 };
+    private readonly System.Windows.Forms.Timer invgateSyncTimer = new() { Interval = 15 * 60 * 1000 };
+    private readonly System.Windows.Forms.Timer preferenceSaveTimer = new() { Interval = 350 };
     private Task<CoreWebView2Environment>? environmentTask;
     private WebView2? browser;
     private Uri? server;
@@ -40,24 +45,34 @@ internal sealed class WidgetForm : Form
     internal WidgetForm()
     {
         Text = "Colmena Widget";
+        FormBorderStyle = FormBorderStyle.None;
+        Padding = new Padding(1);
+        AutoScaleDimensions = new SizeF(96, 96);
         AutoScaleMode = AutoScaleMode.Dpi;
-        ClientSize = new Size(400, 510);
-        MinimumSize = new Size(330, 370);
+        ClientSize = WidgetAppearance.LogicalSize(settings.WindowSize);
         StartPosition = FormStartPosition.Manual;
         MaximizeBox = false;
         TopMost = settings.AlwaysOnTop;
+        Opacity = WidgetAppearance.WindowOpacity(settings.Transparency);
 
-        var topBar = new FlowLayoutPanel
+        toolbar = new WidgetToolbar(TogglePreferences, () => WindowState = FormWindowState.Minimized, Close);
+        toolbar.MouseDown += MoveWindow;
+        preferences = new WidgetPreferencesPanel(settings);
+        preferences.PreferencesChanged += (_, _) => UpdatePreferences();
+        preferenceSaveTimer.Tick += (_, _) =>
         {
-            Dock = DockStyle.Top, AutoSize = true, Padding = new Padding(8, 2, 8, 2),
+            preferenceSaveTimer.Stop();
+            SaveSettings();
         };
-        var pin = new CheckBox { Text = "Siempre visible", AutoSize = true, Checked = TopMost, Margin = new(3, 7, 12, 3) };
-        pin.CheckedChanged += (_, _) => TopMost = pin.Checked;
-        serverButton.Click += (_, _) => ShowServerEditor();
-        topBar.Controls.AddRange([pin, serverButton]);
+        preferences.ServerRequested += (_, _) =>
+        {
+            preferences.Visible = false;
+            ShowServerEditor();
+        };
 
         retryButton.Click += async (_, _) => await RetryAsync();
         retryTimer.Tick += async (_, _) => await RetryAsync();
+        invgateSyncTimer.Tick += async (_, _) => await RequestInvgateSyncAsync();
         navigationTimer.Tick += (_, _) =>
         {
             EndNavigation();
@@ -73,7 +88,9 @@ internal sealed class WidgetForm : Form
         Controls.Add(notice);
         Controls.Add(serverEditor);
         Controls.Add(authentication);
-        Controls.Add(topBar);
+        Controls.Add(preferences);
+        Controls.Add(toolbar);
+        ApplyNativeAppearance();
 
         if (TryParseServer(settings.ServerUrl, out Uri savedServer))
         {
@@ -94,22 +111,119 @@ internal sealed class WidgetForm : Form
         base.OnLoad(e);
         var screen = Screen.FromPoint(Cursor.Position);
         Rectangle area = screen.WorkingArea;
-        var fallback = new Point(Math.Max(area.Left, area.Right - Width - 16), area.Top + 16);
         if (settings.Left is int left && settings.Top is int top)
         {
             var saved = new Point(left, top);
             Screen? savedScreen = Screen.AllScreens.FirstOrDefault(display => display.WorkingArea.Contains(saved));
             if (savedScreen is not null)
             {
-                area = savedScreen.WorkingArea;
-                Location = new Point(
-                    Math.Clamp(left, area.Left, Math.Max(area.Left, area.Right - Width)),
-                    Math.Clamp(top, area.Top, Math.Max(area.Top, area.Bottom - Height)));
+                FitWindow(savedScreen.WorkingArea, saved, Size);
                 return;
             }
         }
-        Location = fallback;
+        FitWindow(area, new Point(area.Right - Width - 16, area.Top + 16), Size);
     }
+
+    protected override void WndProc(ref Message message)
+    {
+        base.WndProc(ref message);
+        const int SettingChange = 0x001A;
+        const int SystemColorChange = 0x0015;
+        if (message.Msg is SettingChange or SystemColorChange && toolbar is not null && !Disposing)
+            ApplyNativeAppearance();
+    }
+
+    protected override void OnSizeChanged(EventArgs e)
+    {
+        base.OnSizeChanged(e);
+        UpdateWindowRegion();
+    }
+
+    protected override void OnDpiChanged(DpiChangedEventArgs e)
+    {
+        base.OnDpiChanged(e);
+        UpdateWindowRegion();
+    }
+
+    private void UpdateWindowRegion()
+    {
+        int diameter = Math.Min(48 * DeviceDpi / 96, Math.Min(ClientSize.Width, ClientSize.Height));
+        if (diameter < 2 || WindowState == FormWindowState.Minimized) return;
+
+        using var outline = new GraphicsPath();
+        outline.AddRoundedRectangle(ClientRectangle, new Size(diameter, diameter));
+        Region = new Region(outline);
+    }
+
+    private void TogglePreferences()
+    {
+        preferences.Visible = !preferences.Visible;
+        if (preferences.Visible) preferences.FocusTheme();
+        else toolbar.FocusSettings();
+    }
+
+    private void UpdatePreferences()
+    {
+        if (settings.WindowSize != preferences.WindowSize)
+        {
+            settings.WindowSize = preferences.WindowSize;
+            Size logical = WidgetAppearance.LogicalSize(settings.WindowSize);
+            var scaled = new Size(logical.Width * DeviceDpi / 96, logical.Height * DeviceDpi / 96);
+            FitWindow(Screen.FromControl(this).WorkingArea, Location, scaled);
+        }
+
+        if (settings.Theme != preferences.Theme)
+        {
+            settings.Theme = preferences.Theme;
+            ApplyNativeAppearance();
+            if (browser?.CoreWebView2 is CoreWebView2 core)
+                core.Profile.PreferredColorScheme = WidgetAppearance.WebColorScheme(settings.Theme);
+        }
+
+        settings.AlwaysOnTop = preferences.AlwaysOnTop;
+        TopMost = settings.AlwaysOnTop;
+        settings.Transparency = preferences.Transparency;
+        Opacity = WidgetAppearance.WindowOpacity(settings.Transparency);
+        preferenceSaveTimer.Stop();
+        preferenceSaveTimer.Start();
+    }
+
+    private void ApplyNativeAppearance()
+    {
+        var palette = WidgetPalette.For(settings.Theme);
+        BackColor = palette.Border;
+        content.BackColor = palette.Background;
+        foreach (Control control in new Control[] { preferences, serverEditor, authentication, connectionPanel, notice })
+            palette.ApplyTo(control);
+        serverValidation.ForeColor = palette.Accent;
+        toolbar.ApplyPalette(palette);
+        if (browser is not null) browser.DefaultBackgroundColor = palette.Background;
+    }
+
+    private void FitWindow(Rectangle area, Point anchor, Size preferred)
+    {
+        int width = Math.Min(area.Width, preferred.Width);
+        int height = Math.Min(area.Height, preferred.Height);
+        SetBounds(Math.Clamp(anchor.X, area.Left, area.Right - width),
+            Math.Clamp(anchor.Y, area.Top, area.Bottom - height), width, height);
+    }
+
+    private void MoveWindow(object? sender, MouseEventArgs e)
+    {
+        if (e.Button != MouseButtons.Left) return;
+        const uint NonClientLeftButtonDown = 0x00A1;
+        const int CaptionHit = 2;
+        Point mouse = toolbar.PointToScreen(e.Location);
+        ReleaseCapture();
+        SendMessage(Handle, NonClientLeftButtonDown, CaptionHit, (mouse.X & 0xffff) | (mouse.Y << 16));
+    }
+
+    [DllImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool ReleaseCapture();
+
+    [DllImport("user32.dll", EntryPoint = "SendMessageW")]
+    private static extern nint SendMessage(nint window, uint message, nint wParam, nint lParam);
 
     protected override void OnFormClosing(FormClosingEventArgs e)
     {
@@ -119,6 +233,8 @@ internal sealed class WidgetForm : Form
         CompleteServerChallenge(cancel: true);
         retryTimer.Dispose();
         navigationTimer.Dispose();
+        invgateSyncTimer.Dispose();
+        preferenceSaveTimer.Dispose();
         Point position = WindowState == FormWindowState.Normal ? Location : RestoreBounds.Location;
         settings.Left = position.X;
         settings.Top = position.Y;
@@ -184,6 +300,7 @@ internal sealed class WidgetForm : Form
     private async Task LoadServerAsync(Uri address)
     {
         retryTimer.Stop();
+        invgateSyncTimer.Stop();
         EndNavigation();
         CompleteServerChallenge(cancel: true);
         authenticationAttempted = false;
@@ -196,7 +313,7 @@ internal sealed class WidgetForm : Form
         }
         ShowConnectionMessage("Conectando con Colmena…", allowRetry: false);
         var previous = browser;
-        var next = new WebView2 { Dock = DockStyle.Fill, Visible = false };
+        var next = new WebView2 { Dock = DockStyle.Fill, Visible = false, DefaultBackgroundColor = content.BackColor };
         browser = next;
         previous?.Dispose();
         content.Controls.Add(next);
@@ -221,6 +338,9 @@ internal sealed class WidgetForm : Form
             core.Settings.AreBrowserAcceleratorKeysEnabled = false;
             core.Profile.IsPasswordAutosaveEnabled = false;
             core.Profile.IsGeneralAutofillEnabled = false;
+            core.Profile.PreferredColorScheme = WidgetAppearance.WebColorScheme(settings.Theme);
+            await core.AddScriptToExecuteOnDocumentCreatedAsync(WidgetAppearance.DocumentThemeScript(address));
+            if (!IsCurrentBrowser(next)) return;
             core.FrameNavigationStarting += (_, args) => args.Cancel = true;
             core.PermissionRequested += (_, args) => args.State = CoreWebView2PermissionState.Deny;
             core.DownloadStarting += (_, args) => args.Cancel = true;
@@ -262,6 +382,7 @@ internal sealed class WidgetForm : Form
         {
             if (navigationId != args.NavigationId)
             {
+                invgateSyncTimer.Stop();
                 navigationTimer.Stop();
                 navigationId = args.NavigationId;
                 if (pendingChallenge is null) navigationTimer.Start();
@@ -273,6 +394,7 @@ internal sealed class WidgetForm : Form
             OpenSection(args.Uri);
         else
         {
+            invgateSyncTimer.Stop();
             EndNavigation();
             ShowConnectionMessage("El servidor redirigió a una dirección inesperada. Revisá la URL de Colmena.", allowRetry: true);
         }
@@ -293,6 +415,7 @@ internal sealed class WidgetForm : Form
                 authenticationAttempted = false;
                 authentication.HideChallenge(clearUserName: true);
             }
+            _ = RequestInvgateSyncAsync();
         }
         else if (args.HttpStatusCode == 404)
         {
@@ -311,6 +434,39 @@ internal sealed class WidgetForm : Form
         else
         {
             ShowConnectionError("No se pudo abrir Colmena. Revisá la URL y la conexión a la red interna.");
+        }
+    }
+
+    private async Task RequestInvgateSyncAsync()
+    {
+        WebView2? source = browser;
+        if (source is null || !IsCurrentBrowser(source)) return;
+
+        try
+        {
+            CoreWebView2? core = source.CoreWebView2;
+            if (navigationId is not null || core is null || !Matches(core.Source, "widget.php"))
+            {
+                invgateSyncTimer.Stop();
+                return;
+            }
+
+            string expectedUrl = JsonSerializer.Serialize(core.Source);
+            string result = await core.ExecuteScriptAsync($$"""
+                (() => {
+                    if (window.top !== window || window.location.href !== {{expectedUrl}} ||
+                        !document.querySelector('meta[name="colmena-invgate-sync"]')?.content) return false;
+                    window.dispatchEvent(new Event('colmena-invgate-sync'));
+                    return true;
+                })();
+                """);
+            if (!IsCurrentBrowser(source) || navigationId is not null || !Matches(core.Source, "widget.php")) return;
+            if (result == "true") invgateSyncTimer.Start();
+            else invgateSyncTimer.Stop();
+        }
+        catch (Exception error) when (error is COMException or InvalidOperationException)
+        {
+            Debug.WriteLine(error);
         }
     }
 
