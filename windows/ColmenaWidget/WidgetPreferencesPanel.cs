@@ -19,7 +19,7 @@ internal sealed class WidgetPreferencesPanel : TableLayoutPanel
     internal event EventHandler? ServerRequested;
 
     internal WidgetTheme Theme => Themes[theme.SelectedIndex];
-    internal WidgetSize WindowSize => Sizes[size.SelectedIndex];
+    internal WidgetSize WindowSize => size.SelectedIndex == Sizes.Length ? WidgetSize.Custom : Sizes[size.SelectedIndex];
     internal bool AlwaysOnTop => pin.Checked;
     internal int Transparency => transparency.Value;
 
@@ -39,6 +39,11 @@ internal sealed class WidgetPreferencesPanel : TableLayoutPanel
         theme.SelectedIndex = Math.Max(0, Array.IndexOf(Themes, settings.Theme));
         int selectedSize = Array.IndexOf(Sizes, settings.WindowSize);
         size.SelectedIndex = selectedSize >= 0 ? selectedSize : 1;
+        if (settings.CustomWidth is > 0 && settings.CustomHeight is > 0)
+        {
+            size.Items.Add("Personalizado");
+            if (settings.WindowSize == WidgetSize.Custom) size.SelectedIndex = Sizes.Length;
+        }
         pin.Checked = settings.AlwaysOnTop;
         transparency.Value = WidgetAppearance.ClampTransparency(settings.Transparency);
         UpdateTransparencyValue();
@@ -69,6 +74,12 @@ internal sealed class WidgetPreferencesPanel : TableLayoutPanel
     }
 
     internal void FocusTheme() => theme.Focus();
+
+    internal void SelectCustomSize()
+    {
+        if (size.Items.Count == Sizes.Length) size.Items.Add("Personalizado");
+        size.SelectedIndex = Sizes.Length;
+    }
 
     private void UpdateTransparencyValue()
     {

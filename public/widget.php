@@ -36,8 +36,8 @@ session_write_close();
     <title>Resumen de Colmena</title>
     <?php require __DIR__ . '/includes/favicon.php'; ?>
     <link rel="stylesheet" href="assets/css/app.css">
-    <link rel="stylesheet" href="assets/css/widget.css">
-    <script src="assets/js/widget.js?v=invgate-sync" defer></script>
+    <link rel="stylesheet" href="assets/css/widget.css?v=sections">
+    <script src="assets/js/widget.js?v=sections" defer></script>
 </head>
 <body class="widget-page">
     <main class="widget">
@@ -51,35 +51,42 @@ session_write_close();
         <p class="widget__status" id="widget-status" role="status">Cargando resumen…</p>
 
         <div class="widget__sections" id="widget-summary" hidden>
-            <div class="widget__metrics">
-                <section class="widget__card">
-                    <h2><a target="_blank" rel="noopener" href="invgate.php">InvGate</a></h2>
-                    <p class="widget__metric" id="widget-invgate">—</p>
-                    <p class="widget__caption" id="widget-invgate-label">Tickets abiertos</p>
-                    <p class="widget__caption widget__sync-status" id="widget-invgate-sync-status" hidden></p>
-                </section>
-                <section class="widget__card">
-                    <h2><a target="_blank" rel="noopener" href="devops.php">DevOps</a></h2>
-                    <p class="widget__metric" id="widget-devops">—</p>
-                    <p class="widget__caption" id="widget-devops-label">Work items activos</p>
-                </section>
+            <div class="widget__metrics" role="group" aria-label="Secciones del widget">
+                <button type="button" class="widget__card widget__option" data-widget-section="invgate"
+                    id="widget-invgate-option" aria-controls="widget-invgate-panel" aria-expanded="false">
+                    <span class="widget__option-name">InvGate</span>
+                    <span class="widget__metric" id="widget-invgate">—</span>
+                    <span class="widget__caption" id="widget-invgate-label">Tickets abiertos</span>
+                </button>
+                <button type="button" class="widget__card widget__option" data-widget-section="topics"
+                    id="widget-topics-option" aria-controls="widget-topics-panel" aria-expanded="false">
+                    <span class="widget__option-name">Temas</span>
+                    <span class="widget__metric" id="widget-topic">—</span>
+                    <span class="widget__caption" id="widget-topic-label">Temas activos</span>
+                </button>
             </div>
-            <section class="widget__card">
+            <p class="widget__caption widget__sync-status" id="widget-invgate-sync-status" role="status" hidden></p>
+            <section class="widget__card" id="widget-invgate-panel" aria-labelledby="widget-invgate-heading" hidden>
                 <div class="widget__section-head">
-                    <h2><a target="_blank" rel="noopener" href="alerts.php">Alertas</a></h2>
-                    <span class="widget__total" id="widget-alert-total"></span>
+                    <h2 id="widget-invgate-heading">Tickets por persona</h2>
+                    <a target="_blank" rel="noopener" href="invgate.php">Abrir en Colmena</a>
                 </div>
-                <p class="widget__caption">Próximos 7 días</p>
+                <p class="widget__empty" id="widget-invgate-detail-status" role="status"></p>
+                <div class="widget__groups" id="widget-invgate-groups"></div>
+            </section>
+            <section class="widget__card" id="widget-topics-panel" aria-labelledby="widget-topics-heading" hidden>
+                <div class="widget__section-head">
+                    <h2 id="widget-topics-heading">Temas activos</h2>
+                    <a target="_blank" rel="noopener" href="dashboard.php?panel=focus">Abrir en Colmena</a>
+                </div>
+                <p class="widget__empty" id="widget-topics-detail-status" role="status"></p>
+                <ul class="widget__list" id="widget-topic-list"></ul>
+                <div class="widget__section-head widget__alerts">
+                    <h3>Alertas de los próximos 7 días <span class="widget__total" id="widget-alert-total"></span></h3>
+                    <a target="_blank" rel="noopener" href="alerts.php">Ver alertas</a>
+                </div>
                 <p class="widget__empty" id="widget-alert-empty" hidden>Sin vencimientos</p>
                 <ul class="widget__list" id="widget-alert-list"></ul>
-            </section>
-            <section class="widget__card">
-                <div class="widget__section-head">
-                    <h2><a target="_blank" rel="noopener" href="dashboard.php?panel=focus">Temas críticos</a></h2>
-                    <span class="widget__total" id="widget-topic-total"></span>
-                </div>
-                <p class="widget__empty" id="widget-topic-empty" hidden>Sin temas críticos activos</p>
-                <ul class="widget__list" id="widget-topic-list"></ul>
             </section>
         </div>
 

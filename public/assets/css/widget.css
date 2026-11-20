@@ -6,7 +6,7 @@
 }
 
 .widget {
-    width: min(100%, 32rem);
+    width: min(100%, 52rem);
     margin-inline: auto;
     padding: 0.9rem;
 }
@@ -21,7 +21,7 @@
     justify-content: space-between;
 }
 
-.widget h1, .widget h2, .widget p {
+.widget h1, .widget h2, .widget h3, .widget p {
     margin: 0;
 }
 
@@ -64,19 +64,21 @@
     box-shadow: var(--shadow);
 }
 
-.widget h2 {
+.widget h2, .widget__option-name {
     font-size: 0.875rem;
     font-weight: 650;
 }
 
-.widget h2 a {
+.widget__section-head a {
     color: var(--text);
+    flex-shrink: 0;
+    font-size: 0.75rem;
     text-decoration: underline;
     text-decoration-color: var(--muted);
     text-underline-offset: 0.16em;
 }
 
-.widget h2 a:hover, .widget h2 a:focus-visible {
+.widget__section-head a:hover, .widget__section-head a:focus-visible {
     color: var(--accent);
 }
 
@@ -86,6 +88,29 @@
     font-weight: 650;
     margin: 0.22rem 0 0.12rem;
     font-variant-numeric: tabular-nums;
+}
+
+.widget .widget__option {
+    display: grid;
+    justify-items: start;
+    gap: 0.12rem;
+    color: var(--text);
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
+}
+
+.widget__option:hover, .widget__option[aria-expanded="true"] {
+    border-color: var(--accent);
+}
+
+.widget__option[aria-expanded="true"] {
+    background: var(--badge-bg);
+}
+
+.widget__option:focus-visible, .widget__groups summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
 }
 
 .widget__caption, .widget__empty, .widget__detail {
@@ -115,26 +140,48 @@
 
 .widget__list li {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    gap: 0.45rem;
-    align-items: baseline;
+    gap: 0.12rem;
     border-top: 1px solid var(--border);
-    padding: 0.25rem 0 0.15rem;
+    padding: 0.42rem 0 0.3rem;
 }
 
 .widget__item-title {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    min-width: 0;
+    overflow-wrap: anywhere;
 }
 
-.widget__detail {
-    white-space: nowrap;
-    font-variant-numeric: tabular-nums;
+.widget__item-heading {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.widget__groups details, .widget__alerts {
+    border-top: 1px solid var(--border);
+    margin-top: 0.5rem;
+    padding-top: 0.45rem;
+}
+
+.widget__groups summary {
+    cursor: pointer;
+    overflow-wrap: anywhere;
+}
+
+.widget__groups summary .widget__total, .widget__alerts .widget__total {
+    margin-inline-start: 0.35rem;
+}
+
+.widget__alerts h3 {
+    font-size: 0.8125rem;
 }
 
 .widget .widget__empty, .widget__footer {
     margin-top: 0.35rem;
+}
+
+.widget__empty:empty {
+    display: none;
 }
 
 .widget__sign-out {

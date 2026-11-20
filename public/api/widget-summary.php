@@ -26,6 +26,12 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
     exit;
 }
 
+$section = $_GET['section'] ?? null;
+if ($section !== null && !in_array($section, ['invgate', 'topics'], true)) {
+    $respond(400, ['ok' => false, 'error' => 'Sección del widget no válida']);
+    exit;
+}
+
 try {
     if (!is_file($config['db']['path'])) {
         $respond(503, ['ok' => false, 'error' => 'Base de datos no disponible']);
@@ -48,7 +54,7 @@ try {
     session_write_close();
 
     $now = new DateTimeImmutable();
-    $summary = (new WidgetSummaryService($pdo))->forTeam($teamId, $now, $config);
+    $summary = (new WidgetSummaryService($pdo))->forTeam($teamId, $now, $config, $section);
     if (InvgateSyncCoordinator::isEnabled($config)) {
         try {
             $summary['invgate_sync'] = (new InvgateSyncCoordinator($config['db']['path']))->status($now->getTimestamp());

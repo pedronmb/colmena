@@ -6,6 +6,15 @@
     const signOutError = document.getElementById("widget-sign-out-error");
     const invgateSyncStatus = document.getElementById("widget-invgate-sync-status");
     const invgateSyncToken = document.querySelector('meta[name="colmena-invgate-sync"]');
+    const sectionButtons = document.querySelectorAll("[data-widget-section]");
+    const panels = Object.fromEntries([...sectionButtons].map((button) => {
+        const key = button.dataset.widgetSection;
+        return [key, {
+            root: document.getElementById(button.getAttribute("aria-controls")),
+            status: document.getElementById(`widget-${key}-detail-status`),
+            list: document.getElementById(key === "invgate" ? "widget-invgate-groups" : "widget-topic-list"),
+        }];
+    }));
     const timeFormat = new Intl.DateTimeFormat("es-AR", { hour: "2-digit", minute: "2-digit" });
     const syncTimeFormat = new Intl.DateTimeFormat("es-AR", {
         day: "numeric", month: "short", hour: "2-digit", minute: "2-digit",
@@ -16,6 +25,7 @@
     let syncRequest = null;
     let updatedAt = null;
     let signingOut = false;
+    let activeSection = null;
 
     function showStatus(message, warning = false) {
         status.textContent = message;
@@ -41,54 +51,120 @@
         invgateSyncStatus.textContent = `Sincronización: ${result}${time}`;
     }
 
-    function showList(key, section, describe) {
-        const list = document.getElementById(`widget-${key}-list`);
-        document.getElementById(`widget-${key}-total`).textContent = numberFormat.format(section.total);
-        document.getElementById(`widget-${key}-empty`).hidden = section.items.length !== 0;
-        list.replaceChildren(...section.items.map((item) => {
-            const row = document.createElement("li");
-            const title = document.createElement("span");
-            title.className = "widget__item-title";
-            title.textContent = item.title;
-            title.title = item.title;
-            const detail = document.createElement("span");
-            detail.className = "widget__detail";
-            detail.textContent = describe(item);
-            row.append(title, detail);
-            return row;
+    function textNode(tag, text, className) {
+        const node = document.createElement(tag);
+        node.textContent = text;
+        if (className) node.className = className;
+        return node;
+    }
+
+    function detailRow(title, description, badge) {
+        const row = document.createElement("li");
+        const titleLine = document.createElement("div");
+        titleLine.className = "widget__item-heading";
+        titleLine.append(textNode("span", title, "widget__item-title"));
+        if (badge) titleLine.append(textNode("span", badge, "widget__total"));
+        row.append(titleLine);
+        if (description) row.append(textNode("span", description, "widget__detail"));
+        return row;
+    }
+
+    function showAlerts(alerts) {
+        document.getElementById("widget-alert-total").textContent = numberFormat.format(alerts.total);
+        document.getElementById("widget-alert-empty").hidden = alerts.items.length !== 0;
+        document.getElementById("widget-alert-list").replaceChildren(...alerts.items.map((item) => {
+            const day = new Date(`${item.due_date}T00:00:00Z`);
+            return detailRow(item.title, Number.isFinite(day.getTime()) ? dateFormat.format(day) : item.due_date);
         }));
+    }
+
+    function showInvgateDetails(groups, total) {
+        const { root, status: detailStatus, list } = panels.invgate;
+        const previouslyOpen = new Set([...list.querySelectorAll("details[open]")].map((group) => group.dataset.person));
+        const firstWithTickets = groups.findIndex((group) => group.tickets.length > 0);
+        list.replaceChildren(...groups.map((group, index) => {
+            const details = document.createElement("details");
+            details.dataset.person = String(group.person_id);
+            details.open = previouslyOpen.has(details.dataset.person) || (!root.dataset.loaded && index === firstWithTickets);
+            const heading = document.createElement("summary");
+            heading.append(textNode("span", group.name), textNode("span", numberFormat.format(group.tickets.length), "widget__total"));
+            details.append(heading);
+            if (group.tickets.length === 0) {
+                details.append(textNode("p", "Sin tickets abiertos", "widget__empty"));
+            } else {
+                const tickets = document.createElement("ul");
+                tickets.className = "widget__list";
+                tickets.append(...group.tickets.map((ticket) => detailRow(`#${ticket.number} ${ticket.title}`, ticket.status)));
+                details.append(tickets);
+            }
+            return details;
+        }));
+        detailStatus.textContent = total === null ? "InvGate no está disponible." : groups.length ? "" : "Sin tickets abiertos.";
+        root.dataset.loaded = "true";
+    }
+
+    function showTopicDetails(topics) {
+        const { root, status: detailStatus, list } = panels.topics;
+        const labels = { open: "Pendiente", in_progress: "En curso", blocked: "Bloqueado" };
+        list.replaceChildren(...topics.map((topic) => {
+            const description = [labels[topic.status], topic.person,
+                `Urgencia ${topic.priority} / Importancia ${topic.importance}`].filter(Boolean).join(" · ");
+            return detailRow(topic.title, description, topic.critical ? "Crítico" : null);
+        }));
+        detailStatus.textContent = topics.length ? "" : "Sin temas activos.";
+        root.dataset.loaded = "true";
+    }
+
+    function displaySection(section) {
+        activeSection = section;
+        for (const button of sectionButtons) {
+            const key = button.dataset.widgetSection;
+            const selected = key === section;
+            button.setAttribute("aria-expanded", String(selected));
+            panels[key].root.hidden = !selected;
+        }
+        if (section && !panels[section].root.dataset.loaded) {
+            panels[section].status.textContent = "Cargando detalle…";
+        }
     }
 
     function clearSummary() {
         summary.hidden = true;
         updatedAt = null;
-        for (const key of ["alert", "topic"]) {
-            document.getElementById(`widget-${key}-list`).replaceChildren();
-            document.getElementById(`widget-${key}-total`).textContent = "";
+        displaySection(null);
+        for (const panel of Object.values(panels)) {
+            panel.list.replaceChildren();
+            panel.status.textContent = "";
+            delete panel.root.dataset.loaded;
         }
+        showAlerts({ total: 0, items: [] });
         showMetric("invgate", null, "");
-        showMetric("devops", null, "");
+        showMetric("topic", null, "");
         showInvgateSync(null);
     }
 
     function requireLogin() {
         invgateSyncToken?.remove();
+        request?.abort();
         syncRequest?.abort();
         clearSummary();
         location.replace("login.php?next=widget");
     }
 
-    async function refresh() {
-        if (request || signingOut) return;
+    async function refresh(replaceRequest = false) {
+        if (signingOut || (request && !replaceRequest)) return;
+        request?.abort();
 
+        const section = activeSection;
         const controller = new AbortController();
         request = controller;
         const timeout = setTimeout(() => controller.abort(), 12000);
         refreshButton.disabled = true;
 
         try {
-            const response = await fetch("api/widget-summary.php", { cache: "no-store", signal: controller.signal });
-            if (signingOut) return;
+            const url = section ? `api/widget-summary.php?section=${encodeURIComponent(section)}` : "api/widget-summary.php";
+            const response = await fetch(url, { cache: "no-store", signal: controller.signal });
+            if (request !== controller || signingOut) return;
             if (response.status === 401) {
                 requireLogin();
                 return;
@@ -102,27 +178,35 @@
             }
             if (!response.ok) throw new Error("No se pudo actualizar");
             const data = await response.json();
-            if (signingOut) return;
+            if (request !== controller || signingOut) return;
             const refreshed = new Date(data.updated_at);
             if (!data.ok || !Number.isFinite(refreshed.getTime())) throw new Error("Resumen inválido");
 
-            showList("alert", data.alerts, (item) => dateFormat.format(new Date(`${item.due_date}T00:00:00Z`)));
-            showList("topic", data.critical_topics, (item) => `Urg. ${item.priority} · Imp. ${item.importance}`);
             showMetric("invgate", data.invgate_open, "Tickets abiertos");
-            showMetric("devops", data.devops_active, "Work items activos");
+            showMetric("topic", data.topics_active, "Temas activos");
+            if (section === "invgate") showInvgateDetails(data.detail, data.invgate_open);
+            if (section === "topics") {
+                showTopicDetails(data.detail);
+                showAlerts(data.alerts);
+            }
             showInvgateSync(data.invgate_sync);
             updatedAt = refreshed;
             summary.hidden = false;
             showStatus(`Actualizado a las ${timeFormat.format(updatedAt)}`);
         } catch {
-            if (!signingOut) {
+            if (request === controller && !signingOut) {
+                if (section && !panels[section].root.dataset.loaded) {
+                    panels[section].status.textContent = "No se pudo cargar el detalle.";
+                }
                 const lastUpdate = updatedAt ? ` Última actualización a las ${timeFormat.format(updatedAt)}.` : "";
                 showStatus(`No se pudo actualizar.${lastUpdate}`, true);
             }
         } finally {
             clearTimeout(timeout);
-            request = null;
-            refreshButton.disabled = signingOut;
+            if (request === controller) {
+                request = null;
+                refreshButton.disabled = signingOut;
+            }
         }
     }
 
@@ -177,13 +261,21 @@
         }
     });
 
-    refreshButton.addEventListener("click", refresh);
+    refreshButton.addEventListener("click", () => refresh());
+    for (const button of sectionButtons) {
+        button.addEventListener("click", () => {
+            if (signingOut) return;
+            const key = button.dataset.widgetSection;
+            displaySection(activeSection === key ? null : key);
+            void refresh(true);
+        });
+    }
     window.addEventListener("colmena-invgate-sync", requestInvgateSync);
-    window.addEventListener("online", refresh);
+    window.addEventListener("online", () => refresh());
     window.addEventListener("pageshow", (event) => {
         if (event.persisted) {
             clearSummary();
-            refresh();
+            refresh(true);
         }
     });
     setInterval(refresh, 5 * 60 * 1000);

@@ -13,6 +13,8 @@ internal sealed class WidgetSettings
     public bool AlwaysOnTop { get; set; } = true;
     public WidgetTheme Theme { get; set; }
     public WidgetSize WindowSize { get; set; }
+    public int? CustomWidth { get; set; }
+    public int? CustomHeight { get; set; }
     public int Transparency { get; set; }
     public int? Left { get; set; }
     public int? Top { get; set; }

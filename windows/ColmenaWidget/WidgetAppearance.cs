@@ -5,7 +5,7 @@ using Microsoft.Win32;
 namespace ColmenaWidget;
 
 internal enum WidgetTheme { System, Light, Dark }
-internal enum WidgetSize { Normal, Compact, Large }
+internal enum WidgetSize { Normal, Compact, Large, Custom }
 
 internal readonly record struct WidgetPalette(Color Background, Color Surface, Color Text, Color Muted, Color Border, Color Hover, Color Accent)
 {

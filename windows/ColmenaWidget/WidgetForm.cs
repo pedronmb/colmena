@@ -39,6 +39,7 @@ internal sealed class WidgetForm : Form
     private Uri? server;
     private Uri? appBase;
     private ulong? navigationId;
+    private (ResizeEdges Edges, Point Origin, Rectangle Bounds)? resizeDrag;
     private (CoreWebView2BasicAuthenticationRequestedEventArgs Args, CoreWebView2Deferral Deferral)? pendingChallenge;
     private bool authenticationAttempted;
 
@@ -46,10 +47,11 @@ internal sealed class WidgetForm : Form
     {
         Text = "Colmena Widget";
         FormBorderStyle = FormBorderStyle.None;
-        Padding = new Padding(1);
+        Padding = new Padding(8);
         AutoScaleDimensions = new SizeF(96, 96);
         AutoScaleMode = AutoScaleMode.Dpi;
-        ClientSize = WidgetAppearance.LogicalSize(settings.WindowSize);
+        Size = SelectedLogicalSize();
+        MinimumSize = new Size(310, 320);
         StartPosition = FormStartPosition.Manual;
         MaximizeBox = false;
         TopMost = settings.AlwaysOnTop;
@@ -133,6 +135,104 @@ internal sealed class WidgetForm : Form
             ApplyNativeAppearance();
     }
 
+    [Flags]
+    private enum ResizeEdges { None = 0, Left = 1, Right = 2, Top = 4, Bottom = 8 }
+
+    private ResizeEdges ResizeEdgesAt(Point point)
+    {
+        if (WindowState != FormWindowState.Normal || !ClientRectangle.Contains(point)) return ResizeEdges.None;
+        int corner = 26 * DeviceDpi / 96;
+        if (point.X < Padding.Left)
+            return ResizeEdges.Left | VerticalEdge(point.Y, corner);
+        if (point.X >= ClientSize.Width - Padding.Right)
+            return ResizeEdges.Right | VerticalEdge(point.Y, corner);
+        if (point.Y < Padding.Top)
+            return ResizeEdges.Top | HorizontalEdge(point.X, corner);
+        if (point.Y >= ClientSize.Height - Padding.Bottom)
+            return ResizeEdges.Bottom | HorizontalEdge(point.X, corner);
+        return ResizeEdges.None;
+    }
+
+    private ResizeEdges VerticalEdge(int y, int margin) => y < margin ? ResizeEdges.Top
+        : y >= ClientSize.Height - margin ? ResizeEdges.Bottom : ResizeEdges.None;
+
+    private ResizeEdges HorizontalEdge(int x, int margin) => x < margin ? ResizeEdges.Left
+        : x >= ClientSize.Width - margin ? ResizeEdges.Right : ResizeEdges.None;
+
+    protected override void OnMouseDown(MouseEventArgs e)
+    {
+        base.OnMouseDown(e);
+        if (e.Button != MouseButtons.Left) return;
+        ResizeEdges edges = ResizeEdgesAt(e.Location);
+        if (edges == ResizeEdges.None) return;
+        resizeDrag = (edges, PointToScreen(e.Location), Bounds);
+        Capture = true;
+    }
+
+    protected override void OnMouseMove(MouseEventArgs e)
+    {
+        base.OnMouseMove(e);
+        ResizeEdges edges = resizeDrag?.Edges ?? ResizeEdgesAt(e.Location);
+        Cursor = edges switch
+        {
+            ResizeEdges.Left or ResizeEdges.Right => Cursors.SizeWE,
+            ResizeEdges.Top or ResizeEdges.Bottom => Cursors.SizeNS,
+            (ResizeEdges.Top | ResizeEdges.Left) or (ResizeEdges.Bottom | ResizeEdges.Right) => Cursors.SizeNWSE,
+            (ResizeEdges.Top | ResizeEdges.Right) or (ResizeEdges.Bottom | ResizeEdges.Left) => Cursors.SizeNESW,
+            _ => Cursors.Default,
+        };
+        ResizeTo(PointToScreen(e.Location));
+    }
+
+    protected override void OnMouseLeave(EventArgs e)
+    {
+        base.OnMouseLeave(e);
+        if (resizeDrag is null) Cursor = Cursors.Default;
+    }
+
+    protected override void OnMouseUp(MouseEventArgs e)
+    {
+        if (e.Button == MouseButtons.Left && resizeDrag is not null)
+        {
+            ResizeTo(PointToScreen(e.Location));
+            FinishResize();
+        }
+        base.OnMouseUp(e);
+    }
+
+    protected override void OnMouseCaptureChanged(EventArgs e)
+    {
+        base.OnMouseCaptureChanged(e);
+        if (!Capture && resizeDrag is not null) FinishResize();
+    }
+
+    private void ResizeTo(Point pointer)
+    {
+        if (resizeDrag is not { } drag) return;
+        int dx = pointer.X - drag.Origin.X;
+        int dy = pointer.Y - drag.Origin.Y;
+        Rectangle original = drag.Bounds;
+        int left = drag.Edges.HasFlag(ResizeEdges.Left) ? Math.Min(original.Left + dx, original.Right - MinimumSize.Width) : original.Left;
+        int right = drag.Edges.HasFlag(ResizeEdges.Right) ? Math.Max(original.Right + dx, original.Left + MinimumSize.Width) : original.Right;
+        int top = drag.Edges.HasFlag(ResizeEdges.Top) ? Math.Min(original.Top + dy, original.Bottom - MinimumSize.Height) : original.Top;
+        int bottom = drag.Edges.HasFlag(ResizeEdges.Bottom) ? Math.Max(original.Bottom + dy, original.Top + MinimumSize.Height) : original.Bottom;
+        Bounds = Rectangle.FromLTRB(left, top, right, bottom);
+    }
+
+    private void FinishResize()
+    {
+        if (resizeDrag is not { } drag) return;
+        resizeDrag = null;
+        Cursor = Cursors.Default;
+        Capture = false;
+        if (Size == drag.Bounds.Size) return;
+        settings.WindowSize = WidgetSize.Custom;
+        settings.CustomWidth = (int)Math.Round(Width * 96.0 / DeviceDpi);
+        settings.CustomHeight = (int)Math.Round(Height * 96.0 / DeviceDpi);
+        preferences.SelectCustomSize();
+        SaveSettings();
+    }
+
     protected override void OnSizeChanged(EventArgs e)
     {
         base.OnSizeChanged(e);
@@ -167,7 +267,7 @@ internal sealed class WidgetForm : Form
         if (settings.WindowSize != preferences.WindowSize)
         {
             settings.WindowSize = preferences.WindowSize;
-            Size logical = WidgetAppearance.LogicalSize(settings.WindowSize);
+            Size logical = SelectedLogicalSize();
             var scaled = new Size(logical.Width * DeviceDpi / 96, logical.Height * DeviceDpi / 96);
             FitWindow(Screen.FromControl(this).WorkingArea, Location, scaled);
         }
@@ -191,7 +291,7 @@ internal sealed class WidgetForm : Form
     private void ApplyNativeAppearance()
     {
         var palette = WidgetPalette.For(settings.Theme);
-        BackColor = palette.Border;
+        BackColor = palette.Background;
         content.BackColor = palette.Background;
         foreach (Control control in new Control[] { preferences, serverEditor, authentication, connectionPanel, notice })
             palette.ApplyTo(control);
@@ -199,6 +299,11 @@ internal sealed class WidgetForm : Form
         toolbar.ApplyPalette(palette);
         if (browser is not null) browser.DefaultBackgroundColor = palette.Background;
     }
+
+    private Size SelectedLogicalSize() => settings.WindowSize == WidgetSize.Custom
+        && settings.CustomWidth is > 0 and <= 16384 && settings.CustomHeight is > 0 and <= 16384
+            ? new Size(settings.CustomWidth.Value, settings.CustomHeight.Value)
+            : WidgetAppearance.LogicalSize(settings.WindowSize);
 
     private void FitWindow(Rectangle area, Point anchor, Size preferred)
     {
@@ -556,7 +661,7 @@ internal sealed class WidgetForm : Form
     private void OpenSection(string address)
     {
         if (!Matches(address, "index.php") && !Matches(address, "alerts.php") && !Matches(address, "dashboard.php?panel=focus")
-            && !Matches(address, "invgate.php") && !Matches(address, "devops.php")) return;
+            && !Matches(address, "invgate.php")) return;
 
         try
         {

@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace App\Services;
 
-use App\Repositories\AzureWorkItemRepository;
 use App\Repositories\InvgateTicketRepository;
 use App\Repositories\TeamHealthRepository;
-use App\Support\AzureDevOpsFinalStates;
 use App\Support\TeamHealthThresholds;
 use DateTimeImmutable;
 use PDO;
@@ -19,7 +17,7 @@ final class WidgetSummaryService
     }
 
     /** @param array<string, mixed> $config */
-    public function forTeam(int $teamId, DateTimeImmutable $now, array $config): array
+    public function forTeam(int $teamId, DateTimeImmutable $now, array $config, ?string $section = null): array
     {
         $alerts = $this->pdo->prepare(
             'SELECT title, due_date, COUNT(*) OVER () AS total
@@ -34,44 +32,59 @@ final class WidgetSummaryService
         ]);
 
         $topics = $this->pdo->prepare(
-            "SELECT title, priority, importance, COUNT(*) OVER () AS total
-             FROM topics
-             WHERE team_id = :team AND status IN ('open', 'in_progress', 'blocked')
-               AND priority >= :priority AND importance >= :importance
-             ORDER BY priority DESC, importance DESC, datetime(updated_at) DESC, id DESC LIMIT 3"
+            "SELECT t.title, t.priority, t.importance, t.status, tp.display_name AS person
+             FROM topics t
+             LEFT JOIN team_people tp ON tp.id = t.person_id AND tp.team_id = t.team_id
+             WHERE t.team_id = :team AND t.status IN ('open', 'in_progress', 'blocked')
+             ORDER BY t.priority DESC, t.importance DESC, datetime(t.updated_at) DESC, t.id DESC"
         );
-        $topics->execute([
-            'team' => $teamId,
-            'priority' => TeamHealthThresholds::CRITICAL_TOPIC_PRIORITY_MIN,
-            'importance' => TeamHealthThresholds::CRITICAL_TOPIC_IMPORTANCE_MIN,
-        ]);
+        $topics->execute(['team' => $teamId]);
+        $activeTopics = 0;
+        $criticalTopics = ['total' => 0, 'items' => []];
+        $topicDetails = [];
+        while ($topic = $topics->fetch(PDO::FETCH_ASSOC)) {
+            $activeTopics++;
+            $topic['priority'] = (int) $topic['priority'];
+            $topic['importance'] = (int) $topic['importance'];
+            $topic['critical'] = TeamHealthThresholds::isCriticalTopic($topic['priority'], $topic['importance']);
+            if ($topic['critical']) {
+                $criticalTopics['total']++;
+                if (count($criticalTopics['items']) < 3) {
+                    $criticalTopics['items'][] = array_intersect_key($topic, ['title' => true, 'priority' => true, 'importance' => true]);
+                }
+            }
+            if ($section === 'topics') {
+                $topicDetails[] = $topic;
+            }
+        }
 
         $tables = new TeamHealthRepository($this->pdo);
         $invgate = null;
+        $invgateDetails = [];
         if ($tables->hasTable('invgate_tickets') && (
             $this->isConfigured($config['invgate'] ?? [], ['server_url', 'user', 'password'])
             || $this->pdo->query('SELECT 1 FROM invgate_tickets LIMIT 1')->fetchColumn() !== false
         )) {
-            $invgate = (new InvgateTicketRepository($this->pdo))->countAssignedOpenForTeam($teamId);
-        }
-
-        $devops = null;
-        $azure = $config['azure_devops'] ?? [];
-        if ($tables->hasTable('azure_work_items')) {
-            $workItems = new AzureWorkItemRepository($this->pdo);
-            if ($this->isConfigured($azure, ['organization', 'project', 'pat']) || $workItems->hasAnyRows()) {
-                $finalStates = new AzureDevOpsFinalStates(is_array($azure['final_states'] ?? null) ? $azure['final_states'] : null);
-                $work = $workItems->listGroupedByTeam($teamId, $finalStates);
-                $devops = $work['meta']['work_item_total'] - count($work['others_work_items']);
+            $tickets = new InvgateTicketRepository($this->pdo);
+            if ($section === 'invgate') {
+                $invgateDetails = $tickets->listAssignedOpenForWidget($teamId, $tables->hasTable('invgate_statuses'));
+                $invgate = array_sum(array_map(static fn (array $group): int => count($group['tickets']), $invgateDetails));
+            } else {
+                $invgate = $tickets->countAssignedOpenForTeam($teamId);
             }
         }
 
         return [
             'updated_at' => $now->format(DATE_ATOM),
             'alerts' => $this->withTotal($alerts->fetchAll(PDO::FETCH_ASSOC)),
-            'critical_topics' => $this->withTotal($topics->fetchAll(PDO::FETCH_ASSOC)),
+            'critical_topics' => $criticalTopics,
+            'topics_active' => $activeTopics,
             'invgate_open' => $invgate,
-            'devops_active' => $devops,
+            'detail' => match ($section) {
+                'invgate' => $invgateDetails,
+                'topics' => $topicDetails,
+                default => null,
+            },
         ];
     }
 

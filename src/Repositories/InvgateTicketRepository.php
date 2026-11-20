@@ -554,6 +554,38 @@ final class InvgateTicketRepository
         return (int) $stmt->fetchColumn();
     }
 
+    /** @return list<array{person_id: int, name: string, tickets: list<array{number: int, title: string, status: ?string}>}> */
+    public function listAssignedOpenForWidget(int $teamId, bool $hasStatuses): array
+    {
+        $status = $hasStatuses ? 'st.name' : 'NULL';
+        $statusJoin = $hasStatuses ? 'LEFT JOIN invgate_statuses st ON st.invgate_id = it.status_id' : '';
+        $finalPlaceholders = InvgateFinalStatuses::sqlNotInPlaceholders();
+        $stmt = $this->pdo->prepare(
+            "SELECT tp.id AS person_id, tp.display_name, it.invgate_incident_id, it.title, $status AS status_name
+             FROM team_people tp
+             LEFT JOIN invgate_tickets it ON it.person_id = tp.id
+                 AND (it.status_id IS NULL OR it.status_id NOT IN ($finalPlaceholders))
+             $statusJoin
+             WHERE tp.team_id = ? AND (it.id IS NOT NULL OR tp.invgate_id > 0)
+             ORDER BY tp.display_name COLLATE NOCASE, tp.id, it.last_update DESC, it.invgate_incident_id DESC"
+        );
+        $stmt->execute(array_merge(InvgateFinalStatuses::ids(), [$teamId]));
+
+        $groups = [];
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+            $id = (int) $row['person_id'];
+            $groups[$id] ??= ['person_id' => $id, 'name' => $row['display_name'], 'tickets' => []];
+            if ($row['invgate_incident_id'] !== null) {
+                $groups[$id]['tickets'][] = [
+                    'number' => (int) $row['invgate_incident_id'],
+                    'title' => $row['title'],
+                    'status' => $row['status_name'],
+                ];
+            }
+        }
+        return array_values($groups);
+    }
+
     /**
      * @param array<string, mixed> $row
      * @return array<string, mixed>
