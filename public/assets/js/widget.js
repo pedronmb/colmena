@@ -114,7 +114,8 @@
             }
             return details;
         }));
-        detailStatus.textContent = total === null ? "InvGate no está disponible." : groups.length ? "" : "Sin personas en el equipo.";
+        detailStatus.textContent = total === null ? "InvGate no está disponible."
+            : groups.length ? "" : "No hay personas marcadas como Equipo directo.";
         root.dataset.loaded = "true";
     }
 

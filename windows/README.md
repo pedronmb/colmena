@@ -6,7 +6,7 @@
 2. Desde una PC con Windows 11 x64 y [Microsoft Edge WebView2 Runtime](https://developer.microsoft.com/microsoft-edge/webview2/), extraé todo el ZIP a una carpeta y abrí `ColmenaWidget.exe`.
 3. Ingresá la URL base y conectate a la red interna o VPN si el servidor la requiere. Si aparece **Acceso a…**, ingresá primero las credenciales que te pide el servidor cuando abrís esa URL en el navegador. Después, iniciá sesión con tu cuenta de Colmena.
 4. Arrastrá el widget desde el tirador superior o cambiá su tamaño arrastrando un borde o una esquina. En **Configuración** también podés elegir un tamaño, cambiar el tema o la **Transparencia** (de 0 a 60 %), activar **Siempre visible** y cambiar de servidor. El tamaño y las demás preferencias se guardan en esta PC.
-5. Hacé clic en **InvGate** para ver hasta cinco tickets abiertos con la actividad más reciente. **Ver los tickets por persona** abre el directorio del equipo con las prioridades de Colmena. **Temas** muestra los temas activos y las alertas próximas. Los enlaces **Abrir en Colmena** abren el navegador predeterminado.
+5. Hacé clic en **InvGate** para ver hasta cinco tickets abiertos con la actividad más reciente. **Ver los tickets por persona** muestra las fichas marcadas como **Equipo directo** y sus prioridades de Colmena. **Temas** muestra los temas activos y las alertas próximas. Los enlaces **Abrir en Colmena** abren el navegador predeterminado.
 
 El widget se actualiza al abrir, cada cinco minutos y al presionar **Actualizar**. Los vencimientos abarcan hoy y los seis días siguientes según la fecha del servidor PHP. InvGate muestra los datos de la última sincronización. Si falla la conexión, el widget conserva el último resumen en memoria y muestra la hora de esa actualización. **Cerrar sesión** cierra la sesión del widget.
 
@@ -22,6 +22,15 @@ El widget se actualiza al abrir, cada cinco minutos y al presionar **Actualizar*
 3. Si ya existe un cron que ejecuta `sync_invgate_tickets.php` sin `--widget-worker`, seguirá actualizando por su cuenta. Para que la actualización automática de tickets dependa del widget, reemplazá solo esa parte de tu cron por la entrada anterior. La sincronización manual usa el mismo bloqueo y, con esta función habilitada, conviene ejecutarla con el mismo usuario de PHP.
 
 Un widget con sesión administradora solicita la sincronización al abrir y cada 15 minutos, incluso minimizado. El cron procesa las solicitudes durante los dos minutos siguientes a su recepción y aplica el intervalo para toda la instalación. Al cerrar la ventana o la sesión cesan los pedidos. El resumen muestra el resultado del último intento y los detalles de errores quedan en el log del servidor.
+
+Para verificarlo, mirá la fecha y el estado junto a **Sincronización** en el widget y revisá el cron y su log desde la raíz de Colmena.
+
+```bash
+sudo -u www-data crontab -l
+tail -n 50 storage/logs/invgate-tickets.log
+```
+
+La ejecución manual de `database/sync_invgate_tickets.php` sin `--widget-worker` permite probar InvGate y SQLite en el momento. La lista reciente usa la última actualización del ticket y los comentarios guardados por `database/sync_invgate_comments.php`, que es una sincronización independiente.
 
 ## Compilar desde el repositorio
 

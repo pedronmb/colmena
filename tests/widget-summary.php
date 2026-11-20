@@ -14,8 +14,9 @@ $pdo->exec(file_get_contents($root . '/database/schema.sql'));
 $pdo->exec(<<<'SQL'
     INSERT INTO teams (id, name) VALUES (1, 'Equipo A'), (2, 'Equipo B');
     INSERT INTO users (id, email, display_name, password_hash) VALUES (1, 'widget@local.test', 'Widget', 'no-login');
-    INSERT INTO team_people (id, team_id, display_name, invgate_id) VALUES
-      (1, 1, 'Ada', 101), (2, 2, 'Grace', 202), (3, 1, 'Sin tickets', 303), (4, 1, 'Sin ID', NULL), (5, 1, 'Zoe', 505);
+    INSERT INTO team_people (id, team_id, display_name, invgate_id, is_direct_team) VALUES
+      (1, 1, 'Ada', 101, 1), (2, 2, 'Grace', 202, 1), (3, 1, 'Sin tickets', 303, 1),
+      (4, 1, 'Sin ID', NULL, 1), (5, 1, 'Zoe', 505, 0);
     INSERT INTO team_alerts (team_id, author_id, title, due_date) VALUES
       (1, 1, 'Ayer', '2026-11-18'), (1, 1, 'Hoy', '2026-11-19'), (1, 1, 'Mañana', '2026-11-20'),
       (1, 1, 'Tercera', '2026-11-22'), (1, 1, 'Último día incluido', '2026-11-25'),
@@ -71,10 +72,10 @@ $checks = [
         array_column($invgate['detail'], 'number') === [101, 102, 107, 106, 108]
         && $invgate['detail'][0]['person'] === 'Ada'
         && $invgate['detail'][0]['interaction_at'] === '2026-11-19T14:00:00+00:00',
-    'El directorio incluye a todas las personas del equipo y sus tickets abiertos' =>
-        array_column($people['detail'], 'name') === ['Ada', 'Sin ID', 'Sin tickets', 'Zoe']
-        && $people['detail'][1]['tickets'] === [] && $people['detail'][2]['tickets'] === []
-        && array_column($people['detail'][3]['tickets'], 'number') === [111],
+    'El directorio muestra solo el equipo directo, incluidas las personas sin tickets' =>
+        array_column($people['detail'], 'name') === ['Ada', 'Sin ID', 'Sin tickets']
+        && $people['detail'][1]['tickets'] === [] && $people['detail'][2]['tickets'] === [],
+    'La pantalla por persona mantiene el contador general de InvGate' => $people['invgate_open'] === $teamA['invgate_open'],
     'Las prioridades manuales ordenan los tickets y conservan los que no tienen valor' =>
         array_column($people['detail'][0]['tickets'], 'number') === [108, 102, 101, 106, 107, 109, 110]
         && array_column($people['detail'][0]['tickets'], 'manual_priority') === [1, 2, null, null, null, null, null],
@@ -96,8 +97,8 @@ $checks['InvGate configurado con cero resultados devuelve cero'] = $empty['invga
 $pdo->exec('DROP TABLE invgate_tickets;');
 $unavailable = $service->forTeam(1, $now, []);
 $checks['InvGate sin tabla figura como no disponible'] = $unavailable['invgate_open'] === null;
-$checks['El directorio sigue mostrando las personas sin datos de InvGate'] =
-    array_column($service->forTeam(1, $now, [], 'invgate-people')['detail'], 'name') === ['Ada', 'Sin ID', 'Sin tickets', 'Zoe'];
+$checks['Sin datos de InvGate el directorio conserva el filtro de equipo directo'] =
+    array_column($service->forTeam(1, $now, [], 'invgate-people')['detail'], 'name') === ['Ada', 'Sin ID', 'Sin tickets'];
 
 foreach ($checks as $label => $passed) {
     if (!$passed) {

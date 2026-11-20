@@ -567,7 +567,7 @@ final class InvgateTicketRepository
              LEFT JOIN invgate_tickets it ON it.person_id = tp.id
                  AND (it.status_id IS NULL OR it.status_id NOT IN ($finalPlaceholders))
              $priorityJoin
-             WHERE tp.team_id = ?
+             WHERE tp.team_id = ? AND tp.is_direct_team = 1
              ORDER BY tp.display_name COLLATE NOCASE, tp.id, manual_priority IS NULL, manual_priority, it.invgate_incident_id"
         );
         $stmt->execute(array_merge(InvgateFinalStatuses::ids(), [$teamId]));
